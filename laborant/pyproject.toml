@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "laborant"
+version = "0.1.0"
+description = "Smart test orchestrator for Lumiere components"
+requires-python = ">=3.11"
+dependencies = [
+    "shared",
+    "rich>=13.7.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "autoflake>=2.2.0",
+    "autopep8>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+laborant = "laborant.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["laborant*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"]

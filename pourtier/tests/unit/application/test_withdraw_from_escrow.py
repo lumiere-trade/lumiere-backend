@@ -1,0 +1,492 @@
+"""
+Unit tests for WithdrawFromEscrow use case.
+
+Tests withdrawal verification and balance update logic.
+
+Usage:
+    python -m pourtier.tests.unit.application.test_withdraw_from_escrow
+    laborant pourtier --unit
+"""
+
+from datetime import datetime
+from decimal import Decimal
+from unittest.mock import AsyncMock
+from uuid import uuid4
+
+from pourtier.application.use_cases.withdraw_from_escrow import (
+    WithdrawFromEscrow,
+)
+from pourtier.domain.entities.escrow_transaction import (
+    EscrowTransaction,
+    TransactionStatus,
+    TransactionType,
+)
+from pourtier.domain.entities.user import User
+from pourtier.domain.exceptions import (
+    EntityNotFoundError,
+    InsufficientEscrowBalanceError,
+    InvalidTransactionError,
+    ValidationError,
+)
+from pourtier.domain.services.i_blockchain_verifier import (
+    VerifiedTransaction,
+)
+from shared.tests import LaborantTest
+
+
+class TestWithdrawFromEscrow(LaborantTest):
+    """Unit tests for WithdrawFromEscrow use case."""
+
+    component_name = "pourtier"
+    test_category = "unit"
+
+    # ================================================================
+    # Helper Methods
+    # ================================================================
+
+    def _generate_valid_wallet(self) -> str:
+        """Generate valid Base58 wallet address (44 chars)."""
+        return "1" * 44
+
+    def _generate_escrow_account(self) -> str:
+        """Generate valid escrow PDA address."""
+        return "E" * 44
+
+    # ================================================================
+    # Test Methods
+    # ================================================================
+
+    async def test_withdraw_from_escrow_success(self):
+        """Test successful withdrawal from escrow."""
+        self.reporter.info(
+            "Testing successful withdrawal from escrow",
+            context="Test",
+        )
+
+        # Mock dependencies
+        user_repo = AsyncMock()
+        tx_repo = AsyncMock()
+        verifier = AsyncMock()
+
+        # Create test data
+        user_id = uuid4()
+        wallet = self._generate_valid_wallet()
+        escrow_account = self._generate_escrow_account()
+        withdraw_amount = Decimal("50.0")
+        tx_signature = "withdraw_tx_sig_123"
+
+        user = User(id=user_id, wallet_address=wallet)
+        user.initialize_escrow(escrow_account=escrow_account)
+        user.update_escrow_balance(Decimal("100.0"))
+
+        verified_tx = VerifiedTransaction(
+            signature=tx_signature,
+            is_confirmed=True,
+            sender=escrow_account,
+            recipient=wallet,
+            amount=withdraw_amount,
+            token_mint="USDC",
+            block_time=int(datetime.now().timestamp()),
+            slot=12345,
+        )
+
+        # Create expected transaction
+        expected_transaction = EscrowTransaction(
+            id=uuid4(),
+            user_id=user_id,
+            tx_signature=tx_signature,
+            transaction_type=TransactionType.WITHDRAW,
+            amount=withdraw_amount,
+            token_mint="USDC",
+            status=TransactionStatus.CONFIRMED,
+        )
+
+        # Mock repository responses
+        user_repo.get_by_id.return_value = user
+        user_repo.update.return_value = user
+        tx_repo.get_by_tx_signature.return_value = None
+        tx_repo.create.return_value = expected_transaction
+        verifier.verify_transaction.return_value = verified_tx
+
+        # Execute use case
+        use_case = WithdrawFromEscrow(
+            user_repository=user_repo,
+            escrow_transaction_repository=tx_repo,
+            blockchain_verifier=verifier,
+        )
+
+        result = await use_case.execute(
+            user_id=user_id,
+            amount=withdraw_amount,
+            tx_signature=tx_signature,
+        )
+
+        # Verify
+        assert result.transaction_type == TransactionType.WITHDRAW
+        assert result.amount == withdraw_amount
+        assert result.status == TransactionStatus.CONFIRMED
+        assert user.escrow_balance == Decimal("50.0")
+        user_repo.get_by_id.assert_called_once_with(user_id)
+        verifier.verify_transaction.assert_called_once_with(tx_signature)
+        user_repo.update.assert_called_once()
+        tx_repo.create.assert_called_once()
+
+        self.reporter.info("Withdrawal successful", context="Test")
+
+    async def test_withdraw_user_not_found(self):
+        """Test withdrawal fails if user not found."""
+        self.reporter.info("Testing user not found error", context="Test")
+
+        # Mock dependencies
+        user_repo = AsyncMock()
+        tx_repo = AsyncMock()
+        verifier = AsyncMock()
+
+        # User not found
+        user_repo.get_by_id.return_value = None
+
+        # Execute use case
+        use_case = WithdrawFromEscrow(
+            user_repository=user_repo,
+            escrow_transaction_repository=tx_repo,
+            blockchain_verifier=verifier,
+        )
+
+        try:
+            await use_case.execute(
+                user_id=uuid4(),
+                amount=Decimal("50.0"),
+                tx_signature="tx_sig_123",
+            )
+            assert False, "Should raise EntityNotFoundError"
+        except EntityNotFoundError as e:
+            assert "User" in str(e)
+            self.reporter.info(
+                "User not found error raised correctly",
+                context="Test",
+            )
+
+    async def test_withdraw_escrow_not_initialized(self):
+        """Test withdrawal fails if escrow not initialized."""
+        self.reporter.info(
+            "Testing escrow not initialized error",
+            context="Test",
+        )
+
+        # Mock dependencies
+        user_repo = AsyncMock()
+        tx_repo = AsyncMock()
+        verifier = AsyncMock()
+
+        # User without escrow
+        user_id = uuid4()
+        user = User(id=user_id, wallet_address=self._generate_valid_wallet())
+
+        user_repo.get_by_id.return_value = user
+
+        # Execute use case
+        use_case = WithdrawFromEscrow(
+            user_repository=user_repo,
+            escrow_transaction_repository=tx_repo,
+            blockchain_verifier=verifier,
+        )
+
+        try:
+            await use_case.execute(
+                user_id=user_id,
+                amount=Decimal("50.0"),
+                tx_signature="tx_sig_123",
+            )
+            assert False, "Should raise ValidationError"
+        except ValidationError as e:
+            assert "Escrow not initialized" in str(e)
+            self.reporter.info(
+                "Escrow not initialized error raised correctly",
+                context="Test",
+            )
+
+    async def test_withdraw_insufficient_balance(self):
+        """Test withdrawal fails with insufficient balance."""
+        self.reporter.info(
+            "Testing insufficient balance error",
+            context="Test",
+        )
+
+        # Mock dependencies
+        user_repo = AsyncMock()
+        tx_repo = AsyncMock()
+        verifier = AsyncMock()
+
+        # User with insufficient balance
+        user_id = uuid4()
+        wallet = self._generate_valid_wallet()
+        user = User(id=user_id, wallet_address=wallet)
+        user.initialize_escrow(escrow_account=self._generate_escrow_account())
+        user.update_escrow_balance(Decimal("30.0"))
+
+        verified_tx = VerifiedTransaction(
+            signature="tx_sig_123",
+            is_confirmed=True,
+            sender=user.escrow_account,
+            recipient=wallet,
+            amount=Decimal("50.0"),
+            token_mint="USDC",
+            block_time=int(datetime.now().timestamp()),
+            slot=12345,
+        )
+
+        user_repo.get_by_id.return_value = user
+        tx_repo.get_by_tx_signature.return_value = None
+        verifier.verify_transaction.return_value = verified_tx
+
+        # Execute use case
+        use_case = WithdrawFromEscrow(
+            user_repository=user_repo,
+            escrow_transaction_repository=tx_repo,
+            blockchain_verifier=verifier,
+        )
+
+        try:
+            await use_case.execute(
+                user_id=user_id,
+                amount=Decimal("50.0"),
+                tx_signature="tx_sig_123",
+            )
+            assert False, "Should raise InsufficientEscrowBalanceError"
+        except InsufficientEscrowBalanceError as e:
+            assert "50.0" in str(e)
+            assert "30.0" in str(e)
+            self.reporter.info(
+                "Insufficient balance error raised correctly",
+                context="Test",
+            )
+
+    async def test_withdraw_duplicate_transaction(self):
+        """Test withdrawal fails if transaction already processed."""
+        self.reporter.info(
+            "Testing duplicate transaction error",
+            context="Test",
+        )
+
+        # Mock dependencies
+        user_repo = AsyncMock()
+        tx_repo = AsyncMock()
+        verifier = AsyncMock()
+
+        # User with escrow
+        user_id = uuid4()
+        user = User(id=user_id, wallet_address=self._generate_valid_wallet())
+        user.initialize_escrow(escrow_account=self._generate_escrow_account())
+        user.update_escrow_balance(Decimal("100.0"))
+
+        # Existing transaction
+        existing_tx = EscrowTransaction(
+            id=uuid4(),
+            user_id=user_id,
+            tx_signature="duplicate_tx_sig",
+            transaction_type=TransactionType.WITHDRAW,
+            amount=Decimal("50.0"),
+            token_mint="USDC",
+            status=TransactionStatus.CONFIRMED,
+        )
+
+        user_repo.get_by_id.return_value = user
+        tx_repo.get_by_tx_signature.return_value = existing_tx
+
+        # Execute use case
+        use_case = WithdrawFromEscrow(
+            user_repository=user_repo,
+            escrow_transaction_repository=tx_repo,
+            blockchain_verifier=verifier,
+        )
+
+        try:
+            await use_case.execute(
+                user_id=user_id,
+                amount=Decimal("50.0"),
+                tx_signature="duplicate_tx_sig",
+            )
+            assert False, "Should raise InvalidTransactionError"
+        except InvalidTransactionError as e:
+            assert "already processed" in str(e)
+            self.reporter.info(
+                "Duplicate transaction error raised correctly",
+                context="Test",
+            )
+
+    async def test_withdraw_amount_mismatch(self):
+        """Test withdrawal fails if amount doesn't match transaction."""
+        self.reporter.info("Testing amount mismatch error", context="Test")
+
+        # Mock dependencies
+        user_repo = AsyncMock()
+        tx_repo = AsyncMock()
+        verifier = AsyncMock()
+
+        # Create test data
+        user_id = uuid4()
+        wallet = self._generate_valid_wallet()
+        user = User(id=user_id, wallet_address=wallet)
+        user.initialize_escrow(escrow_account=self._generate_escrow_account())
+        user.update_escrow_balance(Decimal("100.0"))
+
+        # Transaction with different amount
+        verified_tx = VerifiedTransaction(
+            signature="tx_sig_123",
+            is_confirmed=True,
+            sender=user.escrow_account,
+            recipient=wallet,
+            amount=Decimal("75.0"),  # Different!
+            token_mint="USDC",
+            block_time=int(datetime.now().timestamp()),
+            slot=12345,
+        )
+
+        user_repo.get_by_id.return_value = user
+        tx_repo.get_by_tx_signature.return_value = None
+        verifier.verify_transaction.return_value = verified_tx
+
+        # Execute use case
+        use_case = WithdrawFromEscrow(
+            user_repository=user_repo,
+            escrow_transaction_repository=tx_repo,
+            blockchain_verifier=verifier,
+        )
+
+        try:
+            await use_case.execute(
+                user_id=user_id,
+                amount=Decimal("50.0"),  # Expected 50, got 75
+                tx_signature="tx_sig_123",
+            )
+            assert False, "Should raise InvalidTransactionError"
+        except InvalidTransactionError as e:
+            assert "Amount mismatch" in str(e)
+            self.reporter.info(
+                "Amount mismatch error raised correctly",
+                context="Test",
+            )
+
+    async def test_withdraw_negative_amount(self):
+        """Test withdrawal fails with negative amount."""
+        self.reporter.info("Testing negative amount error", context="Test")
+
+        # Mock dependencies
+        user_repo = AsyncMock()
+        tx_repo = AsyncMock()
+        verifier = AsyncMock()
+
+        # Create test data
+        user_id = uuid4()
+        wallet = self._generate_valid_wallet()
+        user = User(id=user_id, wallet_address=wallet)
+        user.initialize_escrow(escrow_account=self._generate_escrow_account())
+        user.update_escrow_balance(Decimal("100.0"))
+
+        # Negative amount transaction
+        verified_tx = VerifiedTransaction(
+            signature="tx_sig_123",
+            is_confirmed=True,
+            sender=user.escrow_account,
+            recipient=wallet,
+            amount=Decimal("-10.0"),
+            token_mint="USDC",
+            block_time=int(datetime.now().timestamp()),
+            slot=12345,
+        )
+
+        user_repo.get_by_id.return_value = user
+        tx_repo.get_by_tx_signature.return_value = None
+        verifier.verify_transaction.return_value = verified_tx
+
+        # Execute use case
+        use_case = WithdrawFromEscrow(
+            user_repository=user_repo,
+            escrow_transaction_repository=tx_repo,
+            blockchain_verifier=verifier,
+        )
+
+        try:
+            await use_case.execute(
+                user_id=user_id,
+                amount=Decimal("-10.0"),
+                tx_signature="tx_sig_123",
+            )
+            assert False, "Should raise ValidationError"
+        except ValidationError as e:
+            assert "must be positive" in str(e)
+            self.reporter.info(
+                "Negative amount error raised correctly",
+                context="Test",
+            )
+
+    async def test_withdraw_all_balance(self):
+        """Test withdrawing entire balance."""
+        self.reporter.info("Testing withdraw all balance", context="Test")
+
+        # Mock dependencies
+        user_repo = AsyncMock()
+        tx_repo = AsyncMock()
+        verifier = AsyncMock()
+
+        # Create test data
+        user_id = uuid4()
+        wallet = self._generate_valid_wallet()
+        escrow_account = self._generate_escrow_account()
+        total_balance = Decimal("100.0")
+        tx_signature = "withdraw_all_tx_sig"
+
+        user = User(id=user_id, wallet_address=wallet)
+        user.initialize_escrow(escrow_account=escrow_account)
+        user.update_escrow_balance(total_balance)
+
+        verified_tx = VerifiedTransaction(
+            signature=tx_signature,
+            is_confirmed=True,
+            sender=escrow_account,
+            recipient=wallet,
+            amount=total_balance,
+            token_mint="USDC",
+            block_time=int(datetime.now().timestamp()),
+            slot=12345,
+        )
+
+        # Create expected transaction
+        expected_transaction = EscrowTransaction(
+            id=uuid4(),
+            user_id=user_id,
+            tx_signature=tx_signature,
+            transaction_type=TransactionType.WITHDRAW,
+            amount=total_balance,
+            token_mint="USDC",
+            status=TransactionStatus.CONFIRMED,
+        )
+
+        # Mock repository responses
+        user_repo.get_by_id.return_value = user
+        user_repo.update.return_value = user
+        tx_repo.get_by_tx_signature.return_value = None
+        tx_repo.create.return_value = expected_transaction
+        verifier.verify_transaction.return_value = verified_tx
+
+        # Execute use case
+        use_case = WithdrawFromEscrow(
+            user_repository=user_repo,
+            escrow_transaction_repository=tx_repo,
+            blockchain_verifier=verifier,
+        )
+
+        result = await use_case.execute(
+            user_id=user_id,
+            amount=total_balance,
+            tx_signature=tx_signature,
+        )
+
+        # Verify balance is zero
+        assert user.escrow_balance == Decimal("0")
+        assert result.amount == total_balance
+        self.reporter.info("Withdraw all balance successful", context="Test")
+
+
+if __name__ == "__main__":
+    TestWithdrawFromEscrow.run_as_main()

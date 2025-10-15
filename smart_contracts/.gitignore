@@ -1,0 +1,82 @@
+# ============================================================================
+# Solana/Anchor Smart Contract .gitignore
+# ============================================================================
+
+# Rust/Cargo - Build artifacts
+target/debug/
+target/release/
+target/sbpf-solana-solana/
+**/*.rs.bk
+*.pdb
+
+# Cargo.lock (uncomment if library)
+# Cargo.lock
+
+# Node/TypeScript - Dependencies and build
+node_modules/
+.yarn/
+.pnp.*
+*.tsbuildinfo
+dist/
+coverage/
+
+# Build artifacts (regeneratable, keep keypair!)
+build/*.so
+build/escrow.so
+build/deployer_pubkey.txt
+
+# Deployment logs (keep summaries, remove verbose logs)
+logs/*.log
+
+# Test artifacts
+.anchor/
+test-ledger/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-*
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Backups
+*_backup/
+*.backup
+*.bak
+*.old
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# ============================================================================
+# IMPORTANT: Keep these files (they are tracked)
+# ============================================================================
+!target/deploy/escrow-keypair.json
+!target/idl/escrow.json
+!target/types/escrow.ts
+!build/program_id.txt
+!build/program_env.sh
+!build/deployment_summary_*.txt
+!logs/.gitkeep
+

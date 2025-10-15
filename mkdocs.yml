@@ -1,0 +1,246 @@
+site_name: Lumiere Public Documentation
+site_description: Open-source components of the Lumiere DeFi trading platform
+site_author: Lumiere Team
+site_url: https://lumiere.trade
+
+repo_name: lumiere-trade/lumiere-public
+repo_url: https://github.com/lumiere-trade/lumiere-public
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: amber
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: amber
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search:
+      lang: en
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            heading_level: 2
+            show_root_heading: true
+            show_root_full_path: false
+            members_order: source
+            group_by_category: true
+            show_category_heading: true
+            show_signature: true
+            show_signature_annotations: true
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+
+nav:
+  - Home: index.md
+  - API Reference:
+      - Courier:
+        - Broker: api/courier/broker.md
+      - Laborant:
+        - '  Main  ': api/laborant/__main__.md
+        - Cli: api/laborant/cli.md
+        - Core:
+          - Change Detector: api/laborant/core/change_detector.md
+          - Code Quality: api/laborant/core/code_quality.md
+          - Component Mapper: api/laborant/core/component_mapper.md
+          - Orchestrator: api/laborant/core/orchestrator.md
+          - Reporter: api/laborant/core/reporter.md
+          - Test Executor: api/laborant/core/test_executor.md
+        - Examples:
+          - Test Example: api/laborant/examples/test_example.md
+      - Passeur:
+        - Cli Main: api/passeur/cli_main.md
+        - Cli:
+          - Bridge: api/passeur/cli/bridge.md
+          - Cleanup: api/passeur/cli/cleanup.md
+        - Utils:
+          - Blockchain: api/passeur/utils/blockchain.md
+          - Validation: api/passeur/utils/validation.md
+      - Pourtier:
+        - Config: api/pourtier/config.md
+        - Main: api/pourtier/main.md
+        - Application:
+          - Dto:
+            - Subscription Dto: api/pourtier/application/dto/subscription_dto.md
+          - Use Cases:
+            - Accept Legal Documents: api/pourtier/application/use_cases/accept_legal_documents.md
+            - Authenticate Wallet: api/pourtier/application/use_cases/authenticate_wallet.md
+            - Check Subscription Status: api/pourtier/application/use_cases/check_subscription_status.md
+            - Check User Legal Compliance: api/pourtier/application/use_cases/check_user_legal_compliance.md
+            - Create Subscription: api/pourtier/application/use_cases/create_subscription.md
+            - Create User: api/pourtier/application/use_cases/create_user.md
+            - Create User With Legal: api/pourtier/application/use_cases/create_user_with_legal.md
+            - Deposit To Escrow: api/pourtier/application/use_cases/deposit_to_escrow.md
+            - Get Active Legal Documents: api/pourtier/application/use_cases/get_active_legal_documents.md
+            - Get Escrow Balance: api/pourtier/application/use_cases/get_escrow_balance.md
+            - Get User By Wallet: api/pourtier/application/use_cases/get_user_by_wallet.md
+            - Get User Profile: api/pourtier/application/use_cases/get_user_profile.md
+            - Initialize Escrow: api/pourtier/application/use_cases/initialize_escrow.md
+            - Login User: api/pourtier/application/use_cases/login_user.md
+            - Update User Profile: api/pourtier/application/use_cases/update_user_profile.md
+            - Validate User For Deployment: api/pourtier/application/use_cases/validate_user_for_deployment.md
+            - Verify Wallet Signature: api/pourtier/application/use_cases/verify_wallet_signature.md
+            - Withdraw From Escrow: api/pourtier/application/use_cases/withdraw_from_escrow.md
+        - Di:
+          - Container: api/pourtier/di/container.md
+          - Dependencies: api/pourtier/di/dependencies.md
+        - Domain:
+          - Entities:
+            - Escrow Transaction: api/pourtier/domain/entities/escrow_transaction.md
+            - Legal Document: api/pourtier/domain/entities/legal_document.md
+            - Subscription: api/pourtier/domain/entities/subscription.md
+            - User: api/pourtier/domain/entities/user.md
+            - User Legal Acceptance: api/pourtier/domain/entities/user_legal_acceptance.md
+          - Exceptions:
+            - Auth: api/pourtier/domain/exceptions/auth.md
+            - Base: api/pourtier/domain/exceptions/base.md
+            - Blockchain: api/pourtier/domain/exceptions/blockchain.md
+            - Deployment: api/pourtier/domain/exceptions/deployment.md
+            - Payment: api/pourtier/domain/exceptions/payment.md
+            - Subscription: api/pourtier/domain/exceptions/subscription.md
+          - Repositories:
+            - I Escrow Transaction Repository: api/pourtier/domain/repositories/i_escrow_transaction_repository.md
+            - I Legal Document Repository: api/pourtier/domain/repositories/i_legal_document_repository.md
+            - I Subscription Repository: api/pourtier/domain/repositories/i_subscription_repository.md
+            - I User Legal Acceptance Repository: api/pourtier/domain/repositories/i_user_legal_acceptance_repository.md
+            - I User Repository: api/pourtier/domain/repositories/i_user_repository.md
+          - Services:
+            - I Blockchain Verifier: api/pourtier/domain/services/i_blockchain_verifier.md
+            - I Escrow Contract Client: api/pourtier/domain/services/i_escrow_contract_client.md
+            - I Escrow Query Service: api/pourtier/domain/services/i_escrow_query_service.md
+            - I Event Publisher: api/pourtier/domain/services/i_event_publisher.md
+            - I Passeur Bridge: api/pourtier/domain/services/i_passeur_bridge.md
+            - I Wallet Authenticator: api/pourtier/domain/services/i_wallet_authenticator.md
+          - Value Objects:
+            - Strategy Reference: api/pourtier/domain/value_objects/strategy_reference.md
+            - Subscription Plan: api/pourtier/domain/value_objects/subscription_plan.md
+            - Wallet Address: api/pourtier/domain/value_objects/wallet_address.md
+        - Infrastructure:
+          - Auth:
+            - Jwt Handler: api/pourtier/infrastructure/auth/jwt_handler.md
+            - Solana Wallet Adapter: api/pourtier/infrastructure/auth/solana_wallet_adapter.md
+          - Blockchain:
+            - Circuit Breaker: api/pourtier/infrastructure/blockchain/circuit_breaker.md
+            - Escrow Contract Client: api/pourtier/infrastructure/blockchain/escrow_contract_client.md
+            - Passeur Bridge Client: api/pourtier/infrastructure/blockchain/passeur_bridge_client.md
+            - Passeur Query Service: api/pourtier/infrastructure/blockchain/passeur_query_service.md
+            - Solana Transaction Verifier: api/pourtier/infrastructure/blockchain/solana_transaction_verifier.md
+          - Cache:
+            - I Cache Client: api/pourtier/infrastructure/cache/i_cache_client.md
+            - Multi Layer Cache: api/pourtier/infrastructure/cache/multi_layer_cache.md
+            - Redis Cache Client: api/pourtier/infrastructure/cache/redis_cache_client.md
+            - Response Cache: api/pourtier/infrastructure/cache/response_cache.md
+          - Event Bus:
+            - Courier Publisher: api/pourtier/infrastructure/event_bus/courier_publisher.md
+          - Monitoring:
+            - Logger: api/pourtier/infrastructure/monitoring/logger.md
+            - Metrics: api/pourtier/infrastructure/monitoring/metrics.md
+          - Persistence:
+            - Database: api/pourtier/infrastructure/persistence/database.md
+            - Models: api/pourtier/infrastructure/persistence/models.md
+            - Repositories:
+              - Escrow Transaction Repository: api/pourtier/infrastructure/persistence/repositories/escrow_transaction_repository.md
+              - Legal Document Repository: api/pourtier/infrastructure/persistence/repositories/legal_document_repository.md
+              - Subscription Repository: api/pourtier/infrastructure/persistence/repositories/subscription_repository.md
+              - User Legal Acceptance Repository: api/pourtier/infrastructure/persistence/repositories/user_legal_acceptance_repository.md
+              - User Repository: api/pourtier/infrastructure/persistence/repositories/user_repository.md
+        - Presentation:
+          - Api:
+            - Middleware:
+              - Auth: api/pourtier/presentation/api/middleware/auth.md
+              - Error Handler: api/pourtier/presentation/api/middleware/error_handler.md
+              - Metrics Middleware: api/pourtier/presentation/api/middleware/metrics_middleware.md
+              - Request Id Middleware: api/pourtier/presentation/api/middleware/request_id_middleware.md
+            - Routes:
+              - Auth: api/pourtier/presentation/api/routes/auth.md
+              - Escrow: api/pourtier/presentation/api/routes/escrow.md
+              - Legal: api/pourtier/presentation/api/routes/legal.md
+              - Subscriptions: api/pourtier/presentation/api/routes/subscriptions.md
+              - Users: api/pourtier/presentation/api/routes/users.md
+          - Schemas:
+            - Auth Schemas: api/pourtier/presentation/schemas/auth_schemas.md
+            - Escrow Schemas: api/pourtier/presentation/schemas/escrow_schemas.md
+            - Legal Schemas: api/pourtier/presentation/schemas/legal_schemas.md
+            - Strategy Schemas: api/pourtier/presentation/schemas/strategy_schemas.md
+            - Subscription Schemas: api/pourtier/presentation/schemas/subscription_schemas.md
+            - User Schemas: api/pourtier/presentation/schemas/user_schemas.md
+        - Scripts:
+          - Add Subscription Id To Escrow: api/pourtier/scripts/add_subscription_id_to_escrow.md
+          - Init Database: api/pourtier/scripts/init_database.md
+          - Recreate Tables: api/pourtier/scripts/recreate_tables.md
+          - Seed Initial Terms: api/pourtier/scripts/seed_initial_terms.md
+      - Shared:
+        - Courier Client: api/shared/courier_client.md
+        - Blockchain:
+          - Escrow Helpers: api/shared/blockchain/escrow_helpers.md
+          - Solana Client: api/shared/blockchain/solana_client.md
+          - Transaction Signer: api/shared/blockchain/transaction_signer.md
+          - Wallets: api/shared/blockchain/wallets.md
+        - Indicators:
+          - Adx: api/shared/indicators/adx.md
+          - Atr: api/shared/indicators/atr.md
+          - Base: api/shared/indicators/base.md
+          - Bb: api/shared/indicators/bb.md
+          - Distributed Registry: api/shared/indicators/distributed_registry.md
+          - Ema: api/shared/indicators/ema.md
+          - Macd: api/shared/indicators/macd.md
+          - Patterns: api/shared/indicators/patterns.md
+          - Rsi: api/shared/indicators/rsi.md
+          - Sma: api/shared/indicators/sma.md
+          - Stochastic: api/shared/indicators/stochastic.md
+          - Volume: api/shared/indicators/volume.md
+        - Reporter:
+          - System Reporter: api/shared/reporter/system_reporter.md
+          - Emojis:
+            - Base Emojis: api/shared/reporter/emojis/base_emojis.md
+            - Database Emojis: api/shared/reporter/emojis/database_emojis.md
+            - Emoji: api/shared/reporter/emojis/emoji.md
+            - Errors Emojis: api/shared/reporter/emojis/errors_emojis.md
+            - Event Emojis: api/shared/reporter/emojis/event_emojis.md
+            - Indicator Emojis: api/shared/reporter/emojis/indicator_emojis.md
+            - Laborant Emojis: api/shared/reporter/emojis/laborant_emojis.md
+            - Messaging Emojis: api/shared/reporter/emojis/messaging_emojis.md
+            - Network Emojis: api/shared/reporter/emojis/network_emojis.md
+            - State Emojis: api/shared/reporter/emojis/state_emojis.md
+            - System Emojis: api/shared/reporter/emojis/system_emojis.md
+            - Trading Emojis: api/shared/reporter/emojis/trading_emojis.md

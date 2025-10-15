@@ -1,0 +1,189 @@
+"""
+Bridge server manager for integration tests.
+
+Manages starting/stopping the Node.js bridge server subprocess
+for integration testing.
+"""
+
+import os
+import subprocess
+import time
+from pathlib import Path
+from typing import Optional
+
+import requests
+from shared.reporter.system_reporter import SystemReporter
+
+from config.settings import load_config
+
+
+class BridgeManager:
+    """
+    Manages Node.js bridge server lifecycle for tests.
+
+    Starts bridge server as subprocess, waits for ready state,
+    and ensures clean shutdown after tests.
+    """
+
+    def __init__(
+        self,
+        config_file: str = "test.yaml",
+        reporter: Optional[SystemReporter] = None,
+    ):
+        """
+        Initialize bridge manager.
+
+        Args:
+            config_file: Config file to use (default: test.yaml)
+            reporter: Optional SystemReporter for logging
+        """
+        self.config = load_config(config_file)
+        self.reporter = reporter or SystemReporter(
+            name="bridge_manager", level=20, verbose=1
+        )
+        self.process: Optional[subprocess.Popen] = None
+        self.bridge_url = f"http://{self.config.bridge_host}:{self.config.bridge_port}"
+
+    def start(self, timeout: int = 30) -> bool:
+        """
+        Start bridge server subprocess.
+
+        Args:
+            timeout: Maximum seconds to wait for server ready
+
+        Returns:
+            True if server started successfully, False otherwise
+        """
+        if self.process is not None:
+            self.reporter.warning("Bridge already running", context="BridgeManager")
+            return True
+
+        # Get bridge directory
+        bridge_dir = Path(__file__).parents[2] / "bridge"
+
+        if not bridge_dir.exists():
+            self.reporter.error(
+                f"Bridge directory not found: {bridge_dir}",
+                context="BridgeManager",
+            )
+            return False
+
+        # Check if server.js exists
+        server_js = bridge_dir / "server.js"
+        if not server_js.exists():
+            self.reporter.error(
+                f"server.js not found: {server_js}",
+                context="BridgeManager",
+            )
+            return False
+
+        self.reporter.info("Starting bridge server...", context="BridgeManager")
+
+        try:
+            # Set environment variable for test config
+            env = os.environ.copy()
+            env["PASSEUR_CONFIG"] = "test.yaml"
+
+            # Start Node.js server
+            self.process = subprocess.Popen(
+                ["node", "server.js"],
+                cwd=str(bridge_dir),
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            # Wait for server to be ready
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                if self._is_ready():
+                    self.reporter.info(
+                        f"Bridge server ready: {self.bridge_url}",
+                        context="BridgeManager",
+                    )
+                    return True
+
+                # Check if process died
+                if self.process.poll() is not None:
+                    stderr = self.process.stderr.read()
+                    self.reporter.error(
+                        f"Bridge server failed to start: {stderr}",
+                        context="BridgeManager",
+                    )
+                    return False
+
+                time.sleep(0.5)
+
+            self.reporter.error(
+                f"Bridge server timeout after {timeout}s",
+                context="BridgeManager",
+            )
+            self.stop()
+            return False
+
+        except Exception as e:
+            self.reporter.error(f"Failed to start bridge: {e}", context="BridgeManager")
+            return False
+
+    def stop(self) -> None:
+        """Stop bridge server subprocess."""
+        if self.process is None:
+            return
+
+        self.reporter.info("Stopping bridge server...", context="BridgeManager")
+
+        try:
+            # Send SIGTERM for graceful shutdown
+            self.process.terminate()
+
+            # Wait up to 5 seconds for graceful shutdown
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                # Force kill if didn't stop gracefully
+                self.reporter.warning(
+                    "Bridge didn't stop gracefully, forcing kill",
+                    context="BridgeManager",
+                )
+                self.process.kill()
+                self.process.wait()
+
+            self.reporter.info("Bridge server stopped", context="BridgeManager")
+
+        except Exception as e:
+            self.reporter.error(f"Error stopping bridge: {e}", context="BridgeManager")
+
+        finally:
+            self.process = None
+
+    def _is_ready(self) -> bool:
+        """
+        Check if bridge server is ready.
+
+        Returns:
+            True if health endpoint responds, False otherwise
+        """
+        try:
+            response = requests.get(f"{self.bridge_url}/health", timeout=2)
+            return response.status_code == 200
+        except requests.exceptions.RequestException:
+            return False
+
+    def is_running(self) -> bool:
+        """
+        Check if bridge server is running.
+
+        Returns:
+            True if running, False otherwise
+        """
+        return self.process is not None and self.process.poll() is None
+
+    def __enter__(self):
+        """Context manager entry."""
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - ensure cleanup."""
+        self.stop()
