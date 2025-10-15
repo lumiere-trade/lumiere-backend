@@ -1,0 +1,140 @@
+"""
+Validate User For Deployment use case.
+
+Validates if user can deploy strategies to Chevalier.
+"""
+
+from dataclasses import dataclass
+from decimal import Decimal
+from uuid import UUID
+
+from pourtier.domain.entities.subscription import SubscriptionStatus
+from pourtier.domain.exceptions import EntityNotFoundError
+from pourtier.domain.repositories.i_subscription_repository import (
+    ISubscriptionRepository,
+)
+from pourtier.domain.repositories.i_user_repository import IUserRepository
+
+
+@dataclass
+class UserDeploymentValidation:
+    """Result of user deployment validation."""
+
+    user_id: UUID
+    wallet_address: str
+    is_valid: bool
+    has_subscription: bool
+    subscription_plan: str | None
+    subscription_status: str | None
+    has_escrow: bool
+    escrow_account: str | None
+    escrow_balance: Decimal
+    can_deploy: bool
+    validation_errors: list[str]
+
+
+class ValidateUserForDeployment:
+    """
+    Validate user for strategy deployment.
+
+    Business rules:
+    - User must exist
+    - User must have active subscription
+    - User must have initialized escrow
+    - User must have balance > 0
+
+    This endpoint is called by Chevalier to validate deployment requests.
+    """
+
+    def __init__(
+        self,
+        user_repository: IUserRepository,
+        subscription_repository: ISubscriptionRepository,
+    ):
+        """
+        Initialize use case with dependencies.
+
+        Args:
+            user_repository: Repository for user persistence
+            subscription_repository: Repository for subscriptions
+        """
+        self.user_repository = user_repository
+        self.subscription_repository = subscription_repository
+
+    async def execute(self, user_id: UUID) -> UserDeploymentValidation:
+        """
+        Execute validation for user deployment.
+
+        Args:
+            user_id: User unique identifier
+
+        Returns:
+            UserDeploymentValidation with detailed status
+
+        Raises:
+            EntityNotFoundError: If user not found
+        """
+        validation_errors = []
+
+        # 1. Get user
+        user = await self.user_repository.get_by_id(user_id)
+        if not user:
+            raise EntityNotFoundError(
+                entity_type="User",
+                entity_id=str(user_id),
+            )
+
+        # 2. Check subscription
+        has_subscription = False
+        subscription_plan = None
+        subscription_status_str = None
+
+        subscription = await self.subscription_repository.get_active_by_user(user_id)
+
+        if subscription:
+            has_subscription = True
+            subscription_plan = subscription.plan_type.value
+            subscription_status_str = subscription.status.value
+
+            if subscription.status != SubscriptionStatus.ACTIVE:
+                validation_errors.append(
+                    f"Subscription is not active: {subscription.status.value}"
+                )
+        else:
+            validation_errors.append("No active subscription found")
+
+        # 3. Check escrow initialization
+        has_escrow = user.escrow_account is not None
+
+        if not has_escrow:
+            validation_errors.append("Escrow not initialized")
+
+        # 4. Check escrow balance
+        escrow_balance = user.escrow_balance if has_escrow else Decimal("0")
+
+        if has_escrow and escrow_balance <= 0:
+            validation_errors.append(f"Insufficient escrow balance: {escrow_balance}")
+
+        # 5. Determine if can deploy
+        can_deploy = (
+            has_subscription
+            and subscription
+            and subscription.status == SubscriptionStatus.ACTIVE
+            and has_escrow
+            and escrow_balance > 0
+        )
+
+        # 6. Build validation result
+        return UserDeploymentValidation(
+            user_id=user_id,
+            wallet_address=user.wallet_address,
+            is_valid=can_deploy,
+            has_subscription=has_subscription,
+            subscription_plan=subscription_plan,
+            subscription_status=subscription_status_str,
+            has_escrow=has_escrow,
+            escrow_account=user.escrow_account,
+            escrow_balance=escrow_balance,
+            can_deploy=can_deploy,
+            validation_errors=validation_errors,
+        )

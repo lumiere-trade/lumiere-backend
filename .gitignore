@@ -1,0 +1,139 @@
+# ==================== PYTHON ====================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+venv/
+venv311/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ==================== NODE.JS ====================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+package-lock.json
+yarn.lock
+
+# ==================== ENVIRONMENT & SECRETS ====================
+.env
+.env.local
+.env.*.local
+*.env
+
+# ==================== CONFIG DIRECTORIES (CRITICAL!) ====================
+# Exclude ALL config directories to prevent secrets leak
+pourtier/config
+passeur/config
+courier/config
+laborant/config
+shared/config
+
+# ==================== IDE ====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-workspace
+*.sublime-project
+
+# ==================== OS ====================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ==================== LOGS ====================
+logs/
+*.log
+pourtier/tests/logs/*
+!pourtier/tests/logs/.gitkeep
+passeur/tests/logs/*
+!passeur/tests/logs/.gitkeep
+shared/tests/logs/*
+!shared/tests/logs/.gitkeep
+*/tests/logs/*.log
+
+# ==================== DATABASE ====================
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# ==================== TEMPORARY FILES ====================
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+*#
+.cache/
+.pytest_cache/
+
+# ==================== KEYPAIRS (CRITICAL!) ====================
+# Top-level keypairs
+keypairs/
+# Shared blockchain keypairs
+shared/blockchain/keypairs/production/
+shared/blockchain/keypairs/test/
+# Any keypair files
+*.key
+*.pem
+*.p12
+*.pfx
+# Allow needed JSON files
+!package.json
+!tsconfig.json
+!**/idl/*.json
+
+# ==================== ANCHOR/SOLANA ====================
+target/
+.anchor/
+test-ledger/
+incremental/
+deps/
+sbpf-solana-solana/
+smart_contracts/target/deploy/escrow-keypair.json
+
+# ==================== FRONTEND (NOT READY YET) ====================
+frontend/
+
+# ==================== DOCUMENTATION ====================
+docs/_build/
+site/
+
+# ==================== COVERAGE ====================
+.coverage
+htmlcov/
+.tox/
+
+# ==================== REDIS ====================
+dump.rdb

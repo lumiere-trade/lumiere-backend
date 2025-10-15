@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pourtier"
+version = "0.1.0"
+description = "Pourtier - User Management & Strategy Activation Layer"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+    "psycopg2-binary>=2.9.9",
+    "asyncpg>=0.29.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "solders>=0.18.0",
+    "anchorpy>=0.18.0",
+    "solana>=0.30.0",
+    "stripe>=7.0.0",
+    "httpx>=0.25.0",
+    "redis>=5.0.0",
+    "pyyaml>=6.0.1",
+    "PyNaCl>=1.5.0",
+    "base58>=2.1.1",
+    "aiohttp>=3.9.0",
+    "tenacity>=8.2.0",
+    "prometheus-client>=0.19.0",
+    "cachetools>=5.3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-xprocess>=0.23.0",
+    "black>=23.11.0",
+    "flake8>=6.1.0",
+    "mypy>=1.7.0",
+    "psycopg2-binary>=2.9.9",
+]
+
+[project.scripts]
+pourtier = "pourtier.main:main"
+
+[tool.setuptools]
+packages = [
+    "pourtier",
+    "pourtier.config",
+    "pourtier.di",
+    "pourtier.domain",
+    "pourtier.domain.entities",
+    "pourtier.domain.events",
+    "pourtier.domain.exceptions",
+    "pourtier.domain.repositories",
+    "pourtier.domain.services",
+    "pourtier.domain.value_objects",
+    "pourtier.application",
+    "pourtier.application.dto",
+    "pourtier.application.subscribers",
+    "pourtier.application.use_cases",
+    "pourtier.infrastructure",
+    "pourtier.infrastructure.auth",
+    "pourtier.infrastructure.blockchain",
+    "pourtier.infrastructure.cache",
+    "pourtier.infrastructure.event_bus",
+    "pourtier.infrastructure.external",
+    "pourtier.infrastructure.persistence",
+    "pourtier.infrastructure.persistence.repositories",
+    "pourtier.presentation",
+    "pourtier.presentation.api",
+    "pourtier.presentation.api.middleware",
+    "pourtier.presentation.api.routes",
+    "pourtier.presentation.schemas",
+    "pourtier.tests",
+    "pourtier.tests.helpers",
+    "pourtier.tests.fixtures",
+    "pourtier.tests.unit",
+    "pourtier.tests.unit.domain",
+    "pourtier.tests.unit.domain.entities",
+    "pourtier.tests.unit.domain.value_objects",
+    "pourtier.tests.integration",
+    "pourtier.tests.integration.api",
+    "pourtier.tests.integration.database",
+    "pourtier.tests.integration.services",
+    "pourtier.tests.e2e",
+]
+
+[tool.setuptools.package-dir]
+pourtier = "."
+
+[tool.setuptools.package-data]
+pourtier = ["config/*.yaml"]

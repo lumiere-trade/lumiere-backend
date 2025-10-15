@@ -1,0 +1,273 @@
+"""
+FastAPI dependency injection.
+
+Provides dependencies for FastAPI routes using the DI container.
+All dependencies are async-compatible and use proper scoping.
+"""
+
+from typing import AsyncGenerator
+
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from pourtier.di.container import get_container
+
+# ================================================================
+# Database Dependencies
+# ================================================================
+
+
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Get database session dependency.
+
+    Yields async database session from container.
+    Session is automatically closed after request.
+    """
+    container = get_container()
+    async with container.database.session() as session:
+        yield session
+
+
+# ================================================================
+# Use Case Dependencies
+# ================================================================
+
+
+def get_create_user(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get CreateUser use case dependency."""
+    from pourtier.application.use_cases.create_user import CreateUser
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+    return CreateUser(user_repository=user_repo)
+
+
+def get_get_user_profile(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get GetUserProfile use case dependency."""
+    from pourtier.application.use_cases.get_user_profile import GetUserProfile
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+    return GetUserProfile(user_repository=user_repo)
+
+
+def get_get_user_by_wallet(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get GetUserByWallet use case dependency."""
+    from pourtier.application.use_cases.get_user_by_wallet import GetUserByWallet
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+    return GetUserByWallet(user_repository=user_repo)
+
+
+def get_create_user_with_legal(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get CreateUserWithLegal use case dependency."""
+    from pourtier.application.use_cases.create_user_with_legal import (
+        CreateUserWithLegal,
+    )
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+    legal_doc_repo = container.get_legal_document_repository(session)
+    user_legal_repo = container.get_user_legal_acceptance_repository(session)
+
+    return CreateUserWithLegal(
+        user_repository=user_repo,
+        legal_document_repository=legal_doc_repo,
+        user_legal_acceptance_repository=user_legal_repo,
+    )
+
+
+def get_login_user(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get LoginUser use case dependency."""
+    from pourtier.application.use_cases.login_user import LoginUser
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+    legal_doc_repo = container.get_legal_document_repository(session)
+    user_legal_repo = container.get_user_legal_acceptance_repository(session)
+    wallet_auth = container.get_wallet_authenticator()
+
+    return LoginUser(
+        user_repository=user_repo,
+        legal_document_repository=legal_doc_repo,
+        user_legal_acceptance_repository=user_legal_repo,
+        wallet_authenticator=wallet_auth,
+    )
+
+
+def get_verify_wallet_signature(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get VerifyWalletSignature use case dependency."""
+    from pourtier.application.use_cases.verify_wallet_signature import (
+        VerifyWalletSignature,
+    )
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+    wallet_auth = container.get_wallet_authenticator()
+
+    return VerifyWalletSignature(
+        user_repository=user_repo,
+        wallet_authenticator=wallet_auth,
+    )
+
+
+def get_initialize_escrow(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get InitializeEscrow use case dependency."""
+    from pourtier.application.use_cases.initialize_escrow import InitializeEscrow
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+    escrow_tx_repo = container.get_escrow_transaction_repository(session)
+    blockchain_verifier = container.blockchain_verifier
+
+    return InitializeEscrow(
+        user_repository=user_repo,
+        escrow_transaction_repository=escrow_tx_repo,
+        blockchain_verifier=blockchain_verifier,
+    )
+
+
+def get_deposit_to_escrow(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get DepositToEscrow use case dependency."""
+    from pourtier.application.use_cases.deposit_to_escrow import DepositToEscrow
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+    escrow_tx_repo = container.get_escrow_transaction_repository(session)
+    blockchain_verifier = container.blockchain_verifier
+
+    return DepositToEscrow(
+        user_repository=user_repo,
+        escrow_transaction_repository=escrow_tx_repo,
+        blockchain_verifier=blockchain_verifier,
+    )
+
+
+def get_withdraw_from_escrow(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get WithdrawFromEscrow use case dependency."""
+    from pourtier.application.use_cases.withdraw_from_escrow import WithdrawFromEscrow
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+    escrow_tx_repo = container.get_escrow_transaction_repository(session)
+    blockchain_verifier = container.blockchain_verifier
+
+    return WithdrawFromEscrow(
+        user_repository=user_repo,
+        escrow_transaction_repository=escrow_tx_repo,
+        blockchain_verifier=blockchain_verifier,
+    )
+
+
+def get_get_escrow_balance(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get GetEscrowBalance use case dependency."""
+    from pourtier.application.use_cases.get_escrow_balance import GetEscrowBalance
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+    escrow_query_service = container.escrow_query_service
+
+    return GetEscrowBalance(
+        user_repository=user_repo,
+        escrow_query_service=escrow_query_service,
+    )
+
+
+def get_create_subscription(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get CreateSubscription use case dependency."""
+    from pourtier.application.use_cases.create_subscription import CreateSubscription
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+    subscription_repo = container.get_subscription_repository(session)
+
+    return CreateSubscription(
+        user_repository=user_repo,
+        subscription_repository=subscription_repo,
+    )
+
+
+# ================================================================
+# Service Dependencies
+# ================================================================
+
+
+def get_wallet_authenticator():
+    """Get WalletAuthenticator service dependency."""
+    container = get_container()
+    return container.get_wallet_authenticator()
+
+
+def get_get_active_legal_documents(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get GetActiveLegalDocuments use case dependency."""
+    from pourtier.application.use_cases.get_active_legal_documents import (
+        GetActiveLegalDocuments,
+    )
+
+    container = get_container()
+    legal_doc_repo = container.get_legal_document_repository(session)
+    return GetActiveLegalDocuments(legal_document_repository=legal_doc_repo)
+
+
+def get_check_user_legal_compliance(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get CheckUserLegalCompliance use case dependency."""
+    from pourtier.application.use_cases.check_user_legal_compliance import (
+        CheckUserLegalCompliance,
+    )
+
+    container = get_container()
+    legal_doc_repo = container.get_legal_document_repository(session)
+    user_legal_repo = container.get_user_legal_acceptance_repository(session)
+
+    return CheckUserLegalCompliance(
+        legal_document_repository=legal_doc_repo,
+        user_legal_acceptance_repository=user_legal_repo,
+    )
+
+
+def get_accept_legal_documents(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get AcceptLegalDocuments use case dependency."""
+    from pourtier.application.use_cases.accept_legal_documents import (
+        AcceptLegalDocuments,
+    )
+
+    container = get_container()
+    legal_doc_repo = container.get_legal_document_repository(session)
+    user_legal_repo = container.get_user_legal_acceptance_repository(session)
+    user_repo = container.get_user_repository(session)
+
+    return AcceptLegalDocuments(
+        legal_document_repository=legal_doc_repo,
+        user_legal_acceptance_repository=user_legal_repo,
+        user_repository=user_repo,
+    )
