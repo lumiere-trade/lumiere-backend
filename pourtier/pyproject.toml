@@ -1,12 +1,18 @@
 [build-system]
-requires = ["setuptools>=65.0", "wheel"]
+requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pourtier"
 version = "0.1.0"
 description = "Pourtier - User Management & Strategy Activation Layer"
+readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Lumiere Team", email = "dev@lumiere.com"}
+]
+
 dependencies = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
@@ -42,57 +48,34 @@ dev = [
     "black>=23.11.0",
     "flake8>=6.1.0",
     "mypy>=1.7.0",
-    "psycopg2-binary>=2.9.9",
+    "ruff>=0.1.6",
+    "ipython>=8.12.0",
 ]
 
 [project.scripts]
 pourtier = "pourtier.main:main"
 
 [tool.setuptools]
-packages = [
-    "pourtier",
-    "pourtier.config",
-    "pourtier.di",
-    "pourtier.domain",
-    "pourtier.domain.entities",
-    "pourtier.domain.events",
-    "pourtier.domain.exceptions",
-    "pourtier.domain.repositories",
-    "pourtier.domain.services",
-    "pourtier.domain.value_objects",
-    "pourtier.application",
-    "pourtier.application.dto",
-    "pourtier.application.subscribers",
-    "pourtier.application.use_cases",
-    "pourtier.infrastructure",
-    "pourtier.infrastructure.auth",
-    "pourtier.infrastructure.blockchain",
-    "pourtier.infrastructure.cache",
-    "pourtier.infrastructure.event_bus",
-    "pourtier.infrastructure.external",
-    "pourtier.infrastructure.persistence",
-    "pourtier.infrastructure.persistence.repositories",
-    "pourtier.presentation",
-    "pourtier.presentation.api",
-    "pourtier.presentation.api.middleware",
-    "pourtier.presentation.api.routes",
-    "pourtier.presentation.schemas",
-    "pourtier.tests",
-    "pourtier.tests.helpers",
-    "pourtier.tests.fixtures",
-    "pourtier.tests.unit",
-    "pourtier.tests.unit.domain",
-    "pourtier.tests.unit.domain.entities",
-    "pourtier.tests.unit.domain.value_objects",
-    "pourtier.tests.integration",
-    "pourtier.tests.integration.api",
-    "pourtier.tests.integration.database",
-    "pourtier.tests.integration.services",
-    "pourtier.tests.e2e",
-]
+package-dir = {"" = "src"}
 
-[tool.setuptools.package-dir]
-pourtier = "."
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pourtier*"]
+namespaces = false
 
 [tool.setuptools.package-data]
-pourtier = ["config/*.yaml"]
+"*" = ["*.yaml", "*.yml"]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
