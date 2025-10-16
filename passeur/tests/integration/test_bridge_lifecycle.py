@@ -9,16 +9,17 @@ Usage:
     laborant passeur --integration
 """
 
+import sys
 import time
+from pathlib import Path
 
 import requests
+from helpers.bridge_manager import BridgeManager
 from shared.tests import LaborantTest
 
 from passeur.config.settings import load_config
-import sys
-from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from helpers.bridge_manager import BridgeManager
 
 
 class TestBridgeLifecycle(LaborantTest):

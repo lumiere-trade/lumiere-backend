@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 from solders.pubkey import Pubkey
 
-from pourtier.config.settings import settings
+from pourtier.config.settings import get_settings
 from pourtier.domain.entities.escrow_transaction import (
     EscrowTransaction,
     TransactionStatus,
@@ -69,7 +69,7 @@ class InitializeEscrow:
             Escrow PDA address as string
         """
         user_pubkey = Pubkey.from_string(wallet_address)
-        program_id = Pubkey.from_string(settings.ESCROW_PROGRAM_ID)
+        program_id = Pubkey.from_string(get_settings().ESCROW_PROGRAM_ID)
 
         # PDA seeds: ["escrow", user_pubkey]
         seeds = [b"escrow", bytes(user_pubkey)]

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from pourtier.infrastructure.persistence.database import Database
 from pourtier.infrastructure.persistence.models import Base
-from pourtier.main import app
+from pourtier.main import create_app
 
 # Test database URL (separate from production)
 TEST_DATABASE_URL = (

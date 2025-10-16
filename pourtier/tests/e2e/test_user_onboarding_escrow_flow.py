@@ -40,13 +40,14 @@ from pourtier.di.container import get_container
 from pourtier.di.dependencies import get_db_session
 from pourtier.infrastructure.persistence.database import Database
 from pourtier.infrastructure.persistence.models import Base
-from pourtier.main import app
+from pourtier.main import create_app
 from shared.blockchain.transaction_signer import TransactionSigner
 from shared.blockchain.wallets import PlatformWallets
 from shared.tests import LaborantTest
 
 # Load test configuration
-test_settings = load_config("test.yaml")
+test_settings = load_config("development.yaml", env="development")
+        app = create_app(test_settings)
 TEST_DATABASE_URL = test_settings.DATABASE_URL
 API_BASE_URL = f"http://{test_settings.API_HOST}:{test_settings.API_PORT}"
 
@@ -77,7 +78,7 @@ def run_api_server():
     to ensure child process uses test configuration.
     """
     # Set environment BEFORE any pourtier imports
-    os.environ["POURTIER_CONFIG"] = "test.yaml"
+    os.environ["POURTIER_CONFIG = "development.yaml"
     os.environ["ENV"] = "test"
     os.environ["API_HOST"] = test_settings.API_HOST
     os.environ["API_PORT"] = str(test_settings.API_PORT)
@@ -212,7 +213,7 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
             context="Setup",
         )
         TestUserOnboardingEscrowFlow.bridge_manager = BridgeManager(
-            config_file="test.yaml", reporter=self.reporter
+            config_file="development.yaml", reporter=self.reporter
         )
         bridge_started = TestUserOnboardingEscrowFlow.bridge_manager.start()
 

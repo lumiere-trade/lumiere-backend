@@ -62,7 +62,7 @@ class SolanaTransactionVerifier(IBlockchainVerifier):
         self._session: Optional[aiohttp.ClientSession] = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create HTTP session with optimized settings."""
+        """Get or create HTTP session with optimized get_settings()."""
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(
                 timeout=self.timeout,

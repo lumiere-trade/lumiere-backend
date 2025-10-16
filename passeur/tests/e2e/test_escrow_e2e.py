@@ -17,9 +17,12 @@ Usage:
     laborant passeur --e2e
 """
 
+import sys
 import time
+from pathlib import Path
 
 import requests
+from helpers.bridge_manager import BridgeManager
 from shared.blockchain import (
     TransactionSigner,
     check_escrow_exists,
@@ -29,10 +32,8 @@ from shared.tests import LaborantTest
 from solders.pubkey import Pubkey  # Correct import
 
 from passeur.config.settings import load_config
-import sys
-from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from helpers.bridge_manager import BridgeManager
 
 # Test authority addresses
 TEST_PLATFORM_AUTHORITY = PlatformWallets.get_test_authority_address()
