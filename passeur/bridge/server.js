@@ -11,6 +11,9 @@
  * - PDA seeds: ["escrow", user_pubkey]
  */
 
+// Load environment variables from .env file
+require('dotenv').config({ path: require('path').join(__dirname, '..', `.env.${process.env.ENV || 'production'}`) });
+
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
@@ -44,28 +47,102 @@ const {
 } = require('./instructions');
 
 // ============================================================
-// CONFIGURATION
+// CONFIGURATION - Hybrid Approach (YAML + ENV)
 // ============================================================
 
+/**
+ * Load configuration from YAML file and environment variables.
+ *
+ * Priority: Environment variables > YAML config > defaults
+ *
+ * YAML configs (default.yaml, development.yaml, production.yaml, test.yaml):
+ * - bridge_host, bridge_port (non-sensitive, environment-specific)
+ * - heartbeat_interval, request_timeout
+ * - log_level, log_dir
+ *
+ * Environment variables (.env):
+ * - ENV (determines which YAML to load: development, production, test)
+ * - PASSEUR_SOLANA_RPC_URL (required)
+ * - PASSEUR_PROGRAM_ID (required)
+ * - PASSEUR_SOLANA_NETWORK (required)
+ * - PASSEUR_PLATFORM_KEYPAIR_PATH (required, sensitive)
+ */
 function loadConfig() {
-  const configEnv = process.env.PASSEUR_CONFIG || 'passeur.yaml';
-  const configPath = path.join(__dirname, '../config', configEnv);
+  // Determine environment
+  const env = process.env.ENV || 'production';
+  
+  // Map environment to config file
+  const configMap = {
+    'production': 'production.yaml',
+    'development': 'development.yaml',
+    'test': 'test.yaml',
+  };
+  
+  // Load default config first
+  const defaultConfigPath = path.join(__dirname, '../config', 'default.yaml');
+  let config = {};
+  
+  if (fs.existsSync(defaultConfigPath)) {
+    config = yaml.load(fs.readFileSync(defaultConfigPath, 'utf8')) || {};
+    console.log('[CONFIG] Loaded default.yaml');
+  }
+  
+  // Load environment-specific config (overrides defaults)
+  const envConfigFile = configMap[env] || 'production.yaml';
+  const envConfigPath = path.join(__dirname, '../config', envConfigFile);
+  
+  if (fs.existsSync(envConfigPath)) {
+    const envConfig = yaml.load(fs.readFileSync(envConfigPath, 'utf8')) || {};
+    config = { ...config, ...envConfig };
+    console.log(`[CONFIG] Loaded ${envConfigFile}`);
+  } else {
+    console.warn(`[CONFIG] Config file not found: ${envConfigPath}`);
+  }
 
-  if (!fs.existsSync(configPath)) {
-    console.error(`❌ Config not found: ${configPath}`);
+  // Required environment variables
+  const requiredEnvVars = [
+    'PASSEUR_SOLANA_RPC_URL',
+    'PASSEUR_PROGRAM_ID',
+    'PASSEUR_SOLANA_NETWORK',
+    'PASSEUR_PLATFORM_KEYPAIR_PATH',
+  ];
+
+  const missing = requiredEnvVars.filter(v => !process.env[v]);
+  if (missing.length > 0) {
+    console.error('[CONFIG] Missing required environment variables:');
+    missing.forEach(v => console.error(`  - ${v}`));
+    console.error('[CONFIG] Tip: Create a .env file with these variables');
     process.exit(1);
   }
 
-  const config = yaml.load(fs.readFileSync(configPath, 'utf8'));
-  console.log(`✅ Loaded config: ${configEnv}`);
-  return config;
+  // Merge config: ENV overrides YAML
+  const finalConfig = {
+    // From YAML or defaults (non-sensitive)
+    bridge_host: config.bridge_host || '0.0.0.0',
+    bridge_port: config.bridge_port || 8766,
+    heartbeat_interval: config.heartbeat_interval || 30,
+    request_timeout: config.request_timeout || 30,
+    log_level: config.log_level || 'info',
+    log_dir: config.log_dir || 'logs',
+
+    // From ENV (required, sensitive or changeable)
+    solana_rpc_url: process.env.PASSEUR_SOLANA_RPC_URL,
+    program_id: process.env.PASSEUR_PROGRAM_ID,
+    solana_network: process.env.PASSEUR_SOLANA_NETWORK,
+    platform_keypair_path: process.env.PASSEUR_PLATFORM_KEYPAIR_PATH,
+  };
+
+  console.log(`[CONFIG] Environment: ${env}`);
+  console.log('[CONFIG] Configuration loaded (default + env-specific + ENV)');
+  return finalConfig;
 }
 
 const CONFIG = loadConfig();
 
+// Expand home directory in keypair path
 const PLATFORM_KEYPAIR_PATH = CONFIG.platform_keypair_path.replace(
   '~',
-  process.env.HOME
+  process.env.HOME || '/root'
 );
 
 // ============================================================
@@ -78,25 +155,25 @@ try {
     fs.readFileSync(PLATFORM_KEYPAIR_PATH, 'utf8')
   );
   platformKeypair = Keypair.fromSecretKey(Uint8Array.from(keypairData));
-  console.log(`✅ Platform wallet: ${platformKeypair.publicKey.toString()}`);
+  console.log(`[INIT] Platform wallet: ${platformKeypair.publicKey.toString()}`);
 } catch (error) {
-  console.error(`❌ Failed to load platform keypair: ${error.message}`);
+  console.error(`[INIT] Failed to load platform keypair: ${error.message}`);
   process.exit(1);
 }
 
 const connection = new Connection(CONFIG.solana_rpc_url, 'confirmed');
 const programId = new PublicKey(CONFIG.program_id);
 
-console.log(`✅ Program ID: ${programId.toString()}`);
+console.log(`[INIT] Program ID: ${programId.toString()}`);
 
 (async () => {
   try {
     const version = await connection.getVersion();
-    console.log(`✅ Connected to: ${CONFIG.solana_network}`);
-    console.log(`   RPC: ${CONFIG.solana_rpc_url}`);
-    console.log(`   Solana version: ${version['solana-core']}`);
+    console.log(`[INIT] Connected to: ${CONFIG.solana_network}`);
+    console.log(`[INIT] RPC: ${CONFIG.solana_rpc_url}`);
+    console.log(`[INIT] Solana version: ${version['solana-core']}`);
   } catch (error) {
-    console.error(`❌ Failed to connect to Solana: ${error.message}`);
+    console.error(`[INIT] Failed to connect to Solana: ${error.message}`);
     process.exit(1);
   }
 })();
@@ -105,6 +182,12 @@ console.log(`✅ Program ID: ${programId.toString()}`);
 // HELPER FUNCTIONS
 // ============================================================
 
+/**
+ * Fetch and deserialize escrow account data.
+ *
+ * @param {PublicKey} escrowAddress - Escrow account address
+ * @returns {Object} Deserialized escrow account data
+ */
 async function fetchEscrowAccount(escrowAddress) {
   const accountInfo = await connection.getAccountInfo(escrowAddress);
 
@@ -115,6 +198,7 @@ async function fetchEscrowAccount(escrowAddress) {
   const data = accountInfo.data;
   let offset = 8; // Skip discriminator
 
+  // Deserialize account fields
   const user = new PublicKey(data.slice(offset, offset + 32));
   offset += 32;
 
@@ -246,7 +330,7 @@ app.get('/wallet/balance', async (req, res) => {
     );
 
     console.log(
-      `✅ Wallet balance: ${walletPubkey.toString().slice(0, 8)}... = ${
+      `[BALANCE] Wallet balance: ${walletPubkey.toString().slice(0, 8)}... = ${
         tokenInfo.value.uiAmount
       } USDC`
     );
@@ -260,7 +344,7 @@ app.get('/wallet/balance', async (req, res) => {
       wallet: walletPubkey.toString(),
     });
   } catch (error) {
-    console.error('❌ Get wallet balance error:', error);
+    console.error('[BALANCE] Get wallet balance error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -324,9 +408,9 @@ app.post('/escrow/prepare-initialize', async (req, res) => {
     });
 
     console.log(
-      `✅ Prepared initialize: ${userPubkey.toString().slice(0, 8)}...`
+      `[PREPARE] Initialize: ${userPubkey.toString().slice(0, 8)}...`
     );
-    console.log(`   Escrow: ${escrowPDA.toString().slice(0, 8)}...`);
+    console.log(`[PREPARE] Escrow: ${escrowPDA.toString().slice(0, 8)}...`);
 
     res.json({
       success: true,
@@ -336,7 +420,7 @@ app.post('/escrow/prepare-initialize', async (req, res) => {
       message: 'Transaction ready for signing',
     });
   } catch (error) {
-    console.error('❌ Prepare initialize error:', error);
+    console.error('[PREPARE] Initialize error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -379,7 +463,7 @@ app.post('/escrow/prepare-delegate-platform', async (req, res) => {
     });
 
     console.log(
-      `✅ Prepared delegate platform: ${authorityPubkey
+      `[PREPARE] Delegate platform: ${authorityPubkey
         .toString()
         .slice(0, 8)}...`
     );
@@ -390,7 +474,7 @@ app.post('/escrow/prepare-delegate-platform', async (req, res) => {
       message: 'Transaction ready for signing',
     });
   } catch (error) {
-    console.error('❌ Prepare delegate platform error:', error);
+    console.error('[PREPARE] Delegate platform error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -433,7 +517,7 @@ app.post('/escrow/prepare-delegate-trading', async (req, res) => {
     });
 
     console.log(
-      `✅ Prepared delegate trading: ${authorityPubkey
+      `[PREPARE] Delegate trading: ${authorityPubkey
         .toString()
         .slice(0, 8)}...`
     );
@@ -444,7 +528,7 @@ app.post('/escrow/prepare-delegate-trading', async (req, res) => {
       message: 'Transaction ready for signing',
     });
   } catch (error) {
-    console.error('❌ Prepare delegate trading error:', error);
+    console.error('[PREPARE] Delegate trading error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -484,7 +568,7 @@ app.post('/escrow/prepare-revoke-platform', async (req, res) => {
       verifySignatures: false,
     });
 
-    console.log(`✅ Prepared revoke platform authority`);
+    console.log('[PREPARE] Revoke platform authority');
 
     res.json({
       success: true,
@@ -492,7 +576,7 @@ app.post('/escrow/prepare-revoke-platform', async (req, res) => {
       message: 'Transaction ready for signing',
     });
   } catch (error) {
-    console.error('❌ Prepare revoke platform error:', error);
+    console.error('[PREPARE] Revoke platform error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -532,7 +616,7 @@ app.post('/escrow/prepare-revoke-trading', async (req, res) => {
       verifySignatures: false,
     });
 
-    console.log(`✅ Prepared revoke trading authority`);
+    console.log('[PREPARE] Revoke trading authority');
 
     res.json({
       success: true,
@@ -540,7 +624,7 @@ app.post('/escrow/prepare-revoke-trading', async (req, res) => {
       message: 'Transaction ready for signing',
     });
   } catch (error) {
-    console.error('❌ Prepare revoke trading error:', error);
+    console.error('[PREPARE] Revoke trading error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -609,7 +693,7 @@ app.post('/escrow/prepare-deposit', async (req, res) => {
       verifySignatures: false,
     });
 
-    console.log(`✅ Prepared deposit: ${amount} USDC`);
+    console.log(`[PREPARE] Deposit: ${amount} USDC`);
 
     res.json({
       success: true,
@@ -618,7 +702,7 @@ app.post('/escrow/prepare-deposit', async (req, res) => {
       message: 'Transaction ready for signing',
     });
   } catch (error) {
-    console.error('❌ Prepare deposit error:', error);
+    console.error('[PREPARE] Deposit error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -684,7 +768,7 @@ app.post('/escrow/prepare-withdraw', async (req, res) => {
       verifySignatures: false,
     });
 
-    console.log(`✅ Prepared withdraw: ${withdrawAmount} tokens`);
+    console.log(`[PREPARE] Withdraw: ${withdrawAmount} tokens`);
 
     res.json({
       success: true,
@@ -693,7 +777,7 @@ app.post('/escrow/prepare-withdraw', async (req, res) => {
       message: 'Transaction ready for signing',
     });
   } catch (error) {
-    console.error('❌ Prepare withdraw error:', error);
+    console.error('[PREPARE] Withdraw error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -742,7 +826,7 @@ app.post('/escrow/prepare-close', async (req, res) => {
       verifySignatures: false,
     });
 
-    console.log(`✅ Prepared close escrow`);
+    console.log('[PREPARE] Close escrow');
 
     res.json({
       success: true,
@@ -750,7 +834,7 @@ app.post('/escrow/prepare-close', async (req, res) => {
       message: 'Transaction ready for signing',
     });
   } catch (error) {
-    console.error('❌ Prepare close error:', error);
+    console.error('[PREPARE] Close error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -781,14 +865,14 @@ app.post('/escrow/send-transaction', async (req, res) => {
       preflightCommitment: 'confirmed',
     });
 
-    console.log(`✅ Transaction sent: ${signature.slice(0, 8)}...`);
+    console.log(`[TX] Transaction sent: ${signature.slice(0, 8)}...`);
 
     res.json({
       success: true,
       signature: signature,
     });
   } catch (error) {
-    console.error('❌ Send transaction error:', error);
+    console.error('[TX] Send transaction error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -831,7 +915,7 @@ app.get('/escrow/:address', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Get escrow details error:', error);
+    console.error('[QUERY] Get escrow details error:', error);
     res.status(404).json({
       success: false,
       error: error.message,
@@ -862,7 +946,7 @@ app.get('/escrow/balance/:account', async (req, res) => {
       tokenMint: escrowData.tokenMint.toString(),
     });
   } catch (error) {
-    console.error('❌ Get balance error:', error);
+    console.error('[QUERY] Get balance error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -874,6 +958,7 @@ app.get('/transaction/status/:signature', async (req, res) => {
   try {
     const signature = req.params.signature;
 
+    // Validate signature format
     if (!signature || signature.length < 87 || signature.length > 88) {
       return res.json({
         success: true,
@@ -917,7 +1002,7 @@ app.get('/transaction/status/:signature', async (req, res) => {
       });
     }
 
-    console.error('❌ Transaction status error:', error);
+    console.error('[QUERY] Transaction status error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -933,7 +1018,7 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
-  console.log('🔗 New WebSocket connection');
+  console.log('[WS] New WebSocket connection');
 
   ws.isAlive = true;
   ws.on('pong', () => {
@@ -979,10 +1064,11 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    console.log('❌ WebSocket closed');
+    console.log('[WS] WebSocket closed');
   });
 });
 
+// Heartbeat to detect broken connections
 const heartbeat = setInterval(() => {
   wss.clients.forEach((ws) => {
     if (ws.isAlive === false) {
@@ -1003,26 +1089,24 @@ wss.on('close', () => {
 
 server.listen(CONFIG.bridge_port, CONFIG.bridge_host, () => {
   console.log('='.repeat(60));
-  console.log('🚤 PASSEUR BRIDGE (User-Based Escrow)');
+  console.log('PASSEUR BRIDGE (User-Based Escrow)');
   console.log('='.repeat(60));
-  console.log(`✅ HTTP: http://${CONFIG.bridge_host}:${CONFIG.bridge_port}`);
-  console.log(
-    `✅ WebSocket: ws://${CONFIG.bridge_host}:${CONFIG.bridge_port}`
-  );
-  console.log(`✅ Network: ${CONFIG.solana_network}`);
-  console.log(`✅ Program: ${programId.toString()}`);
+  console.log(`HTTP: http://${CONFIG.bridge_host}:${CONFIG.bridge_port}`);
+  console.log(`WebSocket: ws://${CONFIG.bridge_host}:${CONFIG.bridge_port}`);
+  console.log(`Network: ${CONFIG.solana_network}`);
+  console.log(`Program: ${programId.toString()}`);
   console.log('='.repeat(60));
 });
 
 process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down...');
+  console.log('\n[SERVER] Shutting down...');
   server.close(() => {
     process.exit(0);
   });
 });
 
 process.on('SIGTERM', () => {
-  console.log('\n🛑 Shutting down...');
+  console.log('\n[SERVER] Shutting down...');
   server.close(() => {
     process.exit(0);
   });

@@ -11,9 +11,9 @@ Usage:
 import sys
 
 import requests
+from passeur.config.settings import load_config
 from shared.tests import LaborantTest
 
-from config.settings import load_config
 from tests.helpers.bridge_manager import BridgeManager
 
 
@@ -28,10 +28,10 @@ class TestBridgeEndpoints(LaborantTest):
         self.reporter.info("Setting up bridge...", context="Setup")
 
         # Load test config
-        self.test_config = load_config("test.yaml")
+        self.test_config = load_config("development.yaml")
 
         # Initialize bridge manager
-        self.bridge = BridgeManager(config_file="test.yaml", reporter=self.reporter)
+        self.bridge = BridgeManager(config_file="development.yaml", reporter=self.reporter)
 
         # Start bridge
         success = self.bridge.start(timeout=30)

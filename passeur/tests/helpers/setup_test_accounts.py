@@ -69,7 +69,7 @@ def create_token_account(wallet_address: str, keypair_path: str) -> bool:
 
         if result.returncode == 0 and "Balance:" in result.stdout:
             reporter.info(
-                f"Token account already exists for {wallet_address[:8]}...",
+                f"✅ Token account already exists for {wallet_address[:8]}...",
                 context="Setup",
             )
             return True
@@ -92,20 +92,20 @@ def create_token_account(wallet_address: str, keypair_path: str) -> bool:
 
         if result.returncode == 0:
             reporter.info(
-                f"Token account created for {wallet_address[:8]}...",
+                f"✅ Token account created for {wallet_address[:8]}...",
                 context="Setup",
             )
             return True
         else:
             reporter.error(
-                f"Failed to create token account: {result.stderr}",
+                f"❌ Failed to create token account: {result.stderr}",
                 context="Setup",
             )
             return False
 
     except Exception as e:
         reporter.error(
-            f"Error creating token account: {e}",
+            f"❌ Error creating token account: {e}",
             context="Setup",
         )
         return False
@@ -134,26 +134,26 @@ def fund_account_with_sol(address: str, amount: float = 1.0) -> bool:
 
         if result.returncode == 0:
             reporter.info(
-                f"Airdrop successful for {address[:8]}...",
+                f"✅ Airdrop successful for {address[:8]}...",
                 context="Setup",
             )
             return True
         else:
             reporter.warning(
-                f"Airdrop failed: {result.stderr}",
+                f"⚠️  Airdrop failed: {result.stderr}",
                 context="Setup",
             )
             return False
 
     except Exception as e:
-        reporter.error(f"Airdrop error: {e}", context="Setup")
+        reporter.error(f"❌ Airdrop error: {e}", context="Setup")
         return False
 
 
 def setup_test_accounts():
     """Setup all test accounts with SOL and token accounts."""
     reporter.info("=" * 60, context="Setup")
-    reporter.info("SETTING UP TEST ACCOUNTS", context="Setup")
+    reporter.info("🔧 SETTING UP TEST ACCOUNTS", context="Setup")
     reporter.info("=" * 60, context="Setup")
 
     success = True
@@ -181,9 +181,9 @@ def setup_test_accounts():
 
     reporter.info("\n" + "=" * 60, context="Setup")
     if success:
-        reporter.info("ALL TEST ACCOUNTS READY", context="Setup")
+        reporter.info("✅ ALL TEST ACCOUNTS READY", context="Setup")
     else:
-        reporter.error("SOME ACCOUNTS FAILED TO SETUP", context="Setup")
+        reporter.error("❌ SOME ACCOUNTS FAILED TO SETUP", context="Setup")
     reporter.info("=" * 60, context="Setup")
 
     return success

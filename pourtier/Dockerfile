@@ -29,7 +29,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 # ============================================
 # Development stage (with hot reload)
 # ============================================
-FROM python:3.11-slim as development
+FROM python:3.11-slim AS development
 
 WORKDIR /app
 
@@ -40,13 +40,14 @@ RUN apt-get update && \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed packages from builder
+# Copy Python packages from builder
 COPY --from=builder /root/.local /root/.local
 
-# Update PATH
+# Update PATH and set Python env vars
 ENV PATH=/root/.local/bin:$PATH
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV ENV=development
 
 # Copy application code
 COPY . .
@@ -69,9 +70,9 @@ CMD ["uvicorn", "pourtier.main:app", \
      "--log-level", "info"]
 
 # ============================================
-# Production stage (optimized and secure)
+# Production stage (optimized)
 # ============================================
-FROM python:3.11-slim as production
+FROM python:3.11-slim AS production
 
 # Create non-root user
 RUN useradd -m -u 1000 -s /bin/bash pourtier && \
@@ -83,19 +84,22 @@ RUN useradd -m -u 1000 -s /bin/bash pourtier && \
 
 WORKDIR /app
 
-# Copy installed packages from builder
+# Copy Python packages from builder
 COPY --from=builder /root/.local /home/pourtier/.local
 
 # Copy application code
-COPY --chown=pourtier:pourtier . .
+COPY --chown=pourtier:pourtier config/ ./config/
+COPY --chown=pourtier:pourtier src/ ./src/
+COPY --chown=pourtier:pourtier scripts/ ./scripts/
 
 # Switch to non-root user
 USER pourtier
 
-# Update PATH
+# Update PATH and set Python env vars
 ENV PATH=/home/pourtier/.local/bin:$PATH
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV ENV=production
 
 # Expose port
 EXPOSE 8000

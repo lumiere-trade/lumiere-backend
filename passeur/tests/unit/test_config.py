@@ -11,9 +11,8 @@ Usage:
 import os
 from unittest.mock import patch
 
+from passeur.config.settings import PasseurConfig, load_config
 from shared.tests import LaborantTest
-
-from config.settings import PasseurConfig, load_config
 
 
 class TestPasseurConfig(LaborantTest):
@@ -24,7 +23,7 @@ class TestPasseurConfig(LaborantTest):
 
     def setup(self):
         """Setup before all tests - load test config."""
-        self.test_config = load_config("test.yaml")
+        self.test_config = load_config("development.yaml")
         self.reporter.info("Loaded test configuration", context="Setup")
 
     # ================================================================
@@ -60,7 +59,7 @@ class TestPasseurConfig(LaborantTest):
         )
 
         assert config.bridge_host == "127.0.0.1"
-        assert config.bridge_port == 8767
+        assert config.bridge_port == 8767  # development.yaml
         assert config.solana_network == "testnet"
         assert config.log_level == "debug"
         assert config.log_dir == "custom/logs"
@@ -187,17 +186,17 @@ class TestPasseurConfig(LaborantTest):
         self.reporter.info("Default config loaded successfully", context="Test")
 
     def test_load_test_config(self):
-        """Test loading test.yaml config."""
+        """Test loading development.yaml config."""
         self.reporter.info("Testing load test config", context="Test")
 
-        config = load_config("test.yaml")
+        config = load_config("development.yaml")
 
         assert isinstance(config, PasseurConfig)
         assert config.bridge_host == "127.0.0.1"
-        assert config.bridge_port == 8767
+        assert config.bridge_port == 8767  # development.yaml
         assert config.solana_network == "devnet"
         assert config.log_level == "debug"
-        assert config.log_dir == "tests/logs"
+        assert config.log_dir == "logs"  # development.yaml
 
         self.reporter.info("Test config loaded successfully", context="Test")
 
@@ -218,11 +217,11 @@ class TestPasseurConfig(LaborantTest):
         self.reporter.info("Testing PASSEUR_CONFIG env var", context="Test")
 
         # Set env var to test config
-        with patch.dict(os.environ, {"PASSEUR_CONFIG": "test.yaml"}):
+        with patch.dict(os.environ, {"PASSEUR_CONFIG": "development.yaml"}):
             config = load_config()
 
-            # Should load test.yaml
-            assert config.bridge_port == 8767
+            # Should load development.yaml
+            assert config.bridge_port == 8767  # development.yaml
             assert config.log_level == "debug"
 
         self.reporter.info("PASSEUR_CONFIG env var works", context="Test")
@@ -263,9 +262,9 @@ class TestPasseurConfig(LaborantTest):
         """Test log directory comes from config."""
         self.reporter.info("Testing log_dir from config", context="Test")
 
-        config = load_config("test.yaml")
+        config = load_config("development.yaml")
 
-        assert config.log_dir == "tests/logs"
+        assert config.log_dir == "logs"  # development.yaml
 
         self.reporter.info("Log dir from config correct", context="Test")
 

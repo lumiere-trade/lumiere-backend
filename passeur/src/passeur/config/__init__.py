@@ -1,5 +1,5 @@
 """Passeur configuration module."""
 
-from config.settings import PasseurConfig, config, load_config
+from passeur.config.settings import PasseurConfig, load_config
 
-__all__ = ["PasseurConfig", "config", "load_config"]
+__all__ = ["PasseurConfig", "load_config"]

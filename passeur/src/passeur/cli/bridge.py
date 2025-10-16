@@ -22,7 +22,7 @@ def load_config(config_file: str) -> dict:
 
 
 def get_bridge_url(config: dict) -> str:
-    """Get bridge URL from config."""
+    """Get bridge URL from passeur.config."""
     host = config.get("bridge_host", "127.0.0.1")
     port = config.get("bridge_port", 8767)
     return f"http://{host}:{port}"
@@ -57,14 +57,14 @@ def start_bridge(config_file: str) -> bool:
     # Check if already running
     is_running, _ = check_bridge_status()
     if is_running:
-        print("Bridge is already running")
+        print("⚠️  Bridge is already running")
         return True
 
     # Get bridge directory
     bridge_dir = Path(__file__).parent.parent / "bridge"
 
     if not bridge_dir.exists():
-        print(f"Bridge directory not found: {bridge_dir}")
+        print(f"❌ Bridge directory not found: {bridge_dir}")
         return False
 
     try:
@@ -84,11 +84,11 @@ def start_bridge(config_file: str) -> bool:
             if is_running:
                 return True
 
-        print("Bridge failed to start (timeout)")
+        print("❌ Bridge failed to start (timeout)")
         return False
 
     except Exception as e:
-        print(f"Error starting bridge: {e}")
+        print(f"❌ Error starting bridge: {e}")
         return False
 
 
@@ -114,11 +114,11 @@ def stop_bridge() -> bool:
         is_running, _ = check_bridge_status()
 
         if is_running:
-            print("Bridge may still be running")
+            print("⚠️  Bridge may still be running")
             return False
 
         return True
 
     except Exception as e:
-        print(f"Error stopping bridge: {e}")
+        print(f"❌ Error stopping bridge: {e}")
         return False
