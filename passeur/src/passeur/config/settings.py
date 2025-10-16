@@ -1,9 +1,15 @@
 """
-Passeur configuration schema with environment variable support.
+Passeur configuration with hybrid YAML + ENV support.
+
+This Python module wraps the Node.js bridge configuration for testing purposes.
+The actual bridge uses config/default.yaml, config/development.yaml, config/production.yaml.
+
+Priority: Environment variables > YAML config > Pydantic defaults
 """
 
 import os
 from pathlib import Path
+from typing import Optional
 
 import yaml
 from pydantic import Field, field_validator
@@ -12,65 +18,37 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class PasseurConfig(BaseSettings):
     """
-    Passeur bridge configuration.
-    
-    Reads from environment variables and YAML config files.
-    Priority: Environment variables > YAML config > defaults
+    Passeur bridge configuration schema.
+
+    Used by Python tests to validate config files.
+    Actual bridge (Node.js) loads these same YAML files.
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
+        env_prefix="PASSEUR_",
         case_sensitive=False,
         extra="allow",
     )
 
-    bridge_host: str = Field(
-        default="0.0.0.0",
-        description="Bridge server bind address",
-    )
-    bridge_port: int = Field(
-        default=8766,
-        ge=1024,
-        le=65535,
-        description="Bridge server port number",
-    )
-    solana_rpc_url: str = Field(
-        default="https://api.devnet.solana.com",
-        description="Solana RPC endpoint URL",
-    )
-    solana_network: str = Field(
-        default="devnet",
-        description="Solana network environment",
-    )
-    program_id: str = Field(
-        default="9gvUtaF99sQ287PNzRfCbhFTC4PUnnd7jdAjnY5GUVhS",
-        description="Escrow smart contract program ID",
-    )
-    platform_keypair_path: str = Field(
-        default=os.path.expanduser("~/.lumiere/keypairs/platform.json"),
-        description="Path to platform keypair JSON file",
-    )
-    heartbeat_interval: int = Field(
-        default=30,
-        ge=5,
-        le=300,
-        description="WebSocket heartbeat interval (seconds)",
-    )
-    request_timeout: int = Field(
-        default=30,
-        ge=5,
-        le=300,
-        description="HTTP request timeout (seconds)",
-    )
-    log_level: str = Field(
-        default="info",
-        description="Logging level",
-    )
-    log_dir: str = Field(
-        default="logs",
-        description="Log directory path",
-    )
+    # Bridge Server
+    bridge_host: str = Field(default="0.0.0.0")
+    bridge_port: int = Field(default=8766, ge=1024, le=65535)
+
+    # Connection Settings
+    heartbeat_interval: int = Field(default=30, ge=5, le=300)
+    request_timeout: int = Field(default=30, ge=5, le=300)
+
+    # Logging
+    log_level: str = Field(default="info")
+    log_dir: str = Field(default="logs")
+
+    # Solana (from ENV)
+    solana_rpc_url: Optional[str] = Field(default=None)
+    solana_network: str = Field(default="devnet")
+    program_id: str = Field(default="9gvUtaF99sQ287PNzRfCbhFTC4PUnnd7jdAjnY5GUVhS")
+
+    # Platform Keypair (from ENV)
+    platform_keypair_path: Optional[str] = Field(default=None)
 
     @field_validator("log_level")
     @classmethod
@@ -94,40 +72,63 @@ class PasseurConfig(BaseSettings):
 
     @field_validator("platform_keypair_path")
     @classmethod
-    def expand_keypair_path(cls, v: str) -> str:
+    def expand_keypair_path(cls, v: Optional[str]) -> Optional[str]:
         """Expand home directory in keypair path."""
-        return os.path.expanduser(v)
+        if v:
+            return os.path.expanduser(v)
+        return v
 
 
-def load_config(config_file: str = "passeur.yaml") -> PasseurConfig:
+def load_config(config_file: Optional[str] = None) -> PasseurConfig:
     """
-    Load Passeur configuration from YAML file and environment.
+    Load configuration from YAML files.
+
+    Priority: Environment variables > environment-specific YAML > default YAML
 
     Args:
-        config_file: Config filename (default: passeur.yaml)
+        config_file: Optional YAML filename override
 
     Returns:
         PasseurConfig instance
     """
-    # Allow override via environment variable
-    config_file = os.getenv("PASSEUR_CONFIG", config_file)
-    
-    # Find config in project root
+    # Determine environment
+    env = os.getenv("ENV", "production")
+
+    # Map environment to config file
+    config_map = {
+        "production": "production.yaml",
+        "development": "development.yaml",
+    }
+
+    # Find config directory
     current_file = Path(__file__).resolve()
     project_root = current_file.parent.parent.parent.parent
-    config_path = project_root / "config" / config_file
+    config_dir = project_root / "config"
 
-    # Load YAML config if exists
-    yaml_config = {}
-    if config_path.exists():
-        with open(config_path, "r") as f:
+    # Load default config first
+    default_config_path = config_dir / "default.yaml"
+    merged_config = {}
+
+    if default_config_path.exists():
+        with open(default_config_path, "r") as f:
             loaded = yaml.safe_load(f)
             if loaded:
-                yaml_config = loaded
+                merged_config = loaded
 
-    # Create config (env vars will override)
-    return PasseurConfig(**yaml_config)
+    # Load environment-specific config
+    if config_file is None:
+        # Check for PASSEUR_CONFIG env var
+        config_file = os.getenv("PASSEUR_CONFIG")
+        if not config_file:
+            config_file = config_map.get(env, "production.yaml")
 
+    env_config_path = config_dir / config_file
 
-# Global config instance
-config = load_config()
+    if env_config_path.exists():
+        with open(env_config_path, "r") as f:
+            loaded = yaml.safe_load(f)
+            if loaded:
+                merged_config.update(loaded)
+
+    # Create config (env vars will override YAML)
+    return PasseurConfig(**merged_config)

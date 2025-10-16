@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import Optional
 
 import requests
+from dotenv import load_dotenv
 from shared.reporter.system_reporter import SystemReporter
 
-from config.settings import load_config
+from passeur.config.settings import load_config
 
 
 class BridgeManager:
@@ -27,22 +28,31 @@ class BridgeManager:
 
     def __init__(
         self,
-        config_file: str = "test.yaml",
+        config_file: str = "development.yaml",
         reporter: Optional[SystemReporter] = None,
     ):
         """
         Initialize bridge manager.
 
         Args:
-            config_file: Config file to use (default: test.yaml)
+            config_file: Config file to use (default: development.yaml)
             reporter: Optional SystemReporter for logging
         """
+        # Set ENV to development FIRST
+        os.environ["ENV"] = "development"
+        
+        # Load .env.development for tests
+        env_path = Path(__file__).parents[2] / ".env.development"
+        if env_path.exists():
+            load_dotenv(env_path)
+
         self.config = load_config(config_file)
         self.reporter = reporter or SystemReporter(
             name="bridge_manager", level=20, verbose=1
         )
         self.process: Optional[subprocess.Popen] = None
         self.bridge_url = f"http://{self.config.bridge_host}:{self.config.bridge_port}"
+        
 
     def start(self, timeout: int = 30) -> bool:
         """
@@ -80,9 +90,9 @@ class BridgeManager:
         self.reporter.info("Starting bridge server...", context="BridgeManager")
 
         try:
-            # Set environment variable for test config
+            # Copy environment variables
             env = os.environ.copy()
-            env["PASSEUR_CONFIG"] = "test.yaml"
+            env["ENV"] = "development"
 
             # Start Node.js server
             self.process = subprocess.Popen(
@@ -96,10 +106,12 @@ class BridgeManager:
 
             # Wait for server to be ready
             start_time = time.time()
+            attempt = 0
             while time.time() - start_time < timeout:
+                attempt += 1
                 if self._is_ready():
                     self.reporter.info(
-                        f"Bridge server ready: {self.bridge_url}",
+                        f"Bridge server ready after {attempt} attempts: {self.bridge_url}",
                         context="BridgeManager",
                     )
                     return True
@@ -116,7 +128,7 @@ class BridgeManager:
                 time.sleep(0.5)
 
             self.reporter.error(
-                f"Bridge server timeout after {timeout}s",
+                f"Bridge server timeout after {timeout}s ({attempt} attempts)",
                 context="BridgeManager",
             )
             self.stop()
@@ -166,8 +178,15 @@ class BridgeManager:
         """
         try:
             response = requests.get(f"{self.bridge_url}/health", timeout=2)
-            return response.status_code == 200
-        except requests.exceptions.RequestException:
+            ready = response.status_code == 200
+            if not ready:
+                self.reporter.warning(
+                    f"Health check returned status {response.status_code}",
+                    context="BridgeManager"
+                )
+            return ready
+        except requests.exceptions.RequestException as e:
+            # Don't log every failed attempt, too noisy
             return False
 
     def is_running(self) -> bool:

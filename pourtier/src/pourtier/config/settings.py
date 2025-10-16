@@ -3,8 +3,9 @@ Application settings with environment-based configuration.
 
 Priority (highest to lowest):
 1. Environment variables (from .env or system)
-2. YAML config file
-3. Pydantic defaults
+2. Environment-specific YAML config file (development.yaml, production.yaml)
+3. Default YAML config file (default.yaml)
+4. Pydantic defaults
 """
 
 import os
@@ -19,7 +20,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """
     Application settings with environment variable support.
-    
+
     All sensitive values (passwords, keys) should come from environment
     variables, not from YAML files.
     """
@@ -43,11 +44,11 @@ class Settings(BaseSettings):
     API_PORT: int = Field(default=8000, ge=1024, le=65535)
     API_RELOAD: bool = Field(default=False)
 
-    # Database (from environment!)
+    # Database (from environment)
     DATABASE_URL: str = Field(..., description="Database connection URL")
     DATABASE_ECHO: bool = Field(default=False)
 
-    # JWT Authentication (from environment!)
+    # JWT Authentication (from environment)
     JWT_SECRET_KEY: str = Field(..., description="JWT secret key")
     JWT_ALGORITHM: str = Field(default="HS256")
     JWT_EXPIRATION_HOURS: int = Field(default=24, ge=1)
@@ -65,7 +66,6 @@ class Settings(BaseSettings):
     SOLANA_COMMITMENT: str = Field(default="confirmed")
     PASSEUR_BRIDGE_URL: str = Field(..., description="Passeur bridge URL")
     ESCROW_PROGRAM_ID: Optional[str] = Field(default=None)
-    PLATFORM_KEYPAIR_PATH: Optional[str] = Field(default=None)
 
     # External Services
     COURIER_URL: str = Field(..., description="Courier event bus URL")
@@ -95,53 +95,58 @@ class Settings(BaseSettings):
             raise ValueError(f"Invalid SOLANA_NETWORK. Must be one of: {allowed}")
         return v_lower
 
-    @field_validator("PLATFORM_KEYPAIR_PATH")
-    @classmethod
-    def expand_keypair_path(cls, v: Optional[str]) -> Optional[str]:
-        """Expand home directory in keypair path."""
-        if v:
-            return os.path.expanduser(v)
-        return v
-
 
 def load_config(config_file: Optional[str] = None) -> Settings:
     """
-    Load configuration from YAML file and environment variables.
+    Load configuration from YAML files and environment variables.
 
-    Priority: Environment variables > YAML config > Pydantic defaults
+    Priority: Environment variables > environment-specific YAML > default YAML > Pydantic defaults
 
     Args:
-        config_file: YAML config filename
+        config_file: Optional YAML config filename override
 
     Returns:
         Settings instance
     """
-    # Determine config file
-    if config_file is None:
-        env = os.getenv("ENV", "production")
-        config_map = {
-            "production": "pourtier.yaml",
-            "test": "test.yaml",
-            "development": "pourtier.yaml",
-        }
-        config_file = config_map.get(env, "pourtier.yaml")
+    # Determine environment
+    env = os.getenv("ENV", "production")
 
-    # Find config directory - look in project root
+    # Map environment to config file
+    config_map = {
+        "production": "production.yaml",
+        "development": "development.yaml",
+    }
+
+    # Find config directory (project root)
     # We're in src/pourtier/config/settings.py, go up to project root
     current_file = Path(__file__).resolve()
-    project_root = current_file.parent.parent.parent.parent  # Go up to project root
-    config_path = project_root / "config" / config_file
+    project_root = current_file.parent.parent.parent.parent
+    config_dir = project_root / "config"
 
-    # Load YAML config if exists
-    yaml_config = {}
-    if config_path.exists():
-        with open(config_path, "r") as f:
+    # Load default config first
+    default_config_path = config_dir / "default.yaml"
+    merged_config = {}
+
+    if default_config_path.exists():
+        with open(default_config_path, "r") as f:
             loaded = yaml.safe_load(f)
             if loaded:
-                yaml_config = loaded
+                merged_config = loaded
 
-    # Create Settings - env vars will override YAML
-    return Settings(**yaml_config)
+    # Load environment-specific config (overrides defaults)
+    if config_file is None:
+        config_file = config_map.get(env, "production.yaml")
+
+    env_config_path = config_dir / config_file
+
+    if env_config_path.exists():
+        with open(env_config_path, "r") as f:
+            loaded = yaml.safe_load(f)
+            if loaded:
+                merged_config.update(loaded)
+
+    # Create Settings (env vars will override YAML)
+    return Settings(**merged_config)
 
 
 # Global settings singleton

@@ -74,7 +74,7 @@ def find_escrows_for_wallet(wallet_address: str, rpc_url: str, program_id: str) 
         return escrows
 
     except Exception as e:
-        print(f"  Error finding escrows: {e}")
+        print(f"  ❌ Error finding escrows: {e}")
         return []
 
 
@@ -157,12 +157,12 @@ def revoke_authority(keypair: Keypair, escrow_address: str, bridge_url: str) -> 
         signed_tx = sign_transaction(unsigned_tx, keypair)
         signature = send_transaction(signed_tx, bridge_url)
 
-        print(f"    Revoked: {signature[:8]}...")
+        print(f"    ✅ Revoked: {signature[:8]}...")
         time.sleep(5)  # Wait for confirmation
         return True
 
     except Exception as e:
-        print(f"    Revoke failed: {e}")
+        print(f"    ❌ Revoke failed: {e}")
         return False
 
 
@@ -190,12 +190,12 @@ def withdraw_funds(keypair: Keypair, escrow_address: str, bridge_url: str) -> bo
         signed_tx = sign_transaction(unsigned_tx, keypair)
         signature = send_transaction(signed_tx, bridge_url)
 
-        print(f"    Withdrawn: {signature[:8]}...")
+        print(f"    ✅ Withdrawn: {signature[:8]}...")
         time.sleep(5)  # Wait for confirmation
         return True
 
     except Exception as e:
-        print(f"    Withdraw failed: {e}")
+        print(f"    ❌ Withdraw failed: {e}")
         return False
 
 
@@ -223,12 +223,12 @@ def close_escrow(keypair: Keypair, escrow_address: str, bridge_url: str) -> bool
         signed_tx = sign_transaction(unsigned_tx, keypair)
         signature = send_transaction(signed_tx, bridge_url)
 
-        print(f"    Closed: {signature[:8]}...")
+        print(f"    ✅ Closed: {signature[:8]}...")
         time.sleep(5)  # Wait for confirmation
         return True
 
     except Exception as e:
-        print(f"    Close failed: {e}")
+        print(f"    ❌ Close failed: {e}")
         return False
 
 
@@ -246,17 +246,17 @@ def cleanup_single_escrow(
     Returns:
         True if successful
     """
-    print(f"\n  Escrow: {escrow_address[:8]}...")
+    print(f"\n  📦 Escrow: {escrow_address[:8]}...")
 
     # Get escrow info
     info = get_escrow_info(escrow_address, bridge_url)
     if not info:
-        print("    Not found or already closed")
+        print("    ⚠️  Not found or already closed")
         return True
 
     # Check if active (has authority delegated)
     if info.get("isActive"):
-        print("    Authority is active")
+        print("    ⚠️  Authority is active")
         if not revoke_authority(keypair, escrow_address, bridge_url):
             return False
 
@@ -272,7 +272,7 @@ def cleanup_single_escrow(
     if not close_escrow(keypair, escrow_address, bridge_url):
         return False
 
-    print("    Cleanup successful")
+    print("    ✅ Cleanup successful")
     return True
 
 
@@ -298,16 +298,16 @@ def cleanup_escrows(config_file: str, specific_wallet: str | None = None) -> boo
     try:
         config = load_config(config_file)
     except Exception as e:
-        print(f"Failed to load config: {e}")
+        print(f"❌ Failed to load config: {e}")
         return False
 
     # Start bridge if not running
     bridge_was_running, bridge_url = check_bridge_status()
 
     if not bridge_was_running:
-        print("Starting bridge...")
+        print("🚀 Starting bridge...")
         if not start_bridge(config_file):
-            print("Failed to start bridge")
+            print("❌ Failed to start bridge")
             return False
         bridge_url = get_bridge_url(config)
 
@@ -316,7 +316,7 @@ def cleanup_escrows(config_file: str, specific_wallet: str | None = None) -> boo
         keypairs_dir = Path.home() / "lumiere" / "keypairs" / "test"
 
         if not keypairs_dir.exists():
-            print(f"Keypairs directory not found: {keypairs_dir}")
+            print(f"❌ Keypairs directory not found: {keypairs_dir}")
             return False
 
         # Filter keypairs
@@ -326,7 +326,7 @@ def cleanup_escrows(config_file: str, specific_wallet: str | None = None) -> boo
             user_keypairs = sorted(keypairs_dir.glob("user_*.json"))
 
         if not user_keypairs:
-            print("No user keypairs found")
+            print("❌ No user keypairs found")
             return False
 
         print(f"\n📋 Found {len(user_keypairs)} wallet(s)")
@@ -335,7 +335,7 @@ def cleanup_escrows(config_file: str, specific_wallet: str | None = None) -> boo
 
         for keypair_path in user_keypairs:
             if not keypair_path.exists():
-                print(f"Keypair not found: {keypair_path}")
+                print(f"❌ Keypair not found: {keypair_path}")
                 all_success = False
                 continue
 
@@ -355,7 +355,7 @@ def cleanup_escrows(config_file: str, specific_wallet: str | None = None) -> boo
             )
 
             if not escrows:
-                print("No escrows found")
+                print("✅ No escrows found")
                 continue
 
             print(f"Found {len(escrows)} escrow(s)")

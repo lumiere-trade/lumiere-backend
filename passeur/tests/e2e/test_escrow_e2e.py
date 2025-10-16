@@ -20,6 +20,7 @@ Usage:
 import time
 
 import requests
+from passeur.config.settings import load_config
 from shared.blockchain import (
     TransactionSigner,
     check_escrow_exists,
@@ -28,7 +29,6 @@ from shared.blockchain.wallets import PlatformWallets
 from shared.tests import LaborantTest
 from solders.pubkey import Pubkey  # Correct import
 
-from config.settings import load_config
 from tests.helpers.bridge_manager import BridgeManager
 
 # Test authority addresses
@@ -65,16 +65,14 @@ class TestEscrowE2E(LaborantTest):
     def setup(self):
         """Setup before all tests - start bridge and initialize signer."""
         self.reporter.info("=" * 60, context="Setup")
-        self.reporter.info(
-            "SETTING UP E2E TEST (USER-BASED ESCROW)", context="Setup"
-        )
+        self.reporter.info("SETTING UP E2E TEST (USER-BASED ESCROW)", context="Setup")
         self.reporter.info("=" * 60, context="Setup")
 
         # Load test config
-        self.test_config = load_config("test.yaml")
+        self.test_config = load_config("development.yaml")
 
         # Start bridge
-        self.bridge = BridgeManager(config_file="test.yaml", reporter=self.reporter)
+        self.bridge = BridgeManager(config_file="development.yaml", reporter=self.reporter)
         success = self.bridge.start(timeout=30)
 
         if not success:
@@ -96,8 +94,7 @@ class TestEscrowE2E(LaborantTest):
 
         self.reporter.info(f"Bridge ready: {self.bridge_url}", context="Setup")
         self.reporter.info(
-            f"Test user Alice: "
-            f"{PlatformWallets.get_test_alice_address()[:8]}...",
+            f"Test user Alice: " f"{PlatformWallets.get_test_alice_address()[:8]}...",
             context="Setup",
         )
         self.reporter.info(
