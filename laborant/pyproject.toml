@@ -25,9 +25,8 @@ dev = [
 [project.scripts]
 laborant = "laborant.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["laborant*"]
+[tool.setuptools]
+py-modules = ["laborant"]
 
 [tool.black]
 line-length = 88

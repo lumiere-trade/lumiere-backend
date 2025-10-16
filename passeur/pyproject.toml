@@ -1,12 +1,15 @@
 [build-system]
-requires = ["setuptools>=65.0", "wheel"]
+requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "passeur"
 version = "0.1.0"
-description = "Blockchain bridge for Lumière escrow smart contract"
+description = "Blockchain bridge for Lumiere escrow smart contract"
+readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "MIT"}
+
 dependencies = [
     "shared",
     "pyyaml>=6.0",
@@ -22,22 +25,27 @@ dev = [
     "pytest>=7.0.0",
     "black>=23.0.0",
     "isort>=5.12.0",
+    "ruff>=0.1.6",
 ]
 
 [project.scripts]
-passeur = "cli_main:main"
+passeur = "passeur.cli_main:main"
 
 [tool.setuptools]
-py-modules = ["cli_main", "__init__"]
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["cli*", "config*", "bridge*", "tests*", "utils*"]
+where = ["src"]
+include = ["passeur*"]
 
 [tool.black]
 line-length = 88
-target-version = ['py311']
+target-version = ["py311"]
 
 [tool.isort]
 profile = "black"
 line_length = 88
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
