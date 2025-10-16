@@ -520,8 +520,7 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
                 if tx.value is not None:
                     elapsed = int(asyncio.get_event_loop().time() - start_time)
                     self.reporter.info(
-                        f"Transaction confirmed in {elapsed}s "
-                        f"({poll_count} polls)",
+                        f"Transaction confirmed in {elapsed}s " f"({poll_count} polls)",
                         context="Helper",
                     )
                     return True
@@ -573,8 +572,7 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
             deposit_amount = Decimal("0.01")
 
         self.reporter.info(
-            f"Will deposit: {deposit_amount} USDC "
-            f"(available: {available_balance})",
+            f"Will deposit: {deposit_amount} USDC " f"(available: {available_balance})",
             context="Test",
         )
 
@@ -757,8 +755,7 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
             context="Test",
         )
         self.reporter.info(
-            f"Deposited: {deposit_amount} USDC, "
-            f"Withdrew: {withdraw_amount} USDC",
+            f"Deposited: {deposit_amount} USDC, " f"Withdrew: {withdraw_amount} USDC",
             context="Test",
         )
 

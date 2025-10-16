@@ -11,8 +11,9 @@ Usage:
 import os
 from unittest.mock import patch
 
-from passeur.config.settings import PasseurConfig, load_config
 from shared.tests import LaborantTest
+
+from passeur.config.settings import PasseurConfig, load_config
 
 
 class TestPasseurConfig(LaborantTest):

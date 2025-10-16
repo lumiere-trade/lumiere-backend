@@ -40,7 +40,7 @@ class BridgeManager:
         """
         # Set ENV to development FIRST
         os.environ["ENV"] = "development"
-        
+
         # Load .env.development for tests
         env_path = Path(__file__).parents[2] / ".env.development"
         if env_path.exists():
@@ -52,7 +52,6 @@ class BridgeManager:
         )
         self.process: Optional[subprocess.Popen] = None
         self.bridge_url = f"http://{self.config.bridge_host}:{self.config.bridge_port}"
-        
 
     def start(self, timeout: int = 30) -> bool:
         """
@@ -182,7 +181,7 @@ class BridgeManager:
             if not ready:
                 self.reporter.warning(
                     f"Health check returned status {response.status_code}",
-                    context="BridgeManager"
+                    context="BridgeManager",
                 )
             return ready
         except requests.exceptions.RequestException as e:

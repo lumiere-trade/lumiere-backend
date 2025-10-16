@@ -1,5 +1,4 @@
 """Test helper utilities for Passeur integration tests."""
-
-from tests.helpers.bridge_manager import BridgeManager
+from helpers.bridge_manager import BridgeManager
 
 __all__ = ["BridgeManager"]

@@ -20,7 +20,6 @@ Usage:
 import time
 
 import requests
-from passeur.config.settings import load_config
 from shared.blockchain import (
     TransactionSigner,
     check_escrow_exists,
@@ -29,7 +28,11 @@ from shared.blockchain.wallets import PlatformWallets
 from shared.tests import LaborantTest
 from solders.pubkey import Pubkey  # Correct import
 
-from tests.helpers.bridge_manager import BridgeManager
+from passeur.config.settings import load_config
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from helpers.bridge_manager import BridgeManager
 
 # Test authority addresses
 TEST_PLATFORM_AUTHORITY = PlatformWallets.get_test_authority_address()
@@ -72,7 +75,9 @@ class TestEscrowE2E(LaborantTest):
         self.test_config = load_config("development.yaml")
 
         # Start bridge
-        self.bridge = BridgeManager(config_file="development.yaml", reporter=self.reporter)
+        self.bridge = BridgeManager(
+            config_file="development.yaml", reporter=self.reporter
+        )
         success = self.bridge.start(timeout=30)
 
         if not success:

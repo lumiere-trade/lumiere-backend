@@ -11,6 +11,7 @@ Usage:
 from uuid import uuid4
 
 from shared.tests import LaborantTest
+
 from passeur.utils.blockchain import (
     derive_escrow_pda_seeds,
     format_uuid_for_anchor,
