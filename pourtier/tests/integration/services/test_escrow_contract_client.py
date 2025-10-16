@@ -23,7 +23,7 @@ from shared.blockchain.wallets import PlatformWallets
 from shared.tests import LaborantTest
 
 # Load test configuration
-test_settings = load_config("test.yaml")
+test_settings = load_config("development.yaml", env="development")
 TEST_RPC_URL = test_settings.SOLANA_RPC_URL
 TEST_PROGRAM_ID = test_settings.ESCROW_PROGRAM_ID
 

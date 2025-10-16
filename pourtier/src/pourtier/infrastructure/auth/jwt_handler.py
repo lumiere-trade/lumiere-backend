@@ -10,7 +10,7 @@ from uuid import UUID
 
 from jose import JWTError, jwt
 
-from pourtier.config.settings import settings
+from pourtier.config.settings import get_settings
 from pourtier.domain.exceptions.auth import ExpiredTokenError, InvalidTokenError
 
 
@@ -32,7 +32,7 @@ def create_access_token(user_id: UUID, wallet_address: str) -> str:
         ... )
     """
     now = datetime.now(timezone.utc)
-    expire = now + timedelta(hours=settings.JWT_EXPIRATION_HOURS)
+    expire = now + timedelta(hours=get_settings().JWT_EXPIRATION_HOURS)
 
     payload = {
         "sub": str(user_id),  # Subject (standard JWT claim)
@@ -43,7 +43,7 @@ def create_access_token(user_id: UUID, wallet_address: str) -> str:
     }
 
     token = jwt.encode(
-        payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        payload, get_settings().JWT_SECRET_KEY, algorithm=get_settings().JWT_ALGORITHM
     )
 
     return token
@@ -71,8 +71,8 @@ def decode_access_token(token: str) -> Dict[str, str]:
     try:
         payload = jwt.decode(
             token,
-            settings.JWT_SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM],
+            get_settings().JWT_SECRET_KEY,
+            algorithms=[get_settings().JWT_ALGORITHM],
         )
 
         # Validate required fields

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
+from dotenv import load_dotenv
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -44,11 +45,11 @@ class Settings(BaseSettings):
     API_PORT: int = Field(default=8000, ge=1024, le=65535)
     API_RELOAD: bool = Field(default=False)
 
-    # Database (from environment)
+    # Database (from environment - REQUIRED in production)
     DATABASE_URL: str = Field(..., description="Database connection URL")
     DATABASE_ECHO: bool = Field(default=False)
 
-    # JWT Authentication (from environment)
+    # JWT Authentication (from environment - REQUIRED in production)
     JWT_SECRET_KEY: str = Field(..., description="JWT secret key")
     JWT_ALGORITHM: str = Field(default="HS256")
     JWT_EXPIRATION_HOURS: int = Field(default=24, ge=1)
@@ -60,15 +61,16 @@ class Settings(BaseSettings):
     REDIS_DB: int = Field(default=0, ge=0, le=15)
     REDIS_PASSWORD: Optional[str] = Field(default=None)
 
-    # Solana / Blockchain
+    # Solana / Blockchain (from environment - REQUIRED in production)
     SOLANA_RPC_URL: str = Field(..., description="Solana RPC URL")
     SOLANA_NETWORK: str = Field(default="devnet")
     SOLANA_COMMITMENT: str = Field(default="confirmed")
     PASSEUR_BRIDGE_URL: str = Field(..., description="Passeur bridge URL")
     ESCROW_PROGRAM_ID: Optional[str] = Field(default=None)
 
-    # External Services
+    # External Services (from environment - REQUIRED in production)
     COURIER_URL: str = Field(..., description="Courier event bus URL")
+    COURIER_PORT: int = Field(default=8765, ge=1024, le=65535)
     COURIER_ENABLED: bool = Field(default=False)
 
     # Logging
@@ -96,34 +98,56 @@ class Settings(BaseSettings):
         return v_lower
 
 
-def load_config(config_file: Optional[str] = None) -> Settings:
+def load_config(
+    config_file: Optional[str] = None,
+    env_file: Optional[str] = None,
+    env: Optional[str] = None,
+) -> Settings:
     """
     Load configuration from YAML files and environment variables.
 
-    Priority: Environment variables > environment-specific YAML > default YAML > Pydantic defaults
+    Priority: ENV vars > environment-specific YAML > default YAML > defaults
 
     Args:
         config_file: Optional YAML config filename override
+        env_file: Optional .env filename (e.g., ".env.development")
+        env: Optional environment name override (e.g., "development", "test")
 
     Returns:
         Settings instance
+
+    Raises:
+        ValidationError: If required fields are missing
     """
-    # Determine environment
-    env = os.getenv("ENV", "production")
-
-    # Map environment to config file
-    config_map = {
-        "production": "production.yaml",
-        "development": "development.yaml",
-    }
-
-    # Find config directory (project root)
-    # We're in src/pourtier/config/settings.py, go up to project root
+    # Find project root
     current_file = Path(__file__).resolve()
     project_root = current_file.parent.parent.parent.parent
     config_dir = project_root / "config"
 
-    # Load default config first
+    # Determine environment (explicit parameter > ENV var > default)
+    environment = env or os.getenv("ENV", "production")
+
+    # Map environment to config and env files
+    env_map = {
+        "production": (".env.production", "production.yaml"),
+        "development": (".env.development", "development.yaml"),
+        "test": (".env.development", "development.yaml"),
+    }
+
+    # Load .env file FIRST (before Settings initialization)
+    if env_file is None:
+        default_env_file, default_config_file = env_map.get(
+            environment, (".env.production", "production.yaml")
+        )
+        env_file = default_env_file
+        if config_file is None:
+            config_file = default_config_file
+
+    env_file_path = project_root / env_file
+    if env_file_path.exists():
+        load_dotenv(env_file_path, override=True)
+
+    # Load default config
     default_config_path = config_dir / "default.yaml"
     merged_config = {}
 
@@ -134,26 +158,56 @@ def load_config(config_file: Optional[str] = None) -> Settings:
                 merged_config = loaded
 
     # Load environment-specific config (overrides defaults)
-    if config_file is None:
-        config_file = config_map.get(env, "production.yaml")
+    if config_file:
+        env_config_path = config_dir / config_file
+        if env_config_path.exists():
+            with open(env_config_path, "r") as f:
+                loaded = yaml.safe_load(f)
+                if loaded:
+                    merged_config.update(loaded)
 
-    env_config_path = config_dir / config_file
-
-    if env_config_path.exists():
-        with open(env_config_path, "r") as f:
-            loaded = yaml.safe_load(f)
-            if loaded:
-                merged_config.update(loaded)
-
-    # Create Settings (env vars will override YAML)
+    # Create Settings (env vars from dotenv + YAML merged)
     return Settings(**merged_config)
 
 
-# Global settings singleton
-settings: Settings = load_config()
+# Global settings singleton (lazy initialization)
+_settings: Optional[Settings] = None
+
+
+def get_settings() -> Settings:
+    """
+    Get or initialize global settings singleton.
+
+    Lazy initialization ensures settings are only loaded when needed.
+
+    Returns:
+        Settings instance
+
+    Raises:
+        ValidationError: If required configuration fields are missing
+    """
+    global _settings
+    if _settings is None:
+        _settings = load_config()
+    return _settings
 
 
 def override_settings(new_settings: Settings) -> None:
-    """Override global settings (for testing)."""
-    global settings
-    settings = new_settings
+    """
+    Override global settings (for testing).
+
+    Args:
+        new_settings: New Settings instance to use
+    """
+    global _settings
+    _settings = new_settings
+
+
+def reset_settings() -> None:
+    """
+    Reset settings to force re-initialization (for testing).
+
+    This allows tests to change environment variables and reload config.
+    """
+    global _settings
+    _settings = None

@@ -25,12 +25,8 @@ from pourtier.infrastructure.persistence.models import (
     Base,
     SubscriptionModel,
 )
-from pourtier.main import app
+from pourtier.main import create_app
 from shared.tests import LaborantTest
-
-# Load test configuration
-test_settings = load_config("test.yaml")
-TEST_DATABASE_URL = test_settings.DATABASE_URL
 
 
 class TestSubscriptionRoutes(LaborantTest):
@@ -44,18 +40,23 @@ class TestSubscriptionRoutes(LaborantTest):
     client: httpx.AsyncClient = None
     test_user: User = None
     test_token: str = None
-
-    # ================================================================
-    # Async Lifecycle Hooks
-    # ================================================================
+    test_settings = None
 
     async def async_setup(self):
         """Setup test database and API client (runs once before all tests)."""
         self.reporter.info("Setting up subscription API tests...", context="Setup")
+
+        # Load test configuration
+        TestSubscriptionRoutes.test_settings = load_config(
+            "development.yaml", env="development"
+        )
+        app = create_app(TestSubscriptionRoutes.test_settings)
+
+        TEST_DATABASE_URL = TestSubscriptionRoutes.test_settings.DATABASE_URL
         self.reporter.info(f"Database: {TEST_DATABASE_URL}", context="Setup")
 
         # Apply test settings globally
-        override_settings(test_settings)
+        override_settings(TestSubscriptionRoutes.test_settings)
 
         # Drop and recreate tables
         engine = create_async_engine(TEST_DATABASE_URL, echo=False)
@@ -65,7 +66,9 @@ class TestSubscriptionRoutes(LaborantTest):
         await engine.dispose()
 
         # Connect database
-        TestSubscriptionRoutes.db = Database(database_url=TEST_DATABASE_URL, echo=False)
+        TestSubscriptionRoutes.db = Database(
+            database_url=TEST_DATABASE_URL, echo=False
+        )
         await TestSubscriptionRoutes.db.connect()
 
         # Override container's database with test database
@@ -73,7 +76,7 @@ class TestSubscriptionRoutes(LaborantTest):
         container._database = TestSubscriptionRoutes.db
 
         # Initialize cache if enabled
-        if test_settings.REDIS_ENABLED:
+        if TestSubscriptionRoutes.test_settings.REDIS_ENABLED:
             await container.cache_client.connect()
             self.reporter.info("Redis cache connected", context="Setup")
 
@@ -100,18 +103,20 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def async_teardown(self):
         """Cleanup test database (runs once after all tests)."""
-        self.reporter.info("Cleaning up subscription API tests...", context="Teardown")
+        self.reporter.info(
+            "Cleaning up subscription API tests...", context="Teardown"
+        )
 
         # Close AsyncClient
         if TestSubscriptionRoutes.client:
             await TestSubscriptionRoutes.client.aclose()
 
-        # Clear dependency overrides
-        app.dependency_overrides.clear()
-
         # Disconnect cache
         container = get_container()
-        if test_settings.REDIS_ENABLED and container._cache_client:
+        if (
+            TestSubscriptionRoutes.test_settings.REDIS_ENABLED
+            and container._cache_client
+        ):
             await container.cache_client.disconnect()
 
         # Disconnect database
@@ -119,6 +124,7 @@ class TestSubscriptionRoutes(LaborantTest):
             await TestSubscriptionRoutes.db.disconnect()
 
         # Drop all tables
+        TEST_DATABASE_URL = TestSubscriptionRoutes.test_settings.DATABASE_URL
         engine = create_async_engine(TEST_DATABASE_URL, echo=False)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
@@ -148,7 +154,10 @@ class TestSubscriptionRoutes(LaborantTest):
             await user_repo.update(user)
 
         # Clear cache
-        if test_settings.REDIS_ENABLED and container._multi_layer_cache:
+        if (
+            TestSubscriptionRoutes.test_settings.REDIS_ENABLED
+            and container._multi_layer_cache
+        ):
             cache = container.multi_layer_cache
             async with cache.l1_lock:
                 cache.l1_cache.clear()
@@ -157,11 +166,7 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def async_teardown_test(self):
         """Cleanup after each test."""
-        # Cleanup handled by async_setup_test
-
-    # ================================================================
-    # Helper Methods
-    # ================================================================
+        pass
 
     def _generate_unique_wallet(self) -> str:
         """Generate unique 44-character wallet address."""
@@ -178,7 +183,6 @@ class TestSubscriptionRoutes(LaborantTest):
                 escrow_account="3aV1Pbb5bT4x7dPdKj2fhgrXM2kPGMsTs4zB7CMkKfki",
                 token_mint="USDC",
             )
-            # Give user $500 USDC - enough for multiple subscriptions
             user.update_escrow_balance(Decimal("500.0"))
             TestSubscriptionRoutes.test_user = await user_repo.create(user)
 
@@ -194,10 +198,6 @@ class TestSubscriptionRoutes(LaborantTest):
     def _auth_headers(self) -> dict:
         """Get authorization headers."""
         return {"Authorization": f"Bearer {self.test_token}"}
-
-    # ================================================================
-    # POST /subscriptions/ Tests
-    # ================================================================
 
     async def test_create_subscription_success(self):
         """Test successful subscription creation."""
@@ -227,7 +227,6 @@ class TestSubscriptionRoutes(LaborantTest):
             "Testing create subscription (insufficient balance)", context="Test"
         )
 
-        # Update user balance to insufficient amount using container
         container = get_container()
         async with self.db.session() as session:
             user_repo = container.get_user_repository(session)
@@ -248,7 +247,9 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def test_create_subscription_unauthorized(self):
         """Test subscription creation without authentication."""
-        self.reporter.info("Testing create subscription (unauthorized)", context="Test")
+        self.reporter.info(
+            "Testing create subscription (unauthorized)", context="Test"
+        )
 
         response = await self.client.post(
             "/api/subscriptions/",
@@ -260,7 +261,7 @@ class TestSubscriptionRoutes(LaborantTest):
         self.reporter.info("Unauthorized error returned", context="Test")
 
     async def test_create_subscription_pro_plan(self):
-        """Test creating PRO subscription ($99.99/month)."""
+        """Test creating PRO subscription."""
         self.reporter.info("Testing create PRO subscription", context="Test")
 
         response = await self.client.post(
@@ -276,10 +277,6 @@ class TestSubscriptionRoutes(LaborantTest):
         assert data["status"] == "active"
 
         self.reporter.info("PRO subscription created successfully", context="Test")
-
-    # ================================================================
-    # GET /subscriptions/ Tests
-    # ================================================================
 
     async def test_list_subscriptions_empty(self):
         """Test listing subscriptions when user has none."""
@@ -302,7 +299,6 @@ class TestSubscriptionRoutes(LaborantTest):
         """Test listing subscriptions when user has subscriptions."""
         self.reporter.info("Testing list subscriptions (with data)", context="Test")
 
-        # Create a subscription first
         create_response = await self.client.post(
             "/api/subscriptions/",
             json={"plan_type": "basic"},
@@ -310,7 +306,6 @@ class TestSubscriptionRoutes(LaborantTest):
         )
         assert create_response.status_code == 201
 
-        # List subscriptions
         response = await self.client.get(
             "/api/subscriptions/",
             headers=self._auth_headers(),
@@ -324,10 +319,6 @@ class TestSubscriptionRoutes(LaborantTest):
         assert data[0]["plan_type"] == "basic"
 
         self.reporter.info("Subscription list retrieved", context="Test")
-
-    # ================================================================
-    # GET /subscriptions/check Tests
-    # ================================================================
 
     async def test_check_status_no_subscription(self):
         """Test checking subscription status with no active subscription."""
@@ -348,9 +339,10 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def test_check_status_with_active_subscription(self):
         """Test checking subscription status with active subscription."""
-        self.reporter.info("Testing check status (active subscription)", context="Test")
+        self.reporter.info(
+            "Testing check status (active subscription)", context="Test"
+        )
 
-        # Create a subscription
         create_response = await self.client.post(
             "/api/subscriptions/",
             json={"plan_type": "pro"},
@@ -358,7 +350,6 @@ class TestSubscriptionRoutes(LaborantTest):
         )
         assert create_response.status_code == 201
 
-        # Check status
         response = await self.client.get(
             "/api/subscriptions/check",
             headers=self._auth_headers(),
@@ -372,15 +363,12 @@ class TestSubscriptionRoutes(LaborantTest):
 
         self.reporter.info("Active subscription status returned", context="Test")
 
-    # ================================================================
-    # GET /subscriptions/{id} Tests
-    # ================================================================
-
     async def test_get_subscription_by_id_success(self):
         """Test getting subscription by ID."""
-        self.reporter.info("Testing get subscription by ID (success)", context="Test")
+        self.reporter.info(
+            "Testing get subscription by ID (success)", context="Test"
+        )
 
-        # Create a subscription
         create_response = await self.client.post(
             "/api/subscriptions/",
             json={"plan_type": "basic"},
@@ -388,7 +376,6 @@ class TestSubscriptionRoutes(LaborantTest):
         )
         subscription_id = create_response.json()["id"]
 
-        # Get by ID
         response = await self.client.get(
             f"/api/subscriptions/{subscription_id}",
             headers=self._auth_headers(),
@@ -404,7 +391,9 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def test_get_subscription_by_id_not_found(self):
         """Test getting non-existent subscription."""
-        self.reporter.info("Testing get subscription by ID (not found)", context="Test")
+        self.reporter.info(
+            "Testing get subscription by ID (not found)", context="Test"
+        )
 
         fake_id = "00000000-0000-0000-0000-000000000000"
 
@@ -420,9 +409,10 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def test_get_subscription_by_id_forbidden(self):
         """Test getting another user's subscription."""
-        self.reporter.info("Testing get subscription by ID (forbidden)", context="Test")
+        self.reporter.info(
+            "Testing get subscription by ID (forbidden)", context="Test"
+        )
 
-        # Create subscription for test user
         create_response = await self.client.post(
             "/api/subscriptions/",
             json={"plan_type": "basic"},
@@ -430,7 +420,6 @@ class TestSubscriptionRoutes(LaborantTest):
         )
         subscription_id = create_response.json()["id"]
 
-        # Create another user using container
         container = get_container()
         async with self.db.session() as session:
             user_repo = container.get_user_repository(session)
@@ -441,7 +430,6 @@ class TestSubscriptionRoutes(LaborantTest):
             )
             other_user = await user_repo.create(other_user)
 
-        # Generate token for other user
         from pourtier.infrastructure.auth.jwt_handler import create_access_token
 
         other_token = create_access_token(
@@ -449,7 +437,6 @@ class TestSubscriptionRoutes(LaborantTest):
             wallet_address=other_user.wallet_address,
         )
 
-        # Try to access test user's subscription with other user's token
         response = await self.client.get(
             f"/api/subscriptions/{subscription_id}",
             headers={"Authorization": f"Bearer {other_token}"},
@@ -460,15 +447,10 @@ class TestSubscriptionRoutes(LaborantTest):
 
         self.reporter.info("Forbidden error returned", context="Test")
 
-    # ================================================================
-    # PATCH /subscriptions/{id} Tests
-    # ================================================================
-
     async def test_update_subscription_cancel(self):
         """Test cancelling subscription."""
         self.reporter.info("Testing update subscription (cancel)", context="Test")
 
-        # Create subscription
         create_response = await self.client.post(
             "/api/subscriptions/",
             json={"plan_type": "basic"},
@@ -476,7 +458,6 @@ class TestSubscriptionRoutes(LaborantTest):
         )
         subscription_id = create_response.json()["id"]
 
-        # Cancel subscription
         response = await self.client.patch(
             f"/api/subscriptions/{subscription_id}",
             json={"status": "cancelled"},
@@ -494,7 +475,6 @@ class TestSubscriptionRoutes(LaborantTest):
         """Test expiring subscription."""
         self.reporter.info("Testing update subscription (expire)", context="Test")
 
-        # Create subscription
         create_response = await self.client.post(
             "/api/subscriptions/",
             json={"plan_type": "basic"},
@@ -502,7 +482,6 @@ class TestSubscriptionRoutes(LaborantTest):
         )
         subscription_id = create_response.json()["id"]
 
-        # Expire subscription
         response = await self.client.patch(
             f"/api/subscriptions/{subscription_id}",
             json={"status": "expired"},
@@ -522,7 +501,6 @@ class TestSubscriptionRoutes(LaborantTest):
             "Testing update subscription (invalid status)", context="Test"
         )
 
-        # Create subscription
         create_response = await self.client.post(
             "/api/subscriptions/",
             json={"plan_type": "basic"},
@@ -530,7 +508,6 @@ class TestSubscriptionRoutes(LaborantTest):
         )
         subscription_id = create_response.json()["id"]
 
-        # Try invalid status
         response = await self.client.patch(
             f"/api/subscriptions/{subscription_id}",
             json={"status": "invalid_status"},

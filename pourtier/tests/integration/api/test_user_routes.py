@@ -25,12 +25,8 @@ from pourtier.infrastructure.persistence.models import Base, UserModel
 from pourtier.infrastructure.persistence.repositories.user_repository import (
     UserRepository,
 )
-from pourtier.main import app
+from pourtier.main import create_app
 from shared.tests import LaborantTest
-
-# Load test configuration
-test_settings = load_config("test.yaml")
-TEST_DATABASE_URL = test_settings.DATABASE_URL
 
 
 class TestUserRoutes(LaborantTest):
@@ -42,18 +38,23 @@ class TestUserRoutes(LaborantTest):
     # Class-level shared resources
     db: Database = None
     client: httpx.AsyncClient = None
-
-    # ================================================================
-    # Async Lifecycle Hooks
-    # ================================================================
+    test_settings = None
 
     async def async_setup(self):
         """Setup test database and API client (runs once before all tests)."""
         self.reporter.info("Setting up user API tests...", context="Setup")
+
+        # Load test configuration
+        TestUserRoutes.test_settings = load_config(
+            "development.yaml", env="development"
+        )
+        app = create_app(TestUserRoutes.test_settings)
+
+        TEST_DATABASE_URL = TestUserRoutes.test_settings.DATABASE_URL
         self.reporter.info(f"Database: {TEST_DATABASE_URL}", context="Setup")
 
         # Apply test settings globally
-        override_settings(test_settings)
+        override_settings(TestUserRoutes.test_settings)
 
         # Drop and recreate tables
         engine = create_async_engine(TEST_DATABASE_URL, echo=False)
@@ -93,14 +94,12 @@ class TestUserRoutes(LaborantTest):
         if TestUserRoutes.client:
             await TestUserRoutes.client.aclose()
 
-        # Clear dependency overrides
-        app.dependency_overrides.clear()
-
         # Disconnect database
         if TestUserRoutes.db:
             await TestUserRoutes.db.disconnect()
 
         # Drop all tables
+        TEST_DATABASE_URL = TestUserRoutes.test_settings.DATABASE_URL
         engine = create_async_engine(TEST_DATABASE_URL, echo=False)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
@@ -121,11 +120,7 @@ class TestUserRoutes(LaborantTest):
 
     async def async_teardown_test(self):
         """Cleanup after each test."""
-        # Cleanup handled by async_setup_test
-
-    # ================================================================
-    # Helper Methods
-    # ================================================================
+        pass
 
     def _generate_unique_wallet(self) -> str:
         """Generate unique 44-character wallet address."""
@@ -168,10 +163,6 @@ class TestUserRoutes(LaborantTest):
         """Get authorization headers."""
         return {"Authorization": f"Bearer {token}"}
 
-    # ================================================================
-    # POST /users/ Tests
-    # ================================================================
-
     async def test_create_user_success(self):
         """Test successful user creation."""
         self.reporter.info("Testing create user (success)", context="Test")
@@ -189,7 +180,6 @@ class TestUserRoutes(LaborantTest):
         assert "id" in data
         assert data["wallet_address"] == wallet
         assert data["escrow_account"] is None
-        # Decimal serializes with 6 decimal places
         assert Decimal(data["escrow_balance"]) == Decimal("0")
         assert "created_at" in data
         assert "updated_at" in data
@@ -200,7 +190,6 @@ class TestUserRoutes(LaborantTest):
         """Test creating user with duplicate wallet address."""
         self.reporter.info("Testing create user (duplicate wallet)", context="Test")
 
-        # Create first user
         wallet = self._generate_unique_wallet()
         response1 = await self.client.post(
             "/api/users/",
@@ -208,7 +197,6 @@ class TestUserRoutes(LaborantTest):
         )
         assert response1.status_code == 201
 
-        # Try to create second user with same wallet
         response2 = await self.client.post(
             "/api/users/",
             json={"wallet_address": wallet},
@@ -216,7 +204,6 @@ class TestUserRoutes(LaborantTest):
 
         assert response2.status_code == 400
         detail = response2.json()["detail"].lower()
-        # Accept multiple error message formats
         assert any(
             keyword in detail
             for keyword in ["already registered", "already exists", "duplicate"]
@@ -228,30 +215,22 @@ class TestUserRoutes(LaborantTest):
         """Test creating user with invalid wallet address."""
         self.reporter.info("Testing create user (invalid wallet)", context="Test")
 
-        # Too short wallet address
         response = await self.client.post(
             "/api/users/",
             json={"wallet_address": "short"},
         )
 
-        # Expect 400 Bad Request or 422 Validation Error
         assert response.status_code in [400, 422]
 
         self.reporter.info("Invalid wallet error returned", context="Test")
-
-    # ================================================================
-    # GET /users/me Tests
-    # ================================================================
 
     async def test_get_current_user_success(self):
         """Test getting current authenticated user profile."""
         self.reporter.info("Testing get current user (success)", context="Test")
 
-        # Create user
         user = await self._create_test_user(with_escrow=True)
         token = self._generate_test_token(user)
 
-        # Get current user
         response = await self.client.get(
             "/api/users/me",
             headers=self._auth_headers(token),
@@ -286,23 +265,16 @@ class TestUserRoutes(LaborantTest):
             headers={"Authorization": "Bearer invalid_token_here"},
         )
 
-        # Auth middleware may return 401 or 403
         assert response.status_code in [401, 403]
 
         self.reporter.info("Invalid token error returned", context="Test")
-
-    # ================================================================
-    # GET /users/{user_id} Tests
-    # ================================================================
 
     async def test_get_user_by_id_success(self):
         """Test getting user by ID."""
         self.reporter.info("Testing get user by ID (success)", context="Test")
 
-        # Create user
         user = await self._create_test_user(with_escrow=True)
 
-        # Get user by ID
         response = await self.client.get(f"/api/users/{user.id}")
 
         assert response.status_code == 200
@@ -333,22 +305,16 @@ class TestUserRoutes(LaborantTest):
 
         response = await self.client.get("/api/users/invalid-uuid-format")
 
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422
 
         self.reporter.info("Invalid UUID error returned", context="Test")
-
-    # ================================================================
-    # GET /users/wallet/{wallet_address} Tests
-    # ================================================================
 
     async def test_get_user_by_wallet_success(self):
         """Test getting user by wallet address."""
         self.reporter.info("Testing get user by wallet (success)", context="Test")
 
-        # Create user
         user = await self._create_test_user(with_escrow=True)
 
-        # Get user by wallet
         response = await self.client.get(f"/api/users/wallet/{user.wallet_address}")
 
         assert response.status_code == 200
@@ -372,10 +338,6 @@ class TestUserRoutes(LaborantTest):
         assert "not found" in response.json()["detail"].lower()
 
         self.reporter.info("Not found error returned", context="Test")
-
-    # ================================================================
-    # Additional Edge Case Tests
-    # ================================================================
 
     async def test_create_user_without_escrow(self):
         """Test that newly created user has no escrow initialized."""
@@ -401,7 +363,6 @@ class TestUserRoutes(LaborantTest):
         """Test complete flow: create user, authenticate, get profile."""
         self.reporter.info("Testing complete user flow", context="Test")
 
-        # 1. Create user
         wallet = self._generate_unique_wallet()
         create_response = await self.client.post(
             "/api/users/",
@@ -410,12 +371,10 @@ class TestUserRoutes(LaborantTest):
         assert create_response.status_code == 201
         user_id = create_response.json()["id"]
 
-        # 2. Get user by ID (public endpoint)
         get_response = await self.client.get(f"/api/users/{user_id}")
         assert get_response.status_code == 200
         assert get_response.json()["wallet_address"] == wallet
 
-        # 3. Get user by wallet (public endpoint)
         wallet_response = await self.client.get(f"/api/users/wallet/{wallet}")
         assert wallet_response.status_code == 200
         assert wallet_response.json()["id"] == user_id

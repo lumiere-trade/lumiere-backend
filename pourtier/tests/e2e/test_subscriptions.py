@@ -30,7 +30,7 @@ from shared.reporter.emojis.errors_emojis import ErrorEmoji
 from shared.tests import LaborantTest
 
 # Load test configuration
-test_settings = load_config("test.yaml")
+test_settings = load_config("development.yaml", env="development")
 
 # Get API configuration
 API_HOST = test_settings.API_HOST

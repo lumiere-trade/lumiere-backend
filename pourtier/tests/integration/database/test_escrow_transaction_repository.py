@@ -31,7 +31,7 @@ from pourtier.infrastructure.persistence.repositories.user_repository import (
 from shared.tests import LaborantTest
 
 # Load test configuration
-test_settings = load_config("test.yaml")
+test_settings = load_config("development.yaml", env="development")
 TEST_DATABASE_URL = test_settings.DATABASE_URL
 
 

@@ -27,7 +27,7 @@ from pourtier.infrastructure.persistence.models import Base
 from pourtier.infrastructure.persistence.repositories.user_repository import (
     UserRepository,
 )
-from pourtier.main import app
+from pourtier.main import create_app
 from shared.tests import LaborantTest
 
 
@@ -53,7 +53,8 @@ class TestEscrowRoutes(LaborantTest):
         self.reporter.info("Setting up API integration tests...", context="Setup")
 
         # 1. Load test config and override global settings
-        TestEscrowRoutes.test_settings = load_config("test.yaml")
+        TestEscrowRoutes.test_settings = load_config("development.yaml", env="development")
+        app = create_app(TestEscrowRoutes.test_settings)
         override_settings(TestEscrowRoutes.test_settings)
 
         self.reporter.info("Test settings loaded and applied", context="Setup")

@@ -22,7 +22,7 @@ from pourtier.application.use_cases.get_user_profile import GetUserProfile
 from pourtier.application.use_cases.update_user_profile import (
     UpdateUserProfile,
 )
-from pourtier.config.settings import settings
+from pourtier.config.settings import get_settings
 from pourtier.domain.repositories.i_escrow_transaction_repository import (
     IEscrowTransactionRepository,
 )
@@ -145,7 +145,7 @@ class DIContainer:
         await self.database.connect()
 
         # Initialize Redis cache (if enabled)
-        if settings.REDIS_ENABLED:
+        if get_settings().REDIS_ENABLED:
             await self.cache_client.connect()
 
         # Initialize Courier client
@@ -178,8 +178,8 @@ class DIContainer:
         """Get database instance."""
         if self._database is None:
             self._database = Database(
-                database_url=settings.DATABASE_URL,
-                echo=settings.DATABASE_ECHO,
+                database_url=get_settings().DATABASE_URL,
+                echo=get_settings().DATABASE_ECHO,
             )
         return self._database
 
@@ -187,7 +187,7 @@ class DIContainer:
     def courier_client(self) -> CourierClient:
         """Get Courier client instance."""
         if self._courier_client is None:
-            self._courier_client = CourierClient(base_url=settings.COURIER_URL)
+            self._courier_client = CourierClient(base_url=get_settings().COURIER_URL)
         return self._courier_client
 
     @property
@@ -195,10 +195,10 @@ class DIContainer:
         """Get Redis cache client instance."""
         if self._cache_client is None:
             self._cache_client = RedisCacheClient(
-                host=settings.REDIS_HOST,
-                port=settings.REDIS_PORT,
-                db=settings.REDIS_DB,
-                password=(settings.REDIS_PASSWORD if settings.REDIS_PASSWORD else None),
+                host=get_settings().REDIS_HOST,
+                port=get_settings().REDIS_PORT,
+                db=get_settings().REDIS_DB,
+                password=(get_settings().REDIS_PASSWORD if get_settings().REDIS_PASSWORD else None),
             )
         return self._cache_client
 
@@ -221,7 +221,7 @@ class DIContainer:
         """Get Passeur Bridge client instance."""
         if self._passeur_bridge is None:
             self._passeur_bridge = PasseurBridgeClient(
-                bridge_url=settings.PASSEUR_BRIDGE_URL,
+                bridge_url=get_settings().PASSEUR_BRIDGE_URL,
                 timeout=30,
             )
         return self._passeur_bridge
@@ -231,7 +231,7 @@ class DIContainer:
         """Get blockchain transaction verifier instance."""
         if self._blockchain_verifier is None:
             self._blockchain_verifier = SolanaTransactionVerifier(
-                rpc_url=settings.SOLANA_RPC_URL,
+                rpc_url=get_settings().SOLANA_RPC_URL,
                 timeout=30,
             )
         return self._blockchain_verifier
@@ -241,7 +241,7 @@ class DIContainer:
         """Get escrow query service instance."""
         if self._escrow_query_service is None:
             self._escrow_query_service = PasseurQueryService(
-                bridge_url=settings.PASSEUR_BRIDGE_URL,
+                bridge_url=get_settings().PASSEUR_BRIDGE_URL,
                 timeout=30,
             )
         return self._escrow_query_service
@@ -280,7 +280,7 @@ class DIContainer:
         """
         if self._escrow_contract_client is None:
             self._escrow_contract_client = EscrowContractClient(
-                bridge_url=settings.PASSEUR_BRIDGE_URL,
+                bridge_url=get_settings().PASSEUR_BRIDGE_URL,
                 timeout=30,
             )
         return self._escrow_contract_client
@@ -308,7 +308,7 @@ class DIContainer:
         """
         if session is not None:
             # Inject cache if Redis is enabled
-            cache = self.multi_layer_cache if settings.REDIS_ENABLED else None
+            cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
             return UserRepository(session, cache=cache)
         return UserRepository
 
@@ -399,7 +399,7 @@ class DIContainer:
             AuthenticateWallet use case instance
         """
         # Inject cache if Redis enabled
-        cache = self.multi_layer_cache if settings.REDIS_ENABLED else None
+        cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
         user_repository = UserRepository(session, cache=cache)
 
         return AuthenticateWallet(
@@ -433,7 +433,7 @@ class DIContainer:
         subscription_repo = SubscriptionRepository(session)
 
         # Inject cache if Redis enabled
-        cache = self.multi_layer_cache if settings.REDIS_ENABLED else None
+        cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
         user_repo = UserRepository(session, cache=cache)
 
         return CreateSubscription(

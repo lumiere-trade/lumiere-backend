@@ -29,7 +29,7 @@ from pourtier.infrastructure.persistence.models import (
     UserLegalAcceptanceModel,
     UserModel,
 )
-from pourtier.main import app
+from pourtier.main import create_app
 from shared.blockchain.wallets import PlatformWallets
 from shared.tests import LaborantTest
 
@@ -58,7 +58,10 @@ class TestAuthRoutes(LaborantTest):
         self.reporter.info("Setting up auth API integration tests...", context="Setup")
 
         # 1. Load test config and override global settings
-        TestAuthRoutes.test_settings = load_config("test.yaml")
+        TestAuthRoutes.test_settings = load_config("development.yaml", env="development")
+        
+        # Create test app with test settings
+        app = create_app(TestAuthRoutes.test_settings)
         override_settings(TestAuthRoutes.test_settings)
 
         self.reporter.info("Test settings loaded and applied", context="Setup")
