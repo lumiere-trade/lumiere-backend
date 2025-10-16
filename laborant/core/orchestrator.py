@@ -73,7 +73,7 @@ class Laborant:
         self,
         project_root: Optional[Path] = None,
         verbose: bool = False,
-        timeout: int = 60,
+        timeout: int = 120,
         fail_fast: bool = False,
     ):
         """

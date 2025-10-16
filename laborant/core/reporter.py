@@ -235,7 +235,8 @@ class LaborantReporter:
             content.append("    ", style="")
             content.append(icon, style=icon_style)
             content.append(" ", style="")
-            content.append(display_name.ljust(max_name_len), style="")
+            # ПРОМЯНА: Оцветяване на test name според статус
+            content.append(display_name.ljust(max_name_len), style=icon_style)
             content.append(f"{test.duration:>8.3f}s", style="")
             content.append("\n")
 
@@ -257,7 +258,8 @@ class LaborantReporter:
         content.append("    ", style="")
         content.append(icon, style=icon_style)
         content.append(" ", style="")
-        content.append(summary_text.ljust(43), style="")
+        # ПРОМЯНА: Оцветяване на summary text според статус
+        content.append(summary_text.ljust(43), style=icon_style)
         content.append(f"{duration:>8.3f}s", style="")
 
         # Format human-readable test name

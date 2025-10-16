@@ -12,10 +12,13 @@ Usage:
 import time
 
 import requests
-from passeur.config.settings import load_config
 from shared.tests import LaborantTest
 
-from tests.helpers.bridge_manager import BridgeManager
+from passeur.config.settings import load_config
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from helpers.bridge_manager import BridgeManager
 
 
 class TestBridgeLifecycle(LaborantTest):
@@ -32,7 +35,9 @@ class TestBridgeLifecycle(LaborantTest):
         self.test_config = load_config("development.yaml")
 
         # Initialize bridge manager
-        self.bridge = BridgeManager(config_file="development.yaml", reporter=self.reporter)
+        self.bridge = BridgeManager(
+            config_file="development.yaml", reporter=self.reporter
+        )
 
         self.reporter.info("Bridge manager ready", context="Setup")
 

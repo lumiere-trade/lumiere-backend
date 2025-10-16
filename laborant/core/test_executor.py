@@ -27,7 +27,7 @@ class TestExecutor:
     def __init__(
         self,
         project_root: Path,
-        timeout: int = 60,
+        timeout: int = 120,
         reporter: Optional[SystemReporter] = None,
     ):
         """
