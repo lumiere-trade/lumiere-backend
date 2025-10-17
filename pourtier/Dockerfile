@@ -99,6 +99,10 @@ COPY --chown=pourtier:pourtier pourtier/config/ ./config/
 COPY --chown=pourtier:pourtier pourtier/src/ ./src/
 COPY --chown=pourtier:pourtier pourtier/scripts/ ./scripts/
 
+# Copy Alembic migrations (ADDED)
+COPY --chown=pourtier:pourtier pourtier/alembic/ ./alembic/
+COPY --chown=pourtier:pourtier pourtier/alembic.ini ./alembic.ini
+
 # Switch to non-root user
 USER pourtier
 

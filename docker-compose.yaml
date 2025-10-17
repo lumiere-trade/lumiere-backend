@@ -32,6 +32,7 @@ services:
       POSTGRES_DB: lumiere
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - lumiere-net
     healthcheck:
@@ -50,8 +51,8 @@ services:
     restart: unless-stopped
     environment:
       ENV: ${ENV:-development}
-      # Database connection (Docker DNS: postgres)
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-secret}@postgres:5432/lumiere
+      # Database connection - Pourtier uses dedicated database
+      DATABASE_URL: postgresql+asyncpg://pourtier_user:pourtier_pass@postgres:5432/pourtier_test_db
       # JWT (CHANGE IN PRODUCTION!)
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_secret_change_in_production}
       # Solana
@@ -126,10 +127,10 @@ services:
       PASSEUR_SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
       PASSEUR_SOLANA_NETWORK: ${SOLANA_NETWORK:-devnet}
       PASSEUR_PROGRAM_ID: ${ESCROW_PROGRAM_ID:-9gvUtaF99sQ287PNzRfCbhFTC4PUnnd7jdAjnY5GUVhS}
-      # Platform Keypair (ADDED)
+      # Platform Keypair
       PASSEUR_PLATFORM_KEYPAIR_PATH: /app/keypairs/platform.json
     volumes:
-      # Mount keypair into container (ADDED)
+      # Mount keypair into container
       - ~/lumiere/keypairs/dev/platform.json:/app/keypairs/platform.json:ro
     ports:
       - "${PASSEUR_PORT:-8766}:8766"

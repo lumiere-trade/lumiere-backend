@@ -5,6 +5,7 @@ Database connection and session management.
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -122,7 +123,7 @@ class Database:
 
         try:
             async with self.session() as session:
-                await session.execute("SELECT 1")
+                await session.execute(text("SELECT 1"))
             return True
         except Exception:
             return False
