@@ -64,14 +64,14 @@ services:
       PASSEUR_BRIDGE_URL: http://passeur:9766
       COURIER_URL: http://courier:9765
     ports:
-      - "${POURTIER_PORT:-9000}:8000"
+      - "${POURTIER_PORT:-9000}:9000"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - lumiere-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
