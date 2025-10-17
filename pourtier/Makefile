@@ -15,13 +15,13 @@ help:
 	@echo "make clean       - Remove images"
 
 build-dev:
-	@echo "[BUILD] Building $(COMPONENT):development..."
-	docker build --target development -t $(COMPONENT):development .
+	@echo "[BUILD] Building $(COMPONENT):development with BuildKit..."
+	docker buildx build --target development -t $(COMPONENT):development --load .
 	@echo "[SUCCESS] Built $(COMPONENT):development"
 
 build-prod:
-	@echo "[BUILD] Building $(COMPONENT):production..."
-	docker build --target production -t $(COMPONENT):production .
+	@echo "[BUILD] Building $(COMPONENT):production with BuildKit..."
+	docker buildx build --target production -t $(COMPONENT):production --load .
 	docker tag $(COMPONENT):production $(COMPONENT):latest
 	@echo "[SUCCESS] Built $(COMPONENT):production"
 

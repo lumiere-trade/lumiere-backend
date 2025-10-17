@@ -17,13 +17,14 @@ This document defines the mandatory structure, configuration, and deployment pat
 3. [Python Package Layout](#python-package-layout)
 4. [Configuration Management](#configuration-management)
 5. [Docker Implementation](#docker-implementation)
-6. [Build System Makefile](#build-system-makefile)
-7. [Systemd Service](#systemd-service)
-8. [Security and Keypair Management](#security-and-keypair-management)
-9. [Testing Structure](#testing-structure)
-10. [Code Quality Standards](#code-quality-standards)
-11. [Component Types](#component-types)
-12. [Checklist](#checklist)
+6. [Docker BuildX](#docker-buildx)
+7. [Build System Makefile](#build-system-makefile)
+8. [Systemd Service](#systemd-service)
+9. [Security and Keypair Management](#security-and-keypair-management)
+10. [Testing Structure](#testing-structure)
+11. [Code Quality Standards](#code-quality-standards)
+12. [Component Types](#component-types)
+13. [Checklist](#checklist)
 
 ---
 
@@ -37,14 +38,14 @@ This document defines the mandatory structure, configuration, and deployment pat
 
 ### 2. Security First
 - No secrets in git repositories
-- No secrets in Docker images  
+- No secrets in Docker images
 - Keypairs stored centrally, mounted as read-only volumes
 - Environment variables for all sensitive data
 
 ### 3. Scalability
 - Easy to add new components
 - Standard deployment process
-- Docker-based deployment
+- Docker-based deployment with BuildX
 - Systemd service management
 
 ### 4. Maintainability
@@ -271,50 +272,50 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """
     Component configuration schema.
-    
+
     Loading priority:
     1. Environment variables (highest)
     2. YAML configuration
     3. Pydantic defaults (lowest)
     """
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="allow",
     )
-    
+
     # Application
     APP_NAME: str = "Component"
     APP_VERSION: str = "0.1.0"
     ENV: str = Field(default="development")
     DEBUG: bool = Field(default=False)
-    
+
     # API Server (from YAML or ENV)
     API_HOST: str = Field(default="0.0.0.0")
     API_PORT: int = Field(default=8000, ge=1024, le=65535)
     API_RELOAD: bool = Field(default=False)
-    
+
     # Logging
     LOG_LEVEL: str = Field(default="INFO")
     LOG_FILE: str = Field(default="logs/component.log")
-    
+
     # Database (from ENV - sensitive)
     DATABASE_URL: str = Field(...)
     DATABASE_ECHO: bool = Field(default=False)
-    
+
     # JWT (from ENV - sensitive)
     JWT_SECRET_KEY: str = Field(...)
     JWT_ALGORITHM: str = Field(default="HS256")
     JWT_EXPIRATION_HOURS: int = Field(default=24)
-    
+
     # Blockchain (from ENV - if needed)
     SOLANA_RPC_URL: Optional[str] = Field(default=None)
     SOLANA_NETWORK: Optional[str] = Field(default=None)
     ESCROW_PROGRAM_ID: Optional[str] = Field(default=None)
     PLATFORM_KEYPAIR_PATH: Optional[str] = Field(default=None)
-    
+
     @field_validator("LOG_LEVEL")
     @classmethod
     def validate_log_level(cls, v: str) -> str:
@@ -324,7 +325,7 @@ class Settings(BaseSettings):
         if v_upper not in allowed:
             raise ValueError(f"Invalid LOG_LEVEL: {v}")
         return v_upper
-    
+
     @field_validator("PLATFORM_KEYPAIR_PATH")
     @classmethod
     def expand_keypair_path(cls, v: Optional[str]) -> Optional[str]:
@@ -337,10 +338,10 @@ class Settings(BaseSettings):
 def load_config(config_file: Optional[str] = None) -> Settings:
     """
     Load configuration from YAML and environment.
-    
+
     Args:
         config_file: YAML filename
-    
+
     Returns:
         Settings instance
     """
@@ -352,18 +353,18 @@ def load_config(config_file: Optional[str] = None) -> Settings:
             "development": "component.yaml",
         }
         config_file = config_map.get(env, "component.yaml")
-    
+
     current_file = Path(__file__).resolve()
     project_root = current_file.parent.parent.parent.parent
     config_path = project_root / "config" / config_file
-    
+
     yaml_config = {}
     if config_path.exists():
         with open(config_path, "r") as f:
             loaded = yaml.safe_load(f)
             if loaded:
                 yaml_config = loaded
-    
+
     return Settings(**yaml_config)
 
 
@@ -457,7 +458,7 @@ SOLANA_NETWORK=mainnet-beta
 ESCROW_PROGRAM_ID=YOUR_PRODUCTION_PROGRAM_ID
 PLATFORM_KEYPAIR_PATH=/root/lumiere/keypairs/prod/platform.json
 
-# External Services  
+# External Services
 PASSEUR_BRIDGE_URL=http://localhost:8766
 COURIER_URL=http://localhost:8765
 ```
@@ -629,8 +630,124 @@ component_name:latest       # Alias for production
 
 **NEVER use:**
 - component:dev (ambiguous)
-- component:prod (ambiguous)  
+- component:prod (ambiguous)
 - component:test (test is not an environment)
+
+---
+
+## Docker BuildX
+
+### Overview
+
+Lumiere uses Docker BuildX (BuildKit) for all image builds. BuildX is the modern Docker build system that provides:
+
+- **Performance**: Parallel layer processing, intelligent caching
+- **Security**: Better secret handling, rootless builds  
+- **Multi-platform**: Build for AMD64, ARM64 simultaneously
+- **Modern**: Active development, future-proof
+- **Standard**: Default in Docker 23.0+
+
+The legacy builder is deprecated and will be removed in future Docker versions.
+
+### One-Time Setup
+
+BuildX is included with Docker 19.03+. Create the builder instance once per machine:
+```bash
+# Verify buildx is installed
+docker buildx version
+
+# Create lumiere-builder instance
+docker buildx create \
+    --name lumiere-builder \
+    --driver docker-container \
+    --bootstrap
+
+# Set as default
+docker buildx use lumiere-builder
+
+# Verify setup
+docker buildx inspect lumiere-builder
+docker buildx ls
+```
+
+Expected output:
+```
+NAME/NODE          DRIVER/ENDPOINT             STATUS  BUILDKIT
+lumiere-builder *  docker-container
+  lumiere-builder0 unix:///var/run/docker.sock running v0.25.1
+```
+
+The asterisk (*) indicates the active builder.
+
+### Build Commands
+
+All Makefiles use `docker buildx build` with the `--load` flag:
+```bash
+# Development build
+docker buildx build \
+    --target development \
+    -t component:development \
+    --load \
+    .
+
+# Production build  
+docker buildx build \
+    --target production \
+    -t component:production \
+    --load \
+    .
+```
+
+**Important**: The `--load` flag loads the image into local Docker. Without it, the image stays in BuildX cache only.
+
+### BuildX vs Legacy Builder
+
+| Feature | Legacy Builder | BuildX |
+|---------|---------------|--------|
+| Speed | Slow (sequential) | Fast (parallel) |
+| Caching | Basic | Advanced |
+| Multi-platform | No | Yes |
+| Security | Basic | Enhanced |
+| Status | Deprecated | Active |
+
+### Multi-Platform Builds
+
+BuildX enables building for multiple architectures:
+```bash
+# Build for multiple platforms
+docker buildx build \
+    --platform linux/amd64,linux/arm64 \
+    -t component:production \
+    --push \
+    .
+```
+
+This is useful for:
+- ARM-based servers (AWS Graviton, Apple Silicon)
+- Multi-architecture deployments
+- Testing on different platforms
+
+### Troubleshooting
+
+**Problem**: `docker: unknown command: docker buildx`
+
+**Solution**: Install docker-buildx-plugin or update Docker to 19.03+
+```bash
+sudo apt-get update
+sudo apt-get install -y docker-buildx-plugin
+```
+
+**Problem**: Build is slow on first run
+
+**Solution**: BuildX downloads buildkit image on first use. Subsequent builds will be faster due to caching.
+
+**Problem**: `--load` flag not working
+
+**Solution**: Ensure you're using the correct builder:
+```bash
+docker buildx use lumiere-builder
+docker buildx ls  # Verify active builder has *
+```
 
 ---
 
@@ -638,12 +755,12 @@ component_name:latest       # Alias for production
 
 ### Component Makefile
 
-Every component must have its own Makefile.
+Every component must have its own Makefile with BuildX commands.
 
 **File: `Makefile`**
 ```makefile
 # Component Makefile
-# Standard build commands
+# Standard build commands with BuildX
 
 .PHONY: help build-dev build-prod run-dev run-prod clean
 
@@ -660,13 +777,13 @@ help:
 	@echo "make clean       - Remove images"
 
 build-dev:
-	@echo "[BUILD] Building $(COMPONENT):development..."
-	docker build --target development -t $(COMPONENT):development .
+	@echo "[BUILD] Building $(COMPONENT):development with BuildX..."
+	docker buildx build --target development -t $(COMPONENT):development --load .
 	@echo "[SUCCESS] Built $(COMPONENT):development"
 
 build-prod:
-	@echo "[BUILD] Building $(COMPONENT):production..."
-	docker build --target production -t $(COMPONENT):production .
+	@echo "[BUILD] Building $(COMPONENT):production with BuildX..."
+	docker buildx build --target production -t $(COMPONENT):production --load .
 	docker tag $(COMPONENT):production $(COMPONENT):latest
 	@echo "[SUCCESS] Built $(COMPONENT):production"
 
@@ -992,22 +1109,22 @@ from component.config.settings import load_config
 
 class TestComponentConfig(LaborantTest):
     """Unit tests for configuration."""
-    
+
     component_name = "component"
     test_category = "unit"
-    
+
     def setup(self):
         """Setup before tests."""
         self.config = load_config("test.yaml")
         self.reporter.info("Loaded test config", context="Setup")
-    
+
     def test_default_values(self):
         """Test default configuration values."""
         self.reporter.info("Testing defaults", context="Test")
-        
+
         assert self.config.API_PORT == 8000
         assert self.config.LOG_LEVEL == "INFO"
-        
+
         self.reporter.info("Defaults correct", context="Test")
 ```
 
@@ -1067,18 +1184,18 @@ def create_user(
 ) -> User:
     """
     Create a new user account.
-    
+
     Args:
         wallet_address: Solana wallet address (base58 string)
         email: Optional email address for notifications
-    
+
     Returns:
         Created User entity
-    
+
     Raises:
         ValueError: If wallet_address format is invalid
         UserAlreadyExistsError: If user with wallet already exists
-    
+
     Example:
         >>> user = create_user("7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU")
         >>> print(user.wallet_address)
@@ -1087,21 +1204,21 @@ def create_user(
     # Validate wallet address format
     if not is_valid_solana_address(wallet_address):
         raise ValueError(f"Invalid wallet address: {wallet_address}")
-    
+
     # Check if user already exists
     existing_user = user_repository.get_by_wallet(wallet_address)
     if existing_user:
         raise UserAlreadyExistsError(wallet_address)
-    
+
     # Create new user
     user = User(wallet_address=wallet_address, email=email)
     user_repository.save(user)
-    
+
     logger.info(
         "Created new user",
         extra={"wallet": wallet_address, "has_email": email is not None}
     )
-    
+
     return user
 ```
 
@@ -1173,6 +1290,13 @@ When creating a new component, verify:
 - [ ] production target
 - [ ] Health check implemented
 - [ ] Non-root user in production
+- [ ] Uses FROM...AS (uppercase AS)
+
+**BuildX:**
+- [ ] Docker BuildX installed and configured
+- [ ] lumiere-builder created and active
+- [ ] Makefile uses docker buildx build
+- [ ] All builds use --load flag
 
 **Build System:**
 - [ ] Component Makefile exists
@@ -1208,8 +1332,9 @@ When migrating existing component to this standard:
 - [ ] Create hybrid settings.py
 - [ ] Split config into YAML + ENV
 - [ ] Create multi-stage Dockerfile
-- [ ] Create component Makefile
-- [ ] Test Docker builds
+- [ ] Fix Dockerfile FROM...AS casing
+- [ ] Create component Makefile with BuildX
+- [ ] Test Docker builds with BuildX
 - [ ] Create systemd service
 - [ ] Update documentation
 - [ ] Verify in master Makefile
@@ -1224,6 +1349,8 @@ This standard ensures:
 - Secure handling of sensitive data
 - Reproducible builds and deployments
 - Scalable architecture
+- Modern build system (BuildX)
+- Production-ready deployment
 
 **When in doubt, refer to Pourtier as the reference implementation for standard components.**
 

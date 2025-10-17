@@ -3,12 +3,12 @@ Alembic migration environment for Pourtier.
 
 Imports SQLAlchemy models and configures autogenerate.
 """
+
 import os
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
-
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # Import Base from models - THIS IS CRITICAL
 from pourtier.infrastructure.persistence.models import Base
