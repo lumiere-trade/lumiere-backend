@@ -62,19 +62,15 @@ RUN pip install --no-cache-dir \
     --trusted-host 172.17.0.1 \
     -e ".[dev]"
 
-# Expose port
-EXPOSE 8000
+# Expose port (dynamic, will be set via docker-compose)
+EXPOSE 8000 9000 7000
 
-# Health check
+# Health check (uses API_PORT env var with fallback)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:${API_PORT:-8000}/health || exit 1
 
-# Run with auto-reload
-CMD ["uvicorn", "pourtier.main:get_app", "--factory", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--reload", \
-     "--log-level", "info"]
+# Run with Python module which reads port from settings
+CMD ["python", "-m", "pourtier.main"]
 
 # ============================================
 # Production stage (optimized)
@@ -99,7 +95,7 @@ COPY --chown=pourtier:pourtier pourtier/config/ ./config/
 COPY --chown=pourtier:pourtier pourtier/src/ ./src/
 COPY --chown=pourtier:pourtier pourtier/scripts/ ./scripts/
 
-# Copy Alembic migrations (ADDED)
+# Copy Alembic migrations
 COPY --chown=pourtier:pourtier pourtier/alembic/ ./alembic/
 COPY --chown=pourtier:pourtier pourtier/alembic.ini ./alembic.ini
 
@@ -117,11 +113,7 @@ EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:${API_PORT:-8000}/health || exit 1
 
-# Run production server
-CMD ["uvicorn", "pourtier.main:get_app", "--factory", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "4", \
-     "--loop", "uvloop"]
+# Run with Python module which reads port from settings
+CMD ["python", "-m", "pourtier.main"]
