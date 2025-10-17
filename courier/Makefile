@@ -3,7 +3,7 @@
 .PHONY: help build-dev build-prod run-dev run-prod clean
 
 COMPONENT = courier
-PORT_DEV = 8766
+PORT_DEV = 9765
 PORT_PROD = 8765
 PROJECT_ROOT = ..
 

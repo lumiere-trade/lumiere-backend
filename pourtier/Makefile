@@ -1,10 +1,11 @@
 # Pourtier Component Makefile
-# Standard build commands for development and production
 
 .PHONY: help build-dev build-prod run-dev run-prod clean
 
 COMPONENT = pourtier
-PORT = 8000
+PORT_DEV = 9000
+PORT_PROD = 8000
+PROJECT_ROOT = ..
 
 help:
 	@echo "=== Pourtier Docker Commands ==="
@@ -16,26 +17,42 @@ help:
 
 build-dev:
 	@echo "[BUILD] Building $(COMPONENT):development with BuildKit..."
-	docker buildx build --target development -t $(COMPONENT):development --load .
+	@echo "[INFO] Using PyPI Registry at http://localhost:9001/simple/"
+	cd $(PROJECT_ROOT) && docker buildx build \
+		-f $(COMPONENT)/Dockerfile \
+		--target development \
+		-t $(COMPONENT):development \
+		--add-host host.docker.internal:host-gateway \
+		--load \
+		.
 	@echo "[SUCCESS] Built $(COMPONENT):development"
 
 build-prod:
 	@echo "[BUILD] Building $(COMPONENT):production with BuildKit..."
-	docker buildx build --target production -t $(COMPONENT):production --load .
+	@echo "[INFO] Using PyPI Registry at http://localhost:9001/simple/"
+	cd $(PROJECT_ROOT) && docker buildx build \
+		-f $(COMPONENT)/Dockerfile \
+		--target production \
+		-t $(COMPONENT):production \
+		--add-host host.docker.internal:host-gateway \
+		--load \
+		.
 	docker tag $(COMPONENT):production $(COMPONENT):latest
 	@echo "[SUCCESS] Built $(COMPONENT):production"
 
 run-dev:
-	@echo "[RUN] Starting $(COMPONENT):development on port $(PORT)..."
-	docker run --rm -p $(PORT):$(PORT) \
+	@echo "[RUN] Starting $(COMPONENT):development on port $(PORT_DEV)..."
+	docker run --rm -p $(PORT_DEV):$(PORT_DEV) \
 		--env-file .env.development \
+		--add-host host.docker.internal:host-gateway \
 		--name $(COMPONENT)-dev \
 		$(COMPONENT):development
 
 run-prod:
-	@echo "[RUN] Starting $(COMPONENT):production on port $(PORT)..."
-	docker run --rm -p $(PORT):$(PORT) \
+	@echo "[RUN] Starting $(COMPONENT):production on port $(PORT_PROD)..."
+	docker run --rm -p $(PORT_PROD):$(PORT_PROD) \
 		--env-file .env.production \
+		--add-host host.docker.internal:host-gateway \
 		--name $(COMPONENT)-prod \
 		$(COMPONENT):production
 
