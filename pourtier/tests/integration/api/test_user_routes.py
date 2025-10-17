@@ -120,7 +120,6 @@ class TestUserRoutes(LaborantTest):
 
     async def async_teardown_test(self):
         """Cleanup after each test."""
-        pass
 
     def _generate_unique_wallet(self) -> str:
         """Generate unique 44-character wallet address."""

@@ -11,11 +11,11 @@ FROM node:18-alpine AS node-builder
 WORKDIR /app/bridge
 
 # Install Node.js dependencies
-COPY bridge/package*.json ./
+COPY passeur/bridge/package*.json ./
 RUN npm ci --only=production
 
 # Copy bridge source code
-COPY bridge/ ./
+COPY passeur/bridge/ ./
 
 # ============================================
 # Stage 2: Python build stage
@@ -32,8 +32,8 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python package files
-COPY pyproject.toml ./
-COPY src/ ./src/
+COPY passeur/pyproject.toml ./
+COPY passeur/src/ ./src/
 
 # Install Python package
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
@@ -68,7 +68,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV NODE_ENV=development
 
 # Copy application code
-COPY . .
+COPY passeur/ .
 
 # Expose bridge port
 EXPOSE 8766
@@ -104,8 +104,8 @@ COPY --from=python-builder /root/.local /home/passeur/.local
 COPY --from=node-builder /app/bridge ./bridge
 
 # Copy configuration and source code
-COPY --chown=passeur:passeur config/ ./config/
-COPY --chown=passeur:passeur src/ ./src/
+COPY --chown=passeur:passeur passeur/config/ ./config/
+COPY --chown=passeur:passeur passeur/src/ ./src/
 
 # Switch to non-root user
 USER passeur

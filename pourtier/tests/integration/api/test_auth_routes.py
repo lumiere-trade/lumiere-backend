@@ -58,8 +58,10 @@ class TestAuthRoutes(LaborantTest):
         self.reporter.info("Setting up auth API integration tests...", context="Setup")
 
         # 1. Load test config and override global settings
-        TestAuthRoutes.test_settings = load_config("development.yaml", env="development")
-        
+        TestAuthRoutes.test_settings = load_config(
+            "development.yaml", env="development"
+        )
+
         # Create test app with test settings
         app = create_app(TestAuthRoutes.test_settings)
         override_settings(TestAuthRoutes.test_settings)
