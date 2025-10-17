@@ -491,7 +491,7 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
             if client:
                 await client.close()
 
-    async def _wait_for_transaction(self, signature: str, max_wait: int = 60) -> bool:
+    async def _wait_for_transaction(self, signature: str, max_wait: int=60) -> bool:
         """Wait for transaction confirmation on blockchain (POLLING)."""
         from solana.rpc.async_api import AsyncClient
         from solders.signature import Signature

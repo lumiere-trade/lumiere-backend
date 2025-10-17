@@ -66,9 +66,7 @@ class TestSubscriptionRoutes(LaborantTest):
         await engine.dispose()
 
         # Connect database
-        TestSubscriptionRoutes.db = Database(
-            database_url=TEST_DATABASE_URL, echo=False
-        )
+        TestSubscriptionRoutes.db = Database(database_url=TEST_DATABASE_URL, echo=False)
         await TestSubscriptionRoutes.db.connect()
 
         # Override container's database with test database
@@ -103,9 +101,7 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def async_teardown(self):
         """Cleanup test database (runs once after all tests)."""
-        self.reporter.info(
-            "Cleaning up subscription API tests...", context="Teardown"
-        )
+        self.reporter.info("Cleaning up subscription API tests...", context="Teardown")
 
         # Close AsyncClient
         if TestSubscriptionRoutes.client:
@@ -166,7 +162,6 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def async_teardown_test(self):
         """Cleanup after each test."""
-        pass
 
     def _generate_unique_wallet(self) -> str:
         """Generate unique 44-character wallet address."""
@@ -247,9 +242,7 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def test_create_subscription_unauthorized(self):
         """Test subscription creation without authentication."""
-        self.reporter.info(
-            "Testing create subscription (unauthorized)", context="Test"
-        )
+        self.reporter.info("Testing create subscription (unauthorized)", context="Test")
 
         response = await self.client.post(
             "/api/subscriptions/",
@@ -339,9 +332,7 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def test_check_status_with_active_subscription(self):
         """Test checking subscription status with active subscription."""
-        self.reporter.info(
-            "Testing check status (active subscription)", context="Test"
-        )
+        self.reporter.info("Testing check status (active subscription)", context="Test")
 
         create_response = await self.client.post(
             "/api/subscriptions/",
@@ -365,9 +356,7 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def test_get_subscription_by_id_success(self):
         """Test getting subscription by ID."""
-        self.reporter.info(
-            "Testing get subscription by ID (success)", context="Test"
-        )
+        self.reporter.info("Testing get subscription by ID (success)", context="Test")
 
         create_response = await self.client.post(
             "/api/subscriptions/",
@@ -391,9 +380,7 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def test_get_subscription_by_id_not_found(self):
         """Test getting non-existent subscription."""
-        self.reporter.info(
-            "Testing get subscription by ID (not found)", context="Test"
-        )
+        self.reporter.info("Testing get subscription by ID (not found)", context="Test")
 
         fake_id = "00000000-0000-0000-0000-000000000000"
 
@@ -409,9 +396,7 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def test_get_subscription_by_id_forbidden(self):
         """Test getting another user's subscription."""
-        self.reporter.info(
-            "Testing get subscription by ID (forbidden)", context="Test"
-        )
+        self.reporter.info("Testing get subscription by ID (forbidden)", context="Test")
 
         create_response = await self.client.post(
             "/api/subscriptions/",

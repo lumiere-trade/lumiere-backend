@@ -156,9 +156,7 @@ class TestEventPublisher(LaborantTest):
                 )
                 TestEventPublisher.courier_process.wait()
             except Exception as e:
-                self.reporter.error(
-                    f"Error stopping Courier: {e}", context="Teardown"
-                )
+                self.reporter.error(f"Error stopping Courier: {e}", context="Teardown")
 
             TestEventPublisher.courier_process = None
 

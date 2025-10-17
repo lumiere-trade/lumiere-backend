@@ -198,7 +198,11 @@ class DIContainer:
                 host=get_settings().REDIS_HOST,
                 port=get_settings().REDIS_PORT,
                 db=get_settings().REDIS_DB,
-                password=(get_settings().REDIS_PASSWORD if get_settings().REDIS_PASSWORD else None),
+                password=(
+                    get_settings().REDIS_PASSWORD
+                    if get_settings().REDIS_PASSWORD
+                    else None
+                ),
             )
         return self._cache_client
 

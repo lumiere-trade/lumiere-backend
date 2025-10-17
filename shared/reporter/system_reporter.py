@@ -4,29 +4,7 @@ System Reporter - Centralized logging with optional Courier integration.
 Provides SystemReporter for file/console logging with optional Courier
 integration for real-time UI broadcasting.
 
-Architecture:
-    SystemReporter → [Optional: Courier HTTP] → UI
-
-Usage:
-    >>> from shared.reporter import SystemReporter
-    >>> from shared.reporter.emojis import Emoji
-    >>>
-    >>> # Without Courier (pure logging)
-    >>> reporter = SystemReporter(name="architect", log_dir="logs")
-    >>> reporter.info(f"{Emoji.SYSTEM.STARTUP} Started")
-    >>>
-    >>> # With Courier (logging + UI broadcasting)
-    >>> from shared.courier_client import CourierClient
-    >>> courier = CourierClient("http://localhost:8765")
-    >>> reporter = SystemReporter(
-    ...     name="chevalier",
-    ...     log_dir="logs",
-    ...     courier_client=courier
-    ... )
-    >>> reporter.info(
-    ...     f"{Emoji.SYSTEM.STARTUP} Started",
-    ...     context="SignalEvaluator"
-    ... )  # Logs + sends to UI via Courier
+Production-ready: Supports stdout logging for Docker environments.
 """
 
 import logging
@@ -46,32 +24,20 @@ class SystemReporter:
     """
     Logger with verbose filtering and optional Courier integration.
 
-    Combines traditional logging (file/console) with optional direct
-    publishing to Courier for real-time UI notifications.
-
-    Courier Publishing (if CourierClient provided):
-        - All messages (except DEBUG) sent to Courier 'sys' channel
-        - Fire-and-forget pattern (doesn't break if Courier down)
-        - Messages include level, context, and timestamp
+    Supports both file-based logging (development) and stdout logging
+    (production Docker).
 
     Verbose Levels:
         0 = Critical only (always visible)
         1 = Important messages (default)
         2 = Detailed information
         3 = Debug/verbose
-
-    Attributes:
-        name: Reporter name (used for log filename)
-        logger: Python logger instance
-        verbose: Current verbosity level (0-3)
-        courier_client: Optional CourierClient for UI broadcasting
-        courier_available: Flag indicating if Courier is reachable
     """
 
     def __init__(
         self,
         name: str = "system",
-        log_dir: str = "logs",
+        log_dir: Optional[str] = None,
         level: int = logging.INFO,
         verbose: int = 1,
         courier_client: Optional[Any] = None,
@@ -80,20 +46,12 @@ class SystemReporter:
         Initialize SystemReporter.
 
         Args:
-            name: Logger name (used for filename)
-            log_dir: Directory for log files
-            level: Python logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            name: Logger name (used for filename if log_dir provided)
+            log_dir: Directory for log files. If None, logs to stdout only.
+                    Can be relative ("logs") or absolute ("/app/logs")
+            level: Python logging level
             verbose: Verbosity filter (0-3)
-            courier_client: Optional CourierClient instance for UI broadcasting
-
-        Example:
-            >>> # Pure logging (no Courier)
-            >>> reporter = SystemReporter(name="architect")
-            >>>
-            >>> # With Courier
-            >>> from shared.courier_client import CourierClient
-            >>> courier = CourierClient("http://localhost:8765")
-            >>> reporter = SystemReporter(name="chevalier", courier_client=courier)
+            courier_client: Optional CourierClient for UI broadcasting
         """
         self.name = name
         self.verbose = verbose
@@ -110,30 +68,17 @@ class SystemReporter:
         # Initialize logging
         self._init_logger(name, log_dir, level)
 
-    def _init_logger(self, name: str, log_dir: str, level: int) -> None:
+    def _init_logger(
+        self, name: str, log_dir: Optional[str], level: int
+    ) -> None:
         """
-        Initialize logger with file and console handlers.
+        Initialize logger with file and/or console handlers.
 
         Args:
             name: Logger name
-            log_dir: Log directory path
+            log_dir: Log directory path (None = stdout only)
             level: Python logging level
         """
-        # Determine base directory (parent of 'reporter')
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        log_file = os.path.join(base_dir, log_dir, f"{name}.log")
-
-        # Create log directory
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
-
-        # Clear old log file
-        if os.path.exists(log_file):
-            try:
-                os.remove(log_file)
-                print(f"✓ Cleared old log file: {log_file}", file=sys.stderr)
-            except Exception as e:
-                print(f"⚠ Could not clear old log file: {e}", file=sys.stderr)
-
         # Initialize logger
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
@@ -141,41 +86,73 @@ class SystemReporter:
 
         # Create formatter
         formatter = logging.Formatter(
-            "%(asctime)s | %(levelname)-8s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            "%(asctime)s | %(levelname)-8s | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
 
-        # File handler
-        file_handler = logging.FileHandler(log_file, encoding="utf-8")
-        file_handler.setFormatter(formatter)
-        self.logger.addHandler(file_handler)
-
-        # Console handler
+        # Always add console handler (stdout)
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
+
+        # Add file handler only if log_dir provided
+        if log_dir:
+            # Handle absolute vs relative paths
+            if os.path.isabs(log_dir):
+                # Absolute path - use as-is
+                log_file = os.path.join(log_dir, f"{name}.log")
+            else:
+                # Relative path - resolve from package location
+                base_dir = os.path.abspath(
+                    os.path.join(os.path.dirname(__file__), "..", "..")
+                )
+                log_file = os.path.join(base_dir, log_dir, f"{name}.log")
+
+            # Create log directory
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+
+            # Clear old log file
+            if os.path.exists(log_file):
+                try:
+                    os.remove(log_file)
+                    print(
+                        f"✓ Cleared old log file: {log_file}",
+                        file=sys.stderr,
+                    )
+                except Exception as e:
+                    print(
+                        f"⚠ Could not clear old log file: {e}",
+                        file=sys.stderr,
+                    )
+
+            # File handler
+            file_handler = logging.FileHandler(log_file, encoding="utf-8")
+            file_handler.setFormatter(formatter)
+            self.logger.addHandler(file_handler)
+
+            # Start log retention worker
+            retention_thread = threading.Thread(
+                target=self._log_retention_worker,
+                args=(log_file,),
+                daemon=True,
+            )
+            retention_thread.start()
+
+            log_dest = log_file
+        else:
+            log_dest = "stdout"
 
         courier_status = "with Courier" if self.courier_client else "logging only"
         if self.courier_client and not self.courier_available:
             courier_status += " (unavailable)"
 
         print(
-            f"✓ SystemReporter initialized ({courier_status}): {log_file}",
+            f"✓ SystemReporter initialized ({courier_status}): {log_dest}",
             file=sys.stderr,
         )
 
-        # Start log retention worker
-        retention_thread = threading.Thread(
-            target=self._log_retention_worker, args=(log_file,), daemon=True
-        )
-        retention_thread.start()
-
     def _log_retention_worker(self, log_file: str) -> None:
-        """
-        Background worker to rotate old log files.
-
-        Args:
-            log_file: Path to log file
-        """
+        """Background worker to rotate old log files."""
         while True:
             try:
                 if os.path.exists(log_file):
@@ -193,26 +170,20 @@ class SystemReporter:
                 time.sleep(LOG_CHECK_INTERVAL)
 
             except Exception as e:
-                print(f"⚠ Retention worker error: {e}", file=sys.stderr)
+                print(
+                    f"⚠ Retention worker error: {e}",
+                    file=sys.stderr,
+                )
                 time.sleep(LOG_CHECK_INTERVAL)
 
     def _send_to_courier(
         self, level: str, message: str, context: str, verbose_level: int
     ) -> None:
-        """
-        Send log message to Courier (fire-and-forget).
-
-        Args:
-            level: Log level (debug, info, warning, error, critical)
-            message: Log message
-            context: Service/component context
-            verbose_level: Message verbose level
-        """
+        """Send log message to Courier (fire-and-forget)."""
         if not self.courier_client:
-            return  # No Courier - skip
+            return
 
         try:
-            # Build message payload
             payload = {
                 "type": "system_log",
                 "level": level,
@@ -222,10 +193,8 @@ class SystemReporter:
                 "timestamp": datetime.now().isoformat(),
             }
 
-            # Send to Courier (sync, fire-and-forget)
             success = self.courier_client.publish_sync("sys", payload)
 
-            # Update availability status
             if not success and self.courier_available:
                 self.courier_available = False
                 print(f"⚠ Courier became unavailable", file=sys.stderr)
@@ -234,16 +203,10 @@ class SystemReporter:
                 print(f"✓ Courier connection restored", file=sys.stderr)
 
         except Exception as e:
-            # Silently fail - don't break logging if Courier fails
             print(f"⚠ Courier publishing failed: {e}", file=sys.stderr)
 
     def set_verbose(self, level: int) -> None:
-        """
-        Update verbosity level.
-
-        Args:
-            level: New verbosity level (0-3)
-        """
+        """Update verbosity level."""
         self.verbose = max(0, min(3, level))
         self.info(
             f"Verbosity set to {self.verbose}",
@@ -252,43 +215,22 @@ class SystemReporter:
         )
 
     def _should_log(self, verbose_level: int) -> bool:
-        """
-        Check if message should be logged.
-
-        Args:
-            verbose_level: Required verbosity for message
-
-        Returns:
-            True if message passes filter
-        """
+        """Check if message should be logged."""
         return self.verbose >= verbose_level
 
-    # ============================================================
     # Core logging methods
-    # ============================================================
-
-    def debug(self, msg: str, context: str = "system", verbose_level: int = 3) -> None:
-        """
-        Log debug message (not sent to Courier).
-
-        Args:
-            msg: Message to log
-            context: Service/component context
-            verbose_level: Minimum verbosity required (default: 3)
-        """
+    def debug(
+        self, msg: str, context: str = "system", verbose_level: int = 3
+    ) -> None:
+        """Log debug message (not sent to Courier)."""
         if self._should_log(verbose_level):
             formatted_msg = f"[{context}] {msg}"
             self.logger.debug(formatted_msg)
 
-    def info(self, msg: str, context: str = "system", verbose_level: int = 1) -> None:
-        """
-        Log info message and send to Courier (if available).
-
-        Args:
-            msg: Message to log
-            context: Service/component context
-            verbose_level: Minimum verbosity required (default: 1)
-        """
+    def info(
+        self, msg: str, context: str = "system", verbose_level: int = 1
+    ) -> None:
+        """Log info message and send to Courier (if available)."""
         if self._should_log(verbose_level):
             formatted_msg = f"[{context}] {msg}"
             self.logger.info(formatted_msg)
@@ -297,28 +239,16 @@ class SystemReporter:
     def warning(
         self, msg: str, context: str = "system", verbose_level: int = 1
     ) -> None:
-        """
-        Log warning message and send to Courier (if available).
-
-        Args:
-            msg: Message to log
-            context: Service/component context
-            verbose_level: Minimum verbosity required (default: 1)
-        """
+        """Log warning message and send to Courier (if available)."""
         if self._should_log(verbose_level):
             formatted_msg = f"[{context}] {msg}"
             self.logger.warning(formatted_msg)
             self._send_to_courier("warning", msg, context, verbose_level)
 
-    def error(self, msg: str, context: str = "system", verbose_level: int = 0) -> None:
-        """
-        Log error message and send to Courier (if available).
-
-        Args:
-            msg: Message to log
-            context: Service/component context
-            verbose_level: Minimum verbosity required (default: 0 - always)
-        """
+    def error(
+        self, msg: str, context: str = "system", verbose_level: int = 0
+    ) -> None:
+        """Log error message and send to Courier (if available)."""
         if self._should_log(verbose_level):
             formatted_msg = f"[{context}] {msg}"
             self.logger.error(formatted_msg)
@@ -327,14 +257,7 @@ class SystemReporter:
     def critical(
         self, msg: str, context: str = "system", verbose_level: int = 0
     ) -> None:
-        """
-        Log critical message and send to Courier (if available).
-
-        Args:
-            msg: Message to log
-            context: Service/component context
-            verbose_level: Minimum verbosity required (default: 0 - always)
-        """
+        """Log critical message and send to Courier (if available)."""
         if self._should_log(verbose_level):
             formatted_msg = f"[{context}] {msg}"
             self.logger.critical(formatted_msg)

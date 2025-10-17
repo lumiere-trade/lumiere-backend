@@ -9,6 +9,7 @@ Enhanced with dynamic channel support for FORGE job-specific channels.
 """
 
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Dict, List
@@ -53,10 +54,20 @@ class Broker:
         """
         self.config = config
 
-        # Initialize SystemReporter (no CourierClient - avoid circular dependency)
+        # Determine log_dir based on config
+        # If log_file is None -> stdout (Docker production)
+        # If log_file is path -> file logging (development)
+        if config.log_file is None or config.log_file == "":
+            log_dir = None  # Stdout only
+        else:
+            log_dir = os.path.dirname(config.log_file)
+            if not log_dir:
+                log_dir = "logs"  # Default fallback
+
+        # Initialize SystemReporter
         self.reporter = SystemReporter(
             name="broker",
-            log_dir="logs/broker",
+            log_dir=log_dir,
             verbose=1,
             courier_client=None,
         )
@@ -94,7 +105,8 @@ class Broker:
                 verbose_level=1,
             )
             self.reporter.info(
-                f"{Emoji.SYSTEM.READY} " f"Channels: {', '.join(self.config.channels)}",
+                f"{Emoji.SYSTEM.READY} "
+                f"Channels: {', '.join(self.config.channels)}",
                 context="Broker",
                 verbose_level=1,
             )
@@ -206,7 +218,7 @@ class Broker:
                     status_code=400, detail="Missing 'data' in request body"
                 )
 
-            # Auto-create channel if doesn't exist (for dynamic FORGE channels)
+            # Auto-create channel if doesn't exist
             if channel not in self.clients:
                 self.reporter.info(
                     f"{Emoji.SYSTEM.READY} Auto-creating channel: {channel}",
@@ -215,7 +227,6 @@ class Broker:
                 )
                 self.clients[channel] = []
 
-                # Also add to config channels for visibility
                 if channel not in self.config.channels:
                     self.config.channels.append(channel)
 
@@ -258,7 +269,6 @@ class Broker:
         """
         # Validate or auto-create channel
         if channel not in self.clients:
-            # Auto-create channel for dynamic subscriptions
             self.reporter.info(
                 f"{Emoji.SYSTEM.READY} Auto-creating channel on WebSocket "
                 f"connect: {channel}",
@@ -321,7 +331,8 @@ class Broker:
 
         except WebSocketDisconnect:
             self.reporter.info(
-                f"{Emoji.NETWORK.DISCONNECTED} " f"Client disconnected from {channel}",
+                f"{Emoji.NETWORK.DISCONNECTED} "
+                f"Client disconnected from {channel}",
                 context="Broker",
                 verbose_level=1,
             )
@@ -362,7 +373,9 @@ class Broker:
 
         # Validate event structure
         if not isinstance(event, dict):
-            raise HTTPException(status_code=400, detail="Event must be a JSON object")
+            raise HTTPException(
+                status_code=400, detail="Event must be a JSON object"
+            )
 
         # Broadcast to all clients on channel
         sent_count = await self._broadcast(channel, event)
@@ -463,7 +476,9 @@ class Broker:
         while True:
             await asyncio.sleep(self.config.heartbeat_interval)
 
-            total_clients = sum(len(clients) for clients in self.clients.values())
+            total_clients = sum(
+                len(clients) for clients in self.clients.values()
+            )
 
             if total_clients == 0:
                 continue
@@ -517,7 +532,8 @@ class Broker:
             ).total_seconds(),
             "total_clients": total_clients,
             "channels": {
-                channel: len(clients) for channel, clients in self.clients.items()
+                channel: len(clients)
+                for channel, clients in self.clients.items()
             },
         }
 
@@ -535,11 +551,15 @@ class Broker:
             "total_connections": self.stats["total_connections"],
             "total_messages_sent": self.stats["total_messages_sent"],
             "total_messages_received": self.stats["total_messages_received"],
-            "active_clients": sum(len(clients) for clients in self.clients.values()),
+            "active_clients": sum(
+                len(clients) for clients in self.clients.values()
+            ),
             "channels": {
                 channel: {
                     "active_clients": len(clients),
-                    "max_clients": self.config.max_clients_per_channel or "unlimited",
+                    "max_clients": (
+                        self.config.max_clients_per_channel or "unlimited"
+                    ),
                 }
                 for channel, clients in self.clients.items()
             },
@@ -566,7 +586,7 @@ def main():
 
     # Load config from YAML (uses COURIER_CONFIG env var)
     config = load_config()
-    
+
     # Allow port override from command line
     if len(sys.argv) > 1:
         try:

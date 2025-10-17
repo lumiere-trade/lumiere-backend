@@ -53,7 +53,9 @@ class TestEscrowRoutes(LaborantTest):
         self.reporter.info("Setting up API integration tests...", context="Setup")
 
         # 1. Load test config and override global settings
-        TestEscrowRoutes.test_settings = load_config("development.yaml", env="development")
+        TestEscrowRoutes.test_settings = load_config(
+            "development.yaml", env="development"
+        )
         app = create_app(TestEscrowRoutes.test_settings)
         override_settings(TestEscrowRoutes.test_settings)
 

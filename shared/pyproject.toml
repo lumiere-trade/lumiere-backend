@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shared"
-version = "0.1.0"
+version = "0.1.2"
 description = "Shared utilities for Lumière trading system"
 requires-python = ">=3.11"
 dependencies = [
@@ -26,7 +26,14 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["shared", "shared.tests", "shared.blockchain"]
+packages = [
+    "shared",
+    "shared.blockchain",
+    "shared.indicators",
+    "shared.reporter",
+    "shared.reporter.emojis",
+    "shared.tests",
+]
 
 [tool.setuptools.package-dir]
 shared = "."

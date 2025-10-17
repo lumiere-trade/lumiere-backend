@@ -1,39 +1,55 @@
 [build-system]
-requires = ["setuptools>=65.0", "wheel"]
+requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "courier"
 version = "0.1.0"
-description = "Message broker for Lumière trading system"
+description = "WebSocket event broker for Lumiere trading system"
+readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+
 dependencies = [
-    "shared",
+    "shared==0.1.2",
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
     "websockets>=11.0",
     "pyyaml>=6.0",
     "httpx>=0.25.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "ruff>=0.1.6",
 ]
 
 [project.scripts]
 courier = "courier.broker:main"
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "black>=23.0.0",
-    "isort>=5.12.0",
-]
+# CRITICAL: src layout configuration
+[tool.setuptools]
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["courier*"]
 
 [tool.black]
 line-length = 88
-target-version = ['py311']
+target-version = ["py311"]
 
 [tool.isort]
 profile = "black"
 line_length = 88
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"

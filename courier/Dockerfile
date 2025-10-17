@@ -1,11 +1,12 @@
 # ============================================
-# Multi-stage Dockerfile for Pourtier
+# Multi-stage Dockerfile for Courier
+# Uses Private PyPI Registry for shared package
 # ============================================
 
 # ============================================
-# Build stage
+# Stage 1: Python build
 # ============================================
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS python-builder
 
 WORKDIR /build
 
@@ -14,20 +15,21 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
     g++ \
-    postgresql-client \
-    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files
-COPY pourtier/pyproject.toml ./
-COPY pourtier/src/ ./src/
+# Copy courier package files
+COPY courier/pyproject.toml ./
+COPY courier/src/ ./src/
 
-# Install dependencies
+# Install courier (shared will be fetched from PyPI registry)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --user --no-cache-dir .
+    pip install --user --no-cache-dir \
+    --extra-index-url http://host.docker.internal:9001/simple/ \
+    --trusted-host host.docker.internal \
+    .
 
 # ============================================
-# Development stage (with hot reload)
+# Stage 2: Development
 # ============================================
 FROM python:3.11-slim AS development
 
@@ -36,81 +38,80 @@ WORKDIR /app
 # Install runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python packages from builder
-COPY --from=builder /root/.local /root/.local
+COPY --from=python-builder /root/.local /root/.local
 
-# Update PATH and set Python env vars
+# Update PATH
 ENV PATH=/root/.local/bin:$PATH
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV ENV=development
 
 # Copy application code
-COPY pourtier/ .
+COPY courier/ .
 
 # Install in editable mode for development
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN pip install --no-cache-dir \
+    --extra-index-url http://host.docker.internal:9001/simple/ \
+    --trusted-host host.docker.internal \
+    -e ".[dev]"
+
+# Create logs directory
+RUN mkdir -p logs
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8766
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8766/health || exit 1
 
-# Run with auto-reload
-CMD ["uvicorn", "pourtier.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--reload", \
-     "--log-level", "info"]
+# Run development
+CMD ["python", "-m", "courier.broker"]
 
 # ============================================
-# Production stage (optimized)
+# Stage 3: Production
 # ============================================
 FROM python:3.11-slim AS production
 
 # Create non-root user
-RUN useradd -m -u 1000 -s /bin/bash pourtier && \
+RUN useradd -m -u 1000 -s /bin/bash courier_user && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-    postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy Python packages from builder
-COPY --from=builder /root/.local /home/pourtier/.local
+COPY --from=python-builder /root/.local /home/courier_user/.local
 
 # Copy application code
-COPY --chown=pourtier:pourtier pourtier/config/ ./config/
-COPY --chown=pourtier:pourtier pourtier/src/ ./src/
-COPY --chown=pourtier:pourtier pourtier/scripts/ ./scripts/
+COPY --chown=courier_user:courier_user courier/config/ ./config/
+COPY --chown=courier_user:courier_user courier/src/ ./src/
+
+# Create logs directory with proper permissions
+RUN mkdir -p /app/logs && \
+    chown -R courier_user:courier_user /app/logs && \
+    mkdir -p /home/courier_user/logs && \
+    chown -R courier_user:courier_user /home/courier_user/logs
 
 # Switch to non-root user
-USER pourtier
+USER courier_user
 
-# Update PATH and set Python env vars
-ENV PATH=/home/pourtier/.local/bin:$PATH
+# Update PATH
+ENV PATH=/home/courier_user/.local/bin:$PATH
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV ENV=production
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8765
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8765/health || exit 1
 
 # Run production server
-CMD ["uvicorn", "pourtier.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "4", \
-     "--loop", "uvloop"]
+CMD ["python", "-m", "courier.broker"]
