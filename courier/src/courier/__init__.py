@@ -24,7 +24,7 @@ Usage:
 """
 
 from courier.broker import Broker
-from courier.config.settings import BrokerConfig, load_config
+from courier.config.settings import BrokerConfig
 
 __version__ = "1.0.0"
 __all__ = ["Broker", "BrokerConfig"]

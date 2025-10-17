@@ -17,10 +17,10 @@ from typing import Dict, List
 import uvicorn
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
-
-from courier.config.settings import BrokerConfig, load_config
 from shared.reporter import SystemReporter
 from shared.reporter.emojis import Emoji
+
+from courier.config.settings import BrokerConfig, load_config
 
 
 class Broker:
@@ -105,8 +105,7 @@ class Broker:
                 verbose_level=1,
             )
             self.reporter.info(
-                f"{Emoji.SYSTEM.READY} "
-                f"Channels: {', '.join(self.config.channels)}",
+                f"{Emoji.SYSTEM.READY} " f"Channels: {', '.join(self.config.channels)}",
                 context="Broker",
                 verbose_level=1,
             )
@@ -331,8 +330,7 @@ class Broker:
 
         except WebSocketDisconnect:
             self.reporter.info(
-                f"{Emoji.NETWORK.DISCONNECTED} "
-                f"Client disconnected from {channel}",
+                f"{Emoji.NETWORK.DISCONNECTED} " f"Client disconnected from {channel}",
                 context="Broker",
                 verbose_level=1,
             )
@@ -373,9 +371,7 @@ class Broker:
 
         # Validate event structure
         if not isinstance(event, dict):
-            raise HTTPException(
-                status_code=400, detail="Event must be a JSON object"
-            )
+            raise HTTPException(status_code=400, detail="Event must be a JSON object")
 
         # Broadcast to all clients on channel
         sent_count = await self._broadcast(channel, event)
@@ -476,9 +472,7 @@ class Broker:
         while True:
             await asyncio.sleep(self.config.heartbeat_interval)
 
-            total_clients = sum(
-                len(clients) for clients in self.clients.values()
-            )
+            total_clients = sum(len(clients) for clients in self.clients.values())
 
             if total_clients == 0:
                 continue
@@ -532,8 +526,7 @@ class Broker:
             ).total_seconds(),
             "total_clients": total_clients,
             "channels": {
-                channel: len(clients)
-                for channel, clients in self.clients.items()
+                channel: len(clients) for channel, clients in self.clients.items()
             },
         }
 
@@ -551,15 +544,11 @@ class Broker:
             "total_connections": self.stats["total_connections"],
             "total_messages_sent": self.stats["total_messages_sent"],
             "total_messages_received": self.stats["total_messages_received"],
-            "active_clients": sum(
-                len(clients) for clients in self.clients.values()
-            ),
+            "active_clients": sum(len(clients) for clients in self.clients.values()),
             "channels": {
                 channel: {
                     "active_clients": len(clients),
-                    "max_clients": (
-                        self.config.max_clients_per_channel or "unlimited"
-                    ),
+                    "max_clients": (self.config.max_clients_per_channel or "unlimited"),
                 }
                 for channel, clients in self.clients.items()
             },

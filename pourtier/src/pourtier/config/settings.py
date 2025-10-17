@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     API_PORT: int = Field(default=8000, ge=1024, le=65535)
     API_RELOAD: bool = Field(default=False)
 
+    # Service Discovery (Docker DNS)
+    courier_url: str = Field(
+        default="http://courier:8765",
+        description="Courier service URL (Docker DNS)"
+    )
+    passeur_url: str = Field(
+        default="http://passeur:8766",
+        description="Passeur bridge URL (Docker DNS)"
+    )
+
     # Database (from environment - REQUIRED in production)
     DATABASE_URL: str = Field(..., description="Database connection URL")
     DATABASE_ECHO: bool = Field(default=False)
@@ -65,17 +75,23 @@ class Settings(BaseSettings):
     SOLANA_RPC_URL: str = Field(..., description="Solana RPC URL")
     SOLANA_NETWORK: str = Field(default="devnet")
     SOLANA_COMMITMENT: str = Field(default="confirmed")
-    PASSEUR_BRIDGE_URL: str = Field(..., description="Passeur bridge URL")
+    PASSEUR_BRIDGE_URL: str = Field(
+        default="http://passeur:8766",
+        description="Passeur bridge URL (legacy field, use passeur_url)"
+    )
     ESCROW_PROGRAM_ID: Optional[str] = Field(default=None)
 
-    # External Services (from environment - REQUIRED in production)
-    COURIER_URL: str = Field(..., description="Courier event bus URL")
+    # External Services
+    COURIER_URL: str = Field(
+        default="http://courier:8765",
+        description="Courier event bus URL (legacy field, use courier_url)"
+    )
     COURIER_PORT: int = Field(default=8765, ge=1024, le=65535)
     COURIER_ENABLED: bool = Field(default=False)
 
     # Logging
     LOG_LEVEL: str = Field(default="INFO")
-    LOG_FILE: str = Field(default="logs/pourtier.log")
+    LOG_FILE: Optional[str] = Field(default="logs/pourtier.log")
 
     @field_validator("LOG_LEVEL")
     @classmethod

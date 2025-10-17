@@ -43,6 +43,16 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8765, ge=1024, le=65535)
 
+    # Service Discovery (Docker DNS)
+    pourtier_url: str = Field(
+        default="http://pourtier:8000",
+        description="Pourtier service URL (Docker DNS)"
+    )
+    passeur_url: str = Field(
+        default="http://passeur:8766",
+        description="Passeur service URL (Docker DNS)"
+    )
+
     # Channels (mapped from YAML 'channels')
     channels: List[str] = Field(
         default_factory=lambda: [

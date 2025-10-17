@@ -1,0 +1,147 @@
+version: '3.8'
+
+# =============================================
+# NETWORKS
+# =============================================
+networks:
+  lumiere-net:
+    driver: bridge
+    name: lumiere-network
+
+# =============================================
+# VOLUMES
+# =============================================
+volumes:
+  postgres-data:
+    name: lumiere-postgres-data
+
+# =============================================
+# SERVICES
+# =============================================
+services:
+  # -------------------------------------------
+  # PostgreSQL Database
+  # -------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: lumiere-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+      POSTGRES_DB: lumiere
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - lumiere-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # NO external ports - internal access only via Docker DNS
+
+  # -------------------------------------------
+  # Pourtier (Database Service)
+  # -------------------------------------------
+  pourtier:
+    image: pourtier:development
+    container_name: lumiere-pourtier
+    restart: unless-stopped
+    environment:
+      ENV: ${ENV:-development}
+      # Database connection (Docker DNS: postgres)
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-secret}@postgres:5432/lumiere
+      # JWT (CHANGE IN PRODUCTION!)
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_secret_change_in_production}
+      # Solana
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      SOLANA_NETWORK: ${SOLANA_NETWORK:-devnet}
+      # Service Discovery (Docker DNS)
+      courier_url: http://courier:8765
+      passeur_url: http://passeur:8766
+      PASSEUR_BRIDGE_URL: http://passeur:8766
+      COURIER_URL: http://courier:8765
+    ports:
+      - "${POURTIER_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lumiere-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------------------------------------------
+  # Courier (WebSocket Broker)
+  # -------------------------------------------
+  courier:
+    image: courier:development
+    container_name: lumiere-courier
+    restart: unless-stopped
+    environment:
+      ENV: ${ENV:-development}
+      # Service Discovery (Docker DNS)
+      pourtier_url: http://pourtier:8000
+      passeur_url: http://passeur:8766
+    ports:
+      - "${COURIER_PORT:-8765}:8765"
+    depends_on:
+      pourtier:
+        condition: service_healthy
+    networks:
+      - lumiere-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------------------------------------------
+  # Passeur (Bridge Service)
+  # -------------------------------------------
+  passeur:
+    image: passeur:development
+    container_name: lumiere-passeur
+    restart: unless-stopped
+    environment:
+      ENV: ${ENV:-development}
+      # Service Discovery (Docker DNS)
+      courier_url: http://courier:8765
+      pourtier_url: http://pourtier:8000
+      # Solana
+      PASSEUR_SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      PASSEUR_SOLANA_NETWORK: ${SOLANA_NETWORK:-devnet}
+      PASSEUR_PROGRAM_ID: ${ESCROW_PROGRAM_ID:-9gvUtaF99sQ287PNzRfCbhFTC4PUnnd7jdAjnY5GUVhS}
+    ports:
+      - "${PASSEUR_PORT:-8766}:8766"
+    depends_on:
+      courier:
+        condition: service_healthy
+      pourtier:
+        condition: service_healthy
+    networks:
+      - lumiere-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8766/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
