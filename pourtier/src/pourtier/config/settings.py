@@ -47,12 +47,10 @@ class Settings(BaseSettings):
 
     # Service Discovery (Docker DNS)
     courier_url: str = Field(
-        default="http://courier:8765",
-        description="Courier service URL (Docker DNS)"
+        default="http://courier:8765", description="Courier service URL (Docker DNS)"
     )
     passeur_url: str = Field(
-        default="http://passeur:8766",
-        description="Passeur bridge URL (Docker DNS)"
+        default="http://passeur:8766", description="Passeur bridge URL (Docker DNS)"
     )
 
     # Database (from environment - REQUIRED in production)
@@ -77,14 +75,14 @@ class Settings(BaseSettings):
     SOLANA_COMMITMENT: str = Field(default="confirmed")
     PASSEUR_BRIDGE_URL: str = Field(
         default="http://passeur:8766",
-        description="Passeur bridge URL (legacy field, use passeur_url)"
+        description="Passeur bridge URL (legacy field, use passeur_url)",
     )
     ESCROW_PROGRAM_ID: Optional[str] = Field(default=None)
 
     # External Services
     COURIER_URL: str = Field(
         default="http://courier:8765",
-        description="Courier event bus URL (legacy field, use courier_url)"
+        description="Courier event bus URL (legacy field, use courier_url)",
     )
     COURIER_PORT: int = Field(default=8765, ge=1024, le=65535)
     COURIER_ENABLED: bool = Field(default=False)

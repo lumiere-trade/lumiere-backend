@@ -39,9 +39,10 @@ class EscrowContractClient(IEscrowContractClient):
         # Load from config if not provided
         if bridge_url is None:
             from pourtier.config.settings import get_settings
+
             settings = get_settings()
             bridge_url = settings.passeur_url
-        
+
         self.bridge_url = bridge_url.rstrip("/")
         self.timeout = aiohttp.ClientTimeout(total=timeout)
         self._session: Optional[aiohttp.ClientSession] = None
