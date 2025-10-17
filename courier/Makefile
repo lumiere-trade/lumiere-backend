@@ -16,24 +16,26 @@ help:
 	@echo "make clean       - Remove images"
 
 build-dev:
-	@echo "[BUILD] Building $(COMPONENT):development..."
+	@echo "[BUILD] Building $(COMPONENT):development with BuildKit..."
 	@echo "[INFO] Using PyPI Registry at http://localhost:9001/simple/"
-	cd $(PROJECT_ROOT) && docker build \
+	cd $(PROJECT_ROOT) && docker buildx build \
 		-f $(COMPONENT)/Dockerfile \
 		--target development \
 		-t $(COMPONENT):development \
 		--add-host host.docker.internal:host-gateway \
+		--load \
 		.
 	@echo "[SUCCESS] Built $(COMPONENT):development"
 
 build-prod:
-	@echo "[BUILD] Building $(COMPONENT):production..."
+	@echo "[BUILD] Building $(COMPONENT):production with BuildKit..."
 	@echo "[INFO] Using PyPI Registry at http://localhost:9001/simple/"
-	cd $(PROJECT_ROOT) && docker build \
+	cd $(PROJECT_ROOT) && docker buildx build \
 		-f $(COMPONENT)/Dockerfile \
 		--target production \
 		-t $(COMPONENT):production \
 		--add-host host.docker.internal:host-gateway \
+		--load \
 		.
 	docker tag $(COMPONENT):production $(COMPONENT):latest
 	@echo "[SUCCESS] Built $(COMPONENT):production"
