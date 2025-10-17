@@ -1,19 +1,8 @@
 """
 Docker container management for integration and E2E tests.
 
-Provides utilities to start, stop, and manage Docker Compose test infrastructure.
-Uses docker-compose.test.yaml with profiles (integration, e2e).
-
-All port configuration read from ports.yaml (Single Source of Truth).
-
-Usage in tests:
-    from shared.tests.docker_helper import start_test_containers, stop_test_containers
-    
-    async def async_setup(self):
-        await start_test_containers(profile="integration")
-    
-    async def async_teardown(self):
-        await stop_test_containers()
+Smart detection: check if containers already running before starting.
+Track who started them for proper cleanup decision.
 """
 
 import asyncio
@@ -24,12 +13,13 @@ from typing import Dict, List, Literal, Optional
 import httpx
 import yaml
 
-# Path to lumiere-public root
 LUMIERE_ROOT = Path(__file__).parent.parent.parent.resolve()
 COMPOSE_FILE = LUMIERE_ROOT / "docker-compose.test.yaml"
 PORTS_FILE = LUMIERE_ROOT / "ports.yaml"
 
 ProfileType = Literal["integration", "e2e"]
+
+_started_by_us = False
 
 
 class DockerComposeError(Exception):
@@ -43,12 +33,7 @@ class TestInfrastructure:
 
     @classmethod
     def load_config(cls) -> Dict:
-        """
-        Load port configuration from ports.yaml.
-        
-        Returns:
-            Dict with test environment ports and health endpoints
-        """
+        """Load port configuration from ports.yaml."""
         if cls._config is not None:
             return cls._config
 
@@ -58,7 +43,6 @@ class TestInfrastructure:
         with open(PORTS_FILE, "r") as f:
             ports_config = yaml.safe_load(f)
 
-        # Extract test environment config
         test_env = ports_config["environments"]["test"]
         health_eps = ports_config["health_endpoints"]
 
@@ -97,20 +81,7 @@ def run_compose_command(
     check: bool = True,
     capture_output: bool = True,
 ) -> subprocess.CompletedProcess:
-    """
-    Run docker-compose command.
-
-    Args:
-        command: Command arguments (e.g., ["up", "-d", "--profile", "integration"])
-        check: Raise exception on non-zero exit code
-        capture_output: Capture stdout/stderr
-
-    Returns:
-        CompletedProcess instance
-
-    Raises:
-        DockerComposeError: If command fails and check=True
-    """
+    """Run docker-compose command."""
     full_command = [
         "docker",
         "compose",
@@ -131,9 +102,45 @@ def run_compose_command(
         raise DockerComposeError(
             f"Docker compose failed: {' '.join(full_command)}\n"
             f"Exit code: {e.returncode}\n"
-            f"Stdout: {e.stdout}\n"
             f"Stderr: {e.stderr}"
         ) from e
+
+
+async def check_service_health(service: str, timeout: float = 2.0) -> bool:
+    """
+    Check if a single service is healthy.
+    
+    Args:
+        service: Service name
+        timeout: HTTP request timeout
+        
+    Returns:
+        True if healthy, False otherwise
+    """
+    try:
+        health_url = TestInfrastructure.get_health_url(service)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(health_url, timeout=timeout)
+            return response.status_code == 200
+    except Exception:
+        # Any exception means not healthy (connection refused, timeout, etc.)
+        return False
+
+
+async def check_services_running(services: List[str]) -> bool:
+    """
+    Check if all services are running and healthy.
+    
+    Args:
+        services: List of service names to check
+        
+    Returns:
+        True if all services healthy, False otherwise
+    """
+    for service in services:
+        if not await check_service_health(service, timeout=2.0):
+            return False
+    return True
 
 
 async def wait_for_health(
@@ -142,122 +149,124 @@ async def wait_for_health(
     interval: int = 2,
 ) -> None:
     """
-    Wait for services to be healthy.
-
+    Wait for all services to be healthy.
+    
     Args:
         services: List of service names to wait for
         timeout: Maximum seconds to wait
-        interval: Seconds between health checks
-
+        interval: Seconds between checks
+        
     Raises:
         TimeoutError: If services don't become healthy within timeout
     """
     start_time = asyncio.get_event_loop().time()
 
-    async with httpx.AsyncClient() as client:
-        while True:
-            elapsed = asyncio.get_event_loop().time() - start_time
-            
-            if elapsed > timeout:
-                raise TimeoutError(
-                    f"Services {services} did not become healthy within {timeout}s"
-                )
-
-            all_healthy = True
-            
+    while True:
+        elapsed = asyncio.get_event_loop().time() - start_time
+        
+        if elapsed > timeout:
+            # Get logs for debugging
+            logs_info = []
             for service in services:
                 try:
-                    health_url = TestInfrastructure.get_health_url(service)
-                    response = await client.get(health_url, timeout=5.0)
-                    
-                    if response.status_code != 200:
-                        all_healthy = False
-                        break
-                        
-                except (httpx.ConnectError, httpx.TimeoutException):
-                    all_healthy = False
-                    break
+                    logs = get_service_logs(service, lines=20)
+                    logs_info.append(f"\n{service} logs:\n{logs}")
+                except Exception:
+                    pass
+            
+            raise TimeoutError(
+                f"Services {services} not healthy within {timeout}s"
+                f"{''.join(logs_info)}"
+            )
 
-            if all_healthy:
-                return
+        # Check all services
+        all_healthy = True
+        for service in services:
+            if not await check_service_health(service, timeout=3.0):
+                all_healthy = False
+                break
 
-            await asyncio.sleep(interval)
+        if all_healthy:
+            return
+
+        await asyncio.sleep(interval)
 
 
-async def start_test_containers(
+async def ensure_test_containers(
     profile: ProfileType,
-    pull: bool = False,
-    build: bool = False,
     timeout: int = 60,
 ) -> None:
     """
-    Start test containers using docker-compose profiles.
-
+    Ensure test containers are running (smart detection).
+    
+    Only starts containers if not already running.
+    Tracks if we started them for cleanup decision.
+    
     Args:
         profile: "integration" (postgres + pourtier) or "e2e" (full stack)
-        pull: Pull latest images before starting
-        build: Rebuild images before starting
         timeout: Maximum seconds to wait for health checks
-
-    Raises:
-        DockerComposeError: If containers fail to start or become healthy
     """
-    # Pull images if requested
-    if pull:
-        run_compose_command(["--profile", profile, "pull"])
-
-    # Build images if requested
-    if build:
-        run_compose_command(["--profile", profile, "build"])
-
+    global _started_by_us
+    
+    # Determine services
+    if profile == "integration":
+        services_to_check = ["pourtier"]
+    else:  # e2e
+        services_to_check = ["pourtier", "courier", "passeur"]
+    
+    # Check if already running
+    already_running = await check_services_running(services_to_check)
+    
+    if already_running:
+        _started_by_us = False
+        return
+    
     # Start containers
     run_compose_command(["--profile", profile, "up", "-d"])
-
-    # Determine which services to wait for
-    if profile == "integration":
-        services_to_wait = ["pourtier"]
-    else:  # e2e
-        services_to_wait = ["pourtier", "courier", "passeur"]
-
-    # Wait for services to be healthy
-    await wait_for_health(services_to_wait, timeout=timeout)
+    _started_by_us = True
+    
+    # Wait for health
+    await wait_for_health(services_to_check, timeout=timeout)
 
 
-async def stop_test_containers(
-    remove_volumes: bool = True,
-    remove_orphans: bool = True,
-) -> None:
+async def cleanup_test_containers(force: bool = False) -> None:
     """
-    Stop and cleanup test containers.
-
+    Cleanup test containers (smart decision).
+    
+    Only stops containers if we started them, unless force=True.
+    
     Args:
-        remove_volumes: Remove named volumes (cleans test data)
-        remove_orphans: Remove containers not in compose file
+        force: If True, always stop regardless of who started
     """
-    command = ["down"]
-
-    if remove_volumes:
-        command.append("-v")
-
-    if remove_orphans:
-        command.append("--remove-orphans")
-
-    run_compose_command(command, check=False)
+    global _started_by_us
+    
+    if not force and not _started_by_us:
+        return
+    
+    run_compose_command(["down", "-v", "--remove-orphans"], check=False)
+    _started_by_us = False
 
 
 def get_service_logs(service: str, lines: int = 50) -> str:
-    """
-    Get logs from a service.
-
-    Args:
-        service: Service name
-        lines: Number of lines to retrieve
-
-    Returns:
-        Log output as string
-    """
+    """Get logs from a service."""
     result = run_compose_command(
         ["logs", "--tail", str(lines), service],
         check=False,
     )
     return result.stdout
+
+
+# Convenience functions
+async def start_integration_tests() -> None:
+    """Start containers for integration tests."""
+    await ensure_test_containers(profile="integration")
+
+
+async def start_e2e_tests() -> None:
+    """Start containers for E2E tests."""
+    await ensure_test_containers(profile="e2e")
+
+
+async def stop_test_infrastructure(force: bool = False) -> None:
+    """Stop test infrastructure."""
+    await cleanup_test_containers(force=force)

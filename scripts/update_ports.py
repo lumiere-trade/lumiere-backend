@@ -50,7 +50,7 @@ class PortUpdater:
         # Get port from ports.yaml
         env_config = self.ports_config["environments"][environment]
         service_port = env_config[component]["port"]
-        
+
         # Get service discovery URLs
         sd_config = self.ports_config["service_discovery"][environment]
 
@@ -73,7 +73,7 @@ class PortUpdater:
         # Check if any values changed
         changed = False
         changes = []
-        
+
         for key, new_value in updates.items():
             old_value = existing_config.get(key)
             if old_value != new_value:
@@ -152,7 +152,7 @@ class PortUpdater:
                     port_field = "bridge_port"
 
                 actual_port = existing_config.get(port_field)
-                
+
                 if actual_port != expected_port:
                     print(
                         f"[MISMATCH] {component}/{environment}: "
