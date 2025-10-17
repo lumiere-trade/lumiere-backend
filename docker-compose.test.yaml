@@ -1,0 +1,176 @@
+
+# =============================================
+# TEST INFRASTRUCTURE
+# Ports: 7xxx range (avoid prod 8xxx, dev 9xxx)
+# =============================================
+
+networks:
+  lumiere-test-net:
+    driver: bridge
+    name: lumiere-test-network
+
+volumes:
+  test-postgres-data:
+    name: lumiere-test-postgres-data
+
+services:
+  # -------------------------------------------
+  # PostgreSQL Database (TEST)
+  # External: 5433 → Internal: 5432
+  # -------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: lumiere-test-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+      POSTGRES_DB: lumiere_test
+    volumes:
+      - test-postgres-data:/var/lib/postgresql/data
+    networks:
+      - lumiere-test-net
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - integration
+      - e2e
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------------------------------------------
+  # Pourtier (TEST)
+  # External: 7000 → Internal: 7000
+  # -------------------------------------------
+  pourtier:
+    image: pourtier:development
+    container_name: lumiere-test-pourtier
+    restart: unless-stopped
+    environment:
+      ENV: test
+      # Database
+      DATABASE_URL: postgresql+asyncpg://pourtier_user:pourtier_pass@postgres:5432/pourtier_test_db
+      # API
+      API_HOST: "0.0.0.0"
+      API_PORT: 7000
+      # JWT (test values)
+      JWT_SECRET_KEY: test_secret_key_for_testing_only
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_HOURS: 24
+      # Solana (devnet)
+      SOLANA_RPC_URL: https://api.devnet.solana.com
+      SOLANA_NETWORK: devnet
+      # Service Discovery (Docker DNS - internal test ports)
+      courier_url: http://courier:7765
+      passeur_url: http://passeur:7766
+      PASSEUR_BRIDGE_URL: http://passeur:7766
+      COURIER_URL: http://courier:7765
+      # Redis (disabled)
+      REDIS_ENABLED: false
+      # Logging
+      LOG_LEVEL: DEBUG
+      LOG_FILE: null
+    ports:
+      - "7000:7000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lumiere-test-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - integration
+      - e2e
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------------------------------------------
+  # Courier (TEST)
+  # External: 7765 → Internal: 7765
+  # -------------------------------------------
+  courier:
+    image: courier:development
+    container_name: lumiere-test-courier
+    restart: unless-stopped
+    environment:
+      ENV: test
+      # Service Discovery (Docker DNS - internal test ports)
+      pourtier_url: http://pourtier:7000
+      passeur_url: http://passeur:7766
+    ports:
+      - "7765:7765"
+    depends_on:
+      pourtier:
+        condition: service_healthy
+    networks:
+      - lumiere-test-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7765/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - e2e
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------------------------------------------
+  # Passeur (TEST)
+  # External: 7766 → Internal: 7766
+  # -------------------------------------------
+  passeur:
+    image: passeur:development
+    container_name: lumiere-test-passeur
+    restart: unless-stopped
+    environment:
+      ENV: test
+      # Service Discovery (Docker DNS - internal test ports)
+      courier_url: http://courier:7765
+      pourtier_url: http://pourtier:7000
+      # Solana (devnet)
+      PASSEUR_SOLANA_RPC_URL: https://api.devnet.solana.com
+      PASSEUR_SOLANA_NETWORK: devnet
+      PASSEUR_PROGRAM_ID: 9gvUtaF99sQ287PNzRfCbhFTC4PUnnd7jdAjnY5GUVhS
+      # Platform keypair
+      PASSEUR_PLATFORM_KEYPAIR_PATH: /app/keypairs/platform.json
+    volumes:
+      - ~/lumiere/keypairs/dev/platform.json:/app/keypairs/platform.json:ro
+    ports:
+      - "7766:7766"
+    depends_on:
+      courier:
+        condition: service_healthy
+      pourtier:
+        condition: service_healthy
+    networks:
+      - lumiere-test-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7766/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - e2e
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

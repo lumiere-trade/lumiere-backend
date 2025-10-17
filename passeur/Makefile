@@ -3,8 +3,9 @@
 .PHONY: help build-dev build-prod run-dev run-prod clean
 
 COMPONENT = passeur
-PORT = 8766
-KEYPAIRS_DIR = $(HOME)/lumiere/keypairs
+PORT_DEV = 9766
+PORT_PROD = 8766
+PROJECT_ROOT = ..
 
 help:
 	@echo "=== Passeur Docker Commands ==="
@@ -16,30 +17,36 @@ help:
 
 build-dev:
 	@echo "[BUILD] Building $(COMPONENT):development with BuildKit..."
-	docker buildx build --target development -t $(COMPONENT):development --load .
+	cd $(PROJECT_ROOT) && docker buildx build \
+		-f $(COMPONENT)/Dockerfile \
+		--target development \
+		-t $(COMPONENT):development \
+		--load \
+		.
 	@echo "[SUCCESS] Built $(COMPONENT):development"
 
 build-prod:
 	@echo "[BUILD] Building $(COMPONENT):production with BuildKit..."
-	docker buildx build --target production -t $(COMPONENT):production --load .
+	cd $(PROJECT_ROOT) && docker buildx build \
+		-f $(COMPONENT)/Dockerfile \
+		--target production \
+		-t $(COMPONENT):production \
+		--load \
+		.
 	docker tag $(COMPONENT):production $(COMPONENT):latest
 	@echo "[SUCCESS] Built $(COMPONENT):production"
 
 run-dev:
-	@echo "[RUN] Starting $(COMPONENT):development on port $(PORT)..."
-	@echo "[INFO] Mounting keypairs from: $(KEYPAIRS_DIR)/dev"
-	docker run --rm -p $(PORT):$(PORT) \
+	@echo "[RUN] Starting $(COMPONENT):development on port $(PORT_DEV)..."
+	docker run --rm -p $(PORT_DEV):$(PORT_DEV) \
 		--env-file .env.development \
-		-v $(KEYPAIRS_DIR)/dev:/root/lumiere/keypairs/dev:ro \
 		--name $(COMPONENT)-dev \
 		$(COMPONENT):development
 
 run-prod:
-	@echo "[RUN] Starting $(COMPONENT):production on port $(PORT)..."
-	@echo "[INFO] Mounting keypairs from: $(KEYPAIRS_DIR)/prod"
-	docker run --rm -p $(PORT):$(PORT) \
+	@echo "[RUN] Starting $(COMPONENT):production on port $(PORT_PROD)..."
+	docker run --rm -p $(PORT_PROD):$(PORT_PROD) \
 		--env-file .env.production \
-		-v $(KEYPAIRS_DIR)/prod:/root/lumiere/keypairs/prod:ro \
 		--name $(COMPONENT)-prod \
 		$(COMPONENT):production
 
