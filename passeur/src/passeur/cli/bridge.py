@@ -38,6 +38,7 @@ def check_bridge_status() -> tuple[bool, str]:
     # Load config to get the correct URL
     try:
         import os
+
         env = os.getenv("ENV", "development")
         config_map = {
             "production": "production.yaml",

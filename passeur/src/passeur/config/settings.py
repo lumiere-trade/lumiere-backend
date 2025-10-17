@@ -36,12 +36,10 @@ class PasseurConfig(BaseSettings):
 
     # Service Discovery (Docker DNS)
     courier_url: str = Field(
-        default="http://courier:8765",
-        description="Courier WebSocket URL (Docker DNS)"
+        default="http://courier:8765", description="Courier WebSocket URL (Docker DNS)"
     )
     pourtier_url: str = Field(
-        default="http://pourtier:8000",
-        description="Pourtier API URL (Docker DNS)"
+        default="http://pourtier:8000", description="Pourtier API URL (Docker DNS)"
     )
 
     # Connection Settings
