@@ -34,6 +34,16 @@ class PasseurConfig(BaseSettings):
     bridge_host: str = Field(default="0.0.0.0")
     bridge_port: int = Field(default=8766, ge=1024, le=65535)
 
+    # Service Discovery (Docker DNS)
+    courier_url: str = Field(
+        default="http://courier:8765",
+        description="Courier WebSocket URL (Docker DNS)"
+    )
+    pourtier_url: str = Field(
+        default="http://pourtier:8000",
+        description="Pourtier API URL (Docker DNS)"
+    )
+
     # Connection Settings
     heartbeat_interval: int = Field(default=30, ge=5, le=300)
     request_timeout: int = Field(default=30, ge=5, le=300)

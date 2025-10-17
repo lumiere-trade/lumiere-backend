@@ -68,9 +68,7 @@ class SystemReporter:
         # Initialize logging
         self._init_logger(name, log_dir, level)
 
-    def _init_logger(
-        self, name: str, log_dir: Optional[str], level: int
-    ) -> None:
+    def _init_logger(self, name: str, log_dir: Optional[str], level: int) -> None:
         """
         Initialize logger with file and/or console handlers.
 
@@ -219,17 +217,13 @@ class SystemReporter:
         return self.verbose >= verbose_level
 
     # Core logging methods
-    def debug(
-        self, msg: str, context: str = "system", verbose_level: int = 3
-    ) -> None:
+    def debug(self, msg: str, context: str = "system", verbose_level: int = 3) -> None:
         """Log debug message (not sent to Courier)."""
         if self._should_log(verbose_level):
             formatted_msg = f"[{context}] {msg}"
             self.logger.debug(formatted_msg)
 
-    def info(
-        self, msg: str, context: str = "system", verbose_level: int = 1
-    ) -> None:
+    def info(self, msg: str, context: str = "system", verbose_level: int = 1) -> None:
         """Log info message and send to Courier (if available)."""
         if self._should_log(verbose_level):
             formatted_msg = f"[{context}] {msg}"
@@ -245,9 +239,7 @@ class SystemReporter:
             self.logger.warning(formatted_msg)
             self._send_to_courier("warning", msg, context, verbose_level)
 
-    def error(
-        self, msg: str, context: str = "system", verbose_level: int = 0
-    ) -> None:
+    def error(self, msg: str, context: str = "system", verbose_level: int = 0) -> None:
         """Log error message and send to Courier (if available)."""
         if self._should_log(verbose_level):
             formatted_msg = f"[{context}] {msg}"

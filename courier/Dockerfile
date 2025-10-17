@@ -24,8 +24,8 @@ COPY courier/src/ ./src/
 # Install courier (shared will be fetched from PyPI registry)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --user --no-cache-dir \
-    --extra-index-url http://host.docker.internal:9001/simple/ \
-    --trusted-host host.docker.internal \
+    --extra-index-url http://172.17.0.1:9001/simple/ \
+    --trusted-host 172.17.0.1 \
     .
 
 # ============================================
@@ -54,8 +54,8 @@ COPY courier/ .
 
 # Install in editable mode for development
 RUN pip install --no-cache-dir \
-    --extra-index-url http://host.docker.internal:9001/simple/ \
-    --trusted-host host.docker.internal \
+    --extra-index-url http://172.17.0.1:9001/simple/ \
+    --trusted-host 172.17.0.1 \
     -e ".[dev]"
 
 # Create logs directory

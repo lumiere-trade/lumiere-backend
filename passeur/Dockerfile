@@ -1,6 +1,7 @@
 # ============================================
 # Multi-stage Dockerfile for Passeur
 # Python + Node.js bridge server
+# Uses Private PyPI Registry for shared package
 # ============================================
 
 # ============================================
@@ -35,9 +36,12 @@ RUN apt-get update && \
 COPY passeur/pyproject.toml ./
 COPY passeur/src/ ./src/
 
-# Install Python package
+# Install Python package (shared will be fetched from PyPI registry)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --user --no-cache-dir .
+    pip install --user --no-cache-dir \
+    --extra-index-url http://172.17.0.1:9001/simple/ \
+    --trusted-host 172.17.0.1 \
+    .
 
 # ============================================
 # Stage 3: Development stage (with hot reload)

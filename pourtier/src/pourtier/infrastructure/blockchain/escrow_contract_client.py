@@ -26,16 +26,22 @@ class EscrowContractClient(IEscrowContractClient):
 
     def __init__(
         self,
-        bridge_url: str = "http://localhost:8766",
+        bridge_url: Optional[str] = None,
         timeout: int = 30,
     ):
         """
         Initialize escrow contract client.
 
         Args:
-            bridge_url: Escrow Bridge API base URL
+            bridge_url: Escrow Bridge API base URL (if None, loaded from config)
             timeout: HTTP request timeout in seconds
         """
+        # Load from config if not provided
+        if bridge_url is None:
+            from pourtier.config.settings import get_settings
+            settings = get_settings()
+            bridge_url = settings.passeur_url
+        
         self.bridge_url = bridge_url.rstrip("/")
         self.timeout = aiohttp.ClientTimeout(total=timeout)
         self._session: Optional[aiohttp.ClientSession] = None
@@ -490,14 +496,13 @@ class EscrowContractClient(IEscrowContractClient):
         for attempt in range(max_retries):
             try:
                 async with session.get(
-                    f"{self.bridge_url}/transaction/status/" f"{tx_signature}"
+                    f"{self.bridge_url}/transaction/status/{tx_signature}"
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
                         if data["confirmed"]:
                             return True
 
-                    # Wait before retry
                     await asyncio.sleep(2)
 
             except Exception:

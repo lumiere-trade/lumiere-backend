@@ -1,5 +1,6 @@
 # ============================================
 # Multi-stage Dockerfile for Pourtier
+# Uses Private PyPI Registry for shared package
 # ============================================
 
 # ============================================
@@ -22,9 +23,12 @@ RUN apt-get update && \
 COPY pourtier/pyproject.toml ./
 COPY pourtier/src/ ./src/
 
-# Install dependencies
+# Install dependencies (shared will be fetched from PyPI registry)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --user --no-cache-dir .
+    pip install --user --no-cache-dir \
+    --extra-index-url http://172.17.0.1:9001/simple/ \
+    --trusted-host 172.17.0.1 \
+    .
 
 # ============================================
 # Development stage (with hot reload)
@@ -53,7 +57,10 @@ ENV ENV=development
 COPY pourtier/ .
 
 # Install in editable mode for development
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN pip install --no-cache-dir \
+    --extra-index-url http://172.17.0.1:9001/simple/ \
+    --trusted-host 172.17.0.1 \
+    -e ".[dev]"
 
 # Expose port
 EXPOSE 8000
@@ -63,7 +70,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run with auto-reload
-CMD ["uvicorn", "pourtier.main:app", \
+CMD ["uvicorn", "pourtier.main:get_app", "--factory", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
      "--reload", \
@@ -109,7 +116,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run production server
-CMD ["uvicorn", "pourtier.main:app", \
+CMD ["uvicorn", "pourtier.main:get_app", "--factory", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
      "--workers", "4", \
