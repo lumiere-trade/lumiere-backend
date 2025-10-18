@@ -4,16 +4,13 @@ Integration tests for EscrowTransactionRepository with PostgreSQL.
 Tests escrow transaction CRUD operations on test database.
 
 Usage:
-    python -m pourtier.tests.integration.database.test_escrow_transaction_repository
     laborant pourtier --integration
 """
 
 from decimal import Decimal
 from uuid import uuid4
 
-from sqlalchemy.ext.asyncio import create_async_engine
-
-from pourtier.config.settings import load_config
+from pourtier.config.settings import get_settings
 from pourtier.domain.entities.escrow_transaction import (
     EscrowTransaction,
     TransactionStatus,
@@ -22,17 +19,13 @@ from pourtier.domain.entities.escrow_transaction import (
 from pourtier.domain.entities.user import User
 from pourtier.infrastructure.persistence.database import Database
 from pourtier.infrastructure.persistence.models import Base
-from pourtier.infrastructure.persistence.repositories.escrow_transaction_repository import (  # noqa: E501
+from pourtier.infrastructure.persistence.repositories.escrow_transaction_repository import (
     EscrowTransactionRepository,
 )
 from pourtier.infrastructure.persistence.repositories.user_repository import (
     UserRepository,
 )
 from shared.tests import LaborantTest
-
-# Load test configuration
-test_settings = load_config("development.yaml", env="development")
-TEST_DATABASE_URL = test_settings.DATABASE_URL
 
 
 class TestEscrowTransactionRepository(LaborantTest):
@@ -41,51 +34,35 @@ class TestEscrowTransactionRepository(LaborantTest):
     component_name = "pourtier"
     test_category = "integration"
 
-    # Class-level shared resources
     db: Database = None
 
-    # ================================================================
-    # Async Lifecycle Hooks
-    # ================================================================
-
     async def async_setup(self):
-        """Setup test database (runs once before all tests)."""
+        """Setup test database."""
         self.reporter.info("Setting up test database...", context="Setup")
-        self.reporter.info(f"Database: {TEST_DATABASE_URL}", context="Setup")
 
-        # Drop and recreate tables
-        engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.run_sync(Base.metadata.create_all)
-        await engine.dispose()
+        settings = get_settings()
+        self.reporter.info(f"Loaded ENV={settings.ENV}", context="Setup")
 
-        # Connect database
         TestEscrowTransactionRepository.db = Database(
-            database_url=TEST_DATABASE_URL, echo=False
+            database_url=settings.DATABASE_URL, echo=False
         )
         await TestEscrowTransactionRepository.db.connect()
+        self.reporter.info("Connected to test database", context="Setup")
+
+        # Reset database schema using public method
+        await TestEscrowTransactionRepository.db.reset_schema_for_testing(Base.metadata)
+        self.reporter.info("Database schema reset", context="Setup")
 
         self.reporter.info("Test database ready", context="Setup")
 
     async def async_teardown(self):
-        """Cleanup test database (runs once after all tests)."""
+        """Cleanup test database."""
         self.reporter.info("Cleaning up test database...", context="Teardown")
 
         if TestEscrowTransactionRepository.db:
             await TestEscrowTransactionRepository.db.disconnect()
 
-        # Drop all tables
-        engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-        await engine.dispose()
-
         self.reporter.info("Cleanup complete", context="Teardown")
-
-    # ================================================================
-    # Helper Methods
-    # ================================================================
 
     def _generate_unique_wallet(self) -> str:
         """Generate unique 44-character wallet address."""
@@ -98,10 +75,6 @@ class TestEscrowTransactionRepository(LaborantTest):
             user_repo = UserRepository(session)
             user = User(wallet_address=self._generate_unique_wallet())
             return await user_repo.create(user)
-
-    # ================================================================
-    # Test Methods
-    # ================================================================
 
     async def test_create_transaction(self):
         """Test creating escrow transaction."""
@@ -137,7 +110,6 @@ class TestEscrowTransactionRepository(LaborantTest):
 
         user = await self._create_test_user()
 
-        # Create transaction
         async with self.db.session() as session:
             repo = EscrowTransactionRepository(session)
             transaction = EscrowTransaction(
@@ -149,7 +121,6 @@ class TestEscrowTransactionRepository(LaborantTest):
             )
             created = await repo.create(transaction)
 
-        # Retrieve by ID
         async with self.db.session() as session:
             repo = EscrowTransactionRepository(session)
             retrieved = await repo.get_by_id(created.id)
@@ -166,7 +137,6 @@ class TestEscrowTransactionRepository(LaborantTest):
 
         user = await self._create_test_user()
 
-        # Create transaction
         async with self.db.session() as session:
             repo = EscrowTransactionRepository(session)
             tx_sig = "UniqueSignature" + "x" * 72
@@ -179,7 +149,6 @@ class TestEscrowTransactionRepository(LaborantTest):
             )
             await repo.create(transaction)
 
-        # Retrieve by signature
         async with self.db.session() as session:
             repo = EscrowTransactionRepository(session)
             retrieved = await repo.get_by_tx_signature(tx_sig)
@@ -196,7 +165,6 @@ class TestEscrowTransactionRepository(LaborantTest):
 
         user = await self._create_test_user()
 
-        # Create multiple transactions
         async with self.db.session() as session:
             repo = EscrowTransactionRepository(session)
 
@@ -218,7 +186,6 @@ class TestEscrowTransactionRepository(LaborantTest):
             )
             await repo.create(tx2)
 
-        # List all transactions
         async with self.db.session() as session:
             repo = EscrowTransactionRepository(session)
             transactions = await repo.list_by_user(user.id)
@@ -241,11 +208,9 @@ class TestEscrowTransactionRepository(LaborantTest):
 
         user = await self._create_test_user()
 
-        # Create transactions of different types
         async with self.db.session() as session:
             repo = EscrowTransactionRepository(session)
 
-            # 2 deposits
             for i in range(2):
                 tx = EscrowTransaction(
                     user_id=user.id,
@@ -256,7 +221,6 @@ class TestEscrowTransactionRepository(LaborantTest):
                 )
                 await repo.create(tx)
 
-            # 1 withdraw
             tx = EscrowTransaction(
                 user_id=user.id,
                 tx_signature="WITH" + "x" * 84,
@@ -266,7 +230,6 @@ class TestEscrowTransactionRepository(LaborantTest):
             )
             await repo.create(tx)
 
-        # List only deposits
         async with self.db.session() as session:
             repo = EscrowTransactionRepository(session)
             deposits = await repo.list_by_user(
@@ -289,7 +252,6 @@ class TestEscrowTransactionRepository(LaborantTest):
 
         user = await self._create_test_user()
 
-        # Create pending transaction
         async with self.db.session() as session:
             repo = EscrowTransactionRepository(session)
             transaction = EscrowTransaction(
@@ -302,7 +264,6 @@ class TestEscrowTransactionRepository(LaborantTest):
             )
             created = await repo.create(transaction)
 
-        # Confirm transaction
         async with self.db.session() as session:
             repo = EscrowTransactionRepository(session)
             transaction = await repo.get_by_id(created.id)
@@ -320,7 +281,6 @@ class TestEscrowTransactionRepository(LaborantTest):
 
         user = await self._create_test_user()
 
-        # Create pending transaction
         async with self.db.session() as session:
             repo = EscrowTransactionRepository(session)
             transaction = EscrowTransaction(
@@ -333,7 +293,6 @@ class TestEscrowTransactionRepository(LaborantTest):
             created = await repo.create(transaction)
             assert created.status == TransactionStatus.PENDING
 
-        # Confirm
         async with self.db.session() as session:
             repo = EscrowTransactionRepository(session)
             transaction = await repo.get_by_id(created.id)

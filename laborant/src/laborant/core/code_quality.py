@@ -344,9 +344,7 @@ class CodeQualityChecker:
         self.reporter.info(f" Found {initial_count} issue(s)", context="CodeQuality")
 
         # Step 2: autoflake
-        self.reporter.info(
-            " Step 2/6: Removing unused code...", context="CodeQuality"
-        )
+        self.reporter.info(" Step 2/6: Removing unused code...", context="CodeQuality")
         self.run_autoflake(component)
         self.reporter.info(" autoflake: Done", context="CodeQuality")
 
@@ -851,9 +849,7 @@ class CodeQualityChecker:
         self.reporter.info(f" Found {initial_count} issue(s)", context="CodeQuality")
 
         # Step 2: Remove unused imports/variables
-        self.reporter.info(
-            " Step 2/6: Removing unused code...", context="CodeQuality"
-        )
+        self.reporter.info(" Step 2/6: Removing unused code...", context="CodeQuality")
 
         autoflake_ok, autoflake_out = self.run_autoflake(component)
 

@@ -66,12 +66,20 @@ class DockerTestExecutor:
             )
             return True
 
-        self.reporter.info("Starting test infrastructure...", context="DockerTestExecutor")
+        self.reporter.info(
+            "Starting test infrastructure...", context="DockerTestExecutor"
+        )
 
         try:
-            # Check if already running
             result = subprocess.run(
-                ["docker", "ps", "--filter", "name=lumiere-test-runner", "--format", "{{.Names}}"],
+                [
+                    "docker",
+                    "ps",
+                    "--filter",
+                    "name=lumiere-test-runner",
+                    "--format",
+                    "{{.Names}}",
+                ],
                 cwd=str(self.project_root),
                 capture_output=True,
                 text=True,
@@ -85,7 +93,6 @@ class DockerTestExecutor:
                 self._infrastructure_started = True
                 return True
 
-            # Start infrastructure
             result = subprocess.run(
                 [
                     "docker",
@@ -108,14 +115,14 @@ class DockerTestExecutor:
             )
             self._infrastructure_started = True
 
-            # Wait for containers to be healthy
             time.sleep(5)
 
             return True
 
         except subprocess.CalledProcessError as e:
             self.reporter.error(
-                f"Failed to start infrastructure: {e.stderr}", context="DockerTestExecutor"
+                f"Failed to start infrastructure: {e.stderr}",
+                context="DockerTestExecutor",
             )
             return False
 
@@ -133,7 +140,9 @@ class DockerTestExecutor:
             )
             return
 
-        self.reporter.info("Stopping test infrastructure...", context="DockerTestExecutor")
+        self.reporter.info(
+            "Stopping test infrastructure...", context="DockerTestExecutor"
+        )
 
         try:
             subprocess.run(
@@ -182,7 +191,6 @@ class DockerTestExecutor:
             f"Executing in container: {relative_path}", context="DockerTestExecutor"
         )
 
-        # Ensure infrastructure is running
         if not self.ensure_infrastructure():
             return self._create_error_result(
                 test_file=test_file,
@@ -194,13 +202,18 @@ class DockerTestExecutor:
             )
 
         # Construct path inside container
-        # Container structure: /app/tests/integration/api/test_auth_routes.py
-        container_path = f"/app/tests/{relative_path.parts[-3]}/{relative_path.parts[-2]}/{relative_path.name}"
+        # Handle both with and without subcategory
+        # E2E: pourtier/tests/e2e/test_file.py -> /app/tests/e2e/test_file.py
+        # Integration: pourtier/tests/integration/api/test_file.py -> /app/tests/integration/api/test_file.py
+        parts = relative_path.parts
+        if len(parts) == 4:
+            container_path = f"/app/tests/{parts[2]}/{parts[3]}"
+        else:
+            container_path = f"/app/tests/{parts[2]}/{parts[3]}/{parts[4]}"
 
         start_time = time.time()
 
         try:
-            # Execute test inside container
             result = subprocess.run(
                 [
                     "docker",
@@ -217,7 +230,6 @@ class DockerTestExecutor:
 
             duration = time.time() - start_time
 
-            # Parse JSON output
             test_data = parse_test_output(result.stdout)
 
             if test_data is None:
@@ -230,7 +242,6 @@ class DockerTestExecutor:
                     duration=duration,
                 )
 
-            # Validate schema
             is_valid, error_msg = validate_test_output(test_data)
 
             if not is_valid:
@@ -243,10 +254,8 @@ class DockerTestExecutor:
                     duration=duration,
                 )
 
-            # Convert to TestFileResult
             test_result = TestFileResult(**test_data)
 
-            # Log result
             if test_result.success:
                 self.reporter.debug(
                     f"{test_result.passed}/{test_result.total} passed ({duration:.2f}s)",
@@ -277,9 +286,7 @@ class DockerTestExecutor:
 
         except Exception as e:
             duration = time.time() - start_time
-            self.reporter.error(
-                f"Execution error: {e}", context="DockerTestExecutor"
-            )
+            self.reporter.error(f"Execution error: {e}", context="DockerTestExecutor")
 
             return self._create_error_result(
                 test_file=test_file,
@@ -306,7 +313,6 @@ class DockerTestExecutor:
         """
         results = []
 
-        # Ensure infrastructure running
         if not self.ensure_infrastructure():
             self.reporter.error(
                 "Failed to start infrastructure for batch execution",
@@ -314,7 +320,6 @@ class DockerTestExecutor:
             )
             return results
 
-        # Execute all tests
         for test_file, component, category in test_files:
             result = self.execute_test_file(test_file, component, category)
             results.append(result)

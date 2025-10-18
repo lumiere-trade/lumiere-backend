@@ -4,7 +4,6 @@ Integration tests for UserLegalAcceptanceRepository with real PostgreSQL.
 Tests CRUD operations on test database.
 
 Usage:
-    python -m pourtier.tests.integration.database.test_user_legal_acceptance_repository
     laborant pourtier --integration
 """
 
@@ -12,9 +11,8 @@ from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
 
-from pourtier.config.settings import load_config
+from pourtier.config.settings import get_settings
 from pourtier.domain.entities.legal_document import (
     DocumentType,
     LegalDocument,
@@ -26,20 +24,16 @@ from pourtier.domain.entities.user_legal_acceptance import (
 )
 from pourtier.infrastructure.persistence.database import Database
 from pourtier.infrastructure.persistence.models import Base
-from pourtier.infrastructure.persistence.repositories.legal_document_repository import (  # noqa: E501
+from pourtier.infrastructure.persistence.repositories.legal_document_repository import (
     LegalDocumentRepository,
 )
-from pourtier.infrastructure.persistence.repositories.user_legal_acceptance_repository import (  # noqa: E501
+from pourtier.infrastructure.persistence.repositories.user_legal_acceptance_repository import (
     UserLegalAcceptanceRepository,
 )
 from pourtier.infrastructure.persistence.repositories.user_repository import (
     UserRepository,
 )
 from shared.tests import LaborantTest
-
-# Load test configuration
-test_settings = load_config("development.yaml", env="development")
-TEST_DATABASE_URL = test_settings.DATABASE_URL
 
 
 class TestUserLegalAcceptanceRepository(LaborantTest):
@@ -48,36 +42,29 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
     component_name = "pourtier"
     test_category = "integration"
 
-    # Class-level shared resources
     db: Database = None
 
-    # ================================================================
-    # Async Lifecycle Hooks
-    # ================================================================
-
     async def async_setup(self):
-        """Setup test database (runs once before all tests)."""
+        """Setup test database."""
         self.reporter.info("Setting up test database...", context="Setup")
-        self.reporter.info(f"Database: {TEST_DATABASE_URL}", context="Setup")
 
-        # Drop and recreate tables
-        engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.run_sync(Base.metadata.create_all)
-        await engine.dispose()
+        settings = get_settings()
+        self.reporter.info(f"Loaded ENV={settings.ENV}", context="Setup")
 
-        # Connect database
         TestUserLegalAcceptanceRepository.db = Database(
-            database_url=TEST_DATABASE_URL, echo=False
+            database_url=settings.DATABASE_URL, echo=False
         )
         await TestUserLegalAcceptanceRepository.db.connect()
+        self.reporter.info("Connected to test database", context="Setup")
+
+        # Reset database schema using public method
+        await TestUserLegalAcceptanceRepository.db.reset_schema_for_testing(Base.metadata)
+        self.reporter.info("Database schema reset", context="Setup")
 
         self.reporter.info("Test database ready", context="Setup")
 
     async def async_setup_test(self):
         """Clean database before each test."""
-        # Truncate tables to ensure clean state
         async with self.db.session() as session:
             await session.execute(text("TRUNCATE TABLE user_legal_acceptances CASCADE"))
             await session.execute(text("TRUNCATE TABLE legal_documents CASCADE"))
@@ -85,41 +72,23 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
             await session.commit()
 
     async def async_teardown(self):
-        """Cleanup test database (runs once after all tests)."""
-        self.reporter.info(
-            "Cleaning up test database...",
-            context="Teardown",
-        )
+        """Cleanup test database."""
+        self.reporter.info("Cleaning up test database...", context="Teardown")
 
         if TestUserLegalAcceptanceRepository.db:
             await TestUserLegalAcceptanceRepository.db.disconnect()
 
-        # Drop all tables
-        engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-        await engine.dispose()
-
         self.reporter.info("Cleanup complete", context="Teardown")
-
-    # ================================================================
-    # Helper Methods
-    # ================================================================
 
     def _generate_unique_wallet(self) -> str:
         """Generate unique 44-character wallet address."""
         unique_id = str(uuid4()).replace("-", "")
         return unique_id.ljust(44, "0")
 
-    # ================================================================
-    # Test Methods - CRUD Operations
-    # ================================================================
-
     async def test_create_acceptance(self):
         """Test creating a new user legal acceptance."""
         self.reporter.info("Testing acceptance creation", context="Test")
 
-        # Create user and document first
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             doc_repo = LegalDocumentRepository(session)
@@ -135,7 +104,6 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
             )
             doc = await doc_repo.create(doc)
 
-        # Create acceptance
         async with self.db.session() as session:
             repo = UserLegalAcceptanceRepository(session)
 
@@ -154,16 +122,12 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
             assert created.document_id == doc.id
             assert created.ip_address == "192.168.1.1"
 
-            self.reporter.info(
-                f"Acceptance created: {created.id}",
-                context="Test",
-            )
+            self.reporter.info(f"Acceptance created: {created.id}", context="Test")
 
     async def test_get_acceptance_by_id(self):
         """Test retrieving acceptance by ID."""
         self.reporter.info("Testing get acceptance by ID", context="Test")
 
-        # Create user, document, and acceptance
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             doc_repo = LegalDocumentRepository(session)
@@ -187,7 +151,6 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
                 )
             )
 
-        # Retrieve by ID
         async with self.db.session() as session:
             repo = UserLegalAcceptanceRepository(session)
             retrieved = await repo.get_by_id(acceptance.id)
@@ -197,17 +160,11 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
             assert retrieved.user_id == user.id
             assert retrieved.document_id == doc.id
 
-            self.reporter.info(
-                "Acceptance retrieved successfully",
-                context="Test",
-            )
+            self.reporter.info("Acceptance retrieved successfully", context="Test")
 
     async def test_get_nonexistent_acceptance(self):
         """Test retrieving non-existent acceptance returns None."""
-        self.reporter.info(
-            "Testing get non-existent acceptance",
-            context="Test",
-        )
+        self.reporter.info("Testing get non-existent acceptance", context="Test")
 
         async with self.db.session() as session:
             repo = UserLegalAcceptanceRepository(session)
@@ -215,23 +172,12 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
 
             assert acceptance is None
 
-            self.reporter.info(
-                "Non-existent acceptance handled correctly",
-                context="Test",
-            )
-
-    # ================================================================
-    # Test Methods - Query Operations
-    # ================================================================
+            self.reporter.info("Non-existent acceptance handled correctly", context="Test")
 
     async def test_get_by_user_and_document(self):
         """Test retrieving acceptance by user and document."""
-        self.reporter.info(
-            "Testing get by user and document",
-            context="Test",
-        )
+        self.reporter.info("Testing get by user and document", context="Test")
 
-        # Create user, document, and acceptance
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             doc_repo = LegalDocumentRepository(session)
@@ -256,7 +202,6 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
                 )
             )
 
-        # Retrieve by user and document
         async with self.db.session() as session:
             repo = UserLegalAcceptanceRepository(session)
             acceptance = await repo.get_by_user_and_document(user.id, doc.id)
@@ -266,16 +211,12 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
             assert acceptance.document_id == doc.id
             assert acceptance.ip_address == "10.0.0.1"
 
-            self.reporter.info(
-                "Acceptance found by user and document",
-                context="Test",
-            )
+            self.reporter.info("Acceptance found by user and document", context="Test")
 
     async def test_get_all_by_user(self):
         """Test retrieving all acceptances for a user."""
         self.reporter.info("Testing get all by user", context="Test")
 
-        # Create user and multiple documents
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             doc_repo = LegalDocumentRepository(session)
@@ -302,7 +243,6 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
                 )
             )
 
-            # Create acceptances
             await acc_repo.create(
                 UserLegalAcceptance(user_id=user.id, document_id=doc1.id)
             )
@@ -310,7 +250,6 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
                 UserLegalAcceptance(user_id=user.id, document_id=doc2.id)
             )
 
-        # Retrieve all for user
         async with self.db.session() as session:
             repo = UserLegalAcceptanceRepository(session)
             acceptances = await repo.get_all_by_user(user.id)
@@ -320,15 +259,13 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
             assert user.id in user_ids
 
             self.reporter.info(
-                f"Found {len(acceptances)} acceptances for user",
-                context="Test",
+                f"Found {len(acceptances)} acceptances for user", context="Test"
             )
 
     async def test_get_all_by_document(self):
         """Test retrieving all acceptances for a document."""
         self.reporter.info("Testing get all by document", context="Test")
 
-        # Create document and multiple users
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             doc_repo = LegalDocumentRepository(session)
@@ -350,7 +287,6 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
                 )
             )
 
-            # Create acceptances
             await acc_repo.create(
                 UserLegalAcceptance(user_id=user1.id, document_id=doc.id)
             )
@@ -358,7 +294,6 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
                 UserLegalAcceptance(user_id=user2.id, document_id=doc.id)
             )
 
-        # Retrieve all for document
         async with self.db.session() as session:
             repo = UserLegalAcceptanceRepository(session)
             acceptances = await repo.get_all_by_document(doc.id)
@@ -368,13 +303,8 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
             assert doc.id in doc_ids
 
             self.reporter.info(
-                f"Found {len(acceptances)} acceptances for document",
-                context="Test",
+                f"Found {len(acceptances)} acceptances for document", context="Test"
             )
-
-    # ================================================================
-    # Test Methods - Acceptance Methods
-    # ================================================================
 
     async def test_acceptance_with_web_checkbox_method(self):
         """Test acceptance with WEB_CHECKBOX method."""
@@ -442,10 +372,6 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
 
             self.reporter.info("API_EXPLICIT method stored", context="Test")
 
-    # ================================================================
-    # Test Methods - Audit Trail
-    # ================================================================
-
     async def test_acceptance_with_audit_trail(self):
         """Test acceptance stores complete audit trail."""
         self.reporter.info("Testing audit trail storage", context="Test")
@@ -487,10 +413,7 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
 
     async def test_acceptance_without_optional_audit_fields(self):
         """Test acceptance without IP and user agent."""
-        self.reporter.info(
-            "Testing acceptance without optional audit fields",
-            context="Test",
-        )
+        self.reporter.info("Testing acceptance without optional audit fields", context="Test")
 
         async with self.db.session() as session:
             user_repo = UserRepository(session)
@@ -519,23 +442,12 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
             assert acceptance.ip_address is None
             assert acceptance.user_agent is None
 
-            self.reporter.info(
-                "Acceptance without audit fields valid",
-                context="Test",
-            )
-
-    # ================================================================
-    # Test Methods - Foreign Key Relationships
-    # ================================================================
+            self.reporter.info("Acceptance without audit fields valid", context="Test")
 
     async def test_acceptance_requires_valid_user(self):
         """Test acceptance requires existing user."""
-        self.reporter.info(
-            "Testing acceptance requires valid user",
-            context="Test",
-        )
+        self.reporter.info("Testing acceptance requires valid user", context="Test")
 
-        # Create only document (no user)
         async with self.db.session() as session:
             doc_repo = LegalDocumentRepository(session)
             doc = await doc_repo.create(
@@ -547,7 +459,6 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
                 )
             )
 
-        # Try to create acceptance with non-existent user
         try:
             async with self.db.session() as session:
                 acc_repo = UserLegalAcceptanceRepository(session)
@@ -559,26 +470,18 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
                 )
             assert False, "Should raise foreign key error"
         except Exception:
-            self.reporter.info(
-                "Foreign key constraint enforced",
-                context="Test",
-            )
+            self.reporter.info("Foreign key constraint enforced", context="Test")
 
     async def test_acceptance_requires_valid_document(self):
         """Test acceptance requires existing document."""
-        self.reporter.info(
-            "Testing acceptance requires valid document",
-            context="Test",
-        )
+        self.reporter.info("Testing acceptance requires valid document", context="Test")
 
-        # Create only user (no document)
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             user = await user_repo.create(
                 User(wallet_address=self._generate_unique_wallet())
             )
 
-        # Try to create acceptance with non-existent document
         try:
             async with self.db.session() as session:
                 acc_repo = UserLegalAcceptanceRepository(session)
@@ -590,10 +493,7 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
                 )
             assert False, "Should raise foreign key error"
         except Exception:
-            self.reporter.info(
-                "Foreign key constraint enforced",
-                context="Test",
-            )
+            self.reporter.info("Foreign key constraint enforced", context="Test")
 
 
 if __name__ == "__main__":

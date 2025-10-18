@@ -5,7 +5,7 @@ Database connection and session management.
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from sqlalchemy import text
+from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -127,3 +127,35 @@ class Database:
             return True
         except Exception:
             return False
+
+    async def reset_schema_for_testing(self, metadata: MetaData) -> None:
+        """
+        Drop and recreate database schema from metadata.
+
+        CRITICAL WARNING:
+        - This method is ONLY for testing environments
+        - It DELETES ALL DATA in the database
+        - NEVER use in production
+        - Bypasses migrations (use only in test setup)
+
+        This provides a clean way for tests to reset database state
+        without direct access to private _engine attribute.
+
+        Args:
+            metadata: SQLAlchemy MetaData object (e.g., Base.metadata)
+
+        Raises:
+            RuntimeError: If database not connected
+
+        Example:
+            from pourtier.infrastructure.persistence.models import Base
+
+            async with database.session():
+                await database.reset_schema_for_testing(Base.metadata)
+        """
+        if self._engine is None:
+            raise RuntimeError("Database not connected. Call connect() first.")
+
+        async with self._engine.begin() as conn:
+            await conn.run_sync(metadata.drop_all)
+            await conn.run_sync(metadata.create_all)

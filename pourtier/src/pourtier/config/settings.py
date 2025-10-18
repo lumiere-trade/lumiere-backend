@@ -26,7 +26,6 @@ class Settings(BaseSettings):
     variables, not from YAML files.
     """
 
-    # Pydantic v2 configuration
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -46,11 +45,13 @@ class Settings(BaseSettings):
     API_RELOAD: bool = Field(default=False)
 
     # Service Discovery (Docker DNS)
-    courier_url: str = Field(
-        default="http://courier:8765", description="Courier service URL (Docker DNS)"
+    COURIER_URL: str = Field(
+        default="http://courier:8765",
+        description="Courier service URL (Docker DNS)"
     )
-    passeur_url: str = Field(
-        default="http://passeur:8766", description="Passeur bridge URL (Docker DNS)"
+    PASSEUR_URL: str = Field(
+        default="http://passeur:8766",
+        description="Passeur bridge URL (Docker DNS)"
     )
 
     # Database (from environment - REQUIRED in production)
@@ -73,19 +74,7 @@ class Settings(BaseSettings):
     SOLANA_RPC_URL: str = Field(..., description="Solana RPC URL")
     SOLANA_NETWORK: str = Field(default="devnet")
     SOLANA_COMMITMENT: str = Field(default="confirmed")
-    PASSEUR_BRIDGE_URL: str = Field(
-        default="http://passeur:8766",
-        description="Passeur bridge URL (legacy field, use passeur_url)",
-    )
     ESCROW_PROGRAM_ID: Optional[str] = Field(default=None)
-
-    # External Services
-    COURIER_URL: str = Field(
-        default="http://courier:8765",
-        description="Courier event bus URL (legacy field, use courier_url)",
-    )
-    COURIER_PORT: int = Field(default=8765, ge=1024, le=65535)
-    COURIER_ENABLED: bool = Field(default=False)
 
     # Logging
     LOG_LEVEL: str = Field(default="INFO")
@@ -133,22 +122,18 @@ def load_config(
     Raises:
         ValidationError: If required fields are missing
     """
-    # Find project root
     current_file = Path(__file__).resolve()
     project_root = current_file.parent.parent.parent.parent
     config_dir = project_root / "config"
 
-    # Determine environment (explicit parameter > ENV var > default)
     environment = env or os.getenv("ENV", "production")
 
-    # Map environment to config and env files
     env_map = {
         "production": (".env.production", "production.yaml"),
         "development": (".env.development", "development.yaml"),
         "test": (".env.development", "test.yaml"),
     }
 
-    # Load .env file FIRST (before Settings initialization)
     if env_file is None:
         default_env_file, default_config_file = env_map.get(
             environment, (".env.production", "production.yaml")
@@ -161,7 +146,6 @@ def load_config(
     if env_file_path.exists():
         load_dotenv(env_file_path, override=True)
 
-    # Load default config
     default_config_path = config_dir / "default.yaml"
     merged_config = {}
 
@@ -171,7 +155,6 @@ def load_config(
             if loaded:
                 merged_config = loaded
 
-    # Load environment-specific config (overrides defaults)
     if config_file:
         env_config_path = config_dir / config_file
         if env_config_path.exists():
@@ -180,26 +163,14 @@ def load_config(
                 if loaded:
                     merged_config.update(loaded)
 
-    # Create Settings (env vars from dotenv + YAML merged)
     return Settings(**merged_config)
 
 
-# Global settings singleton (lazy initialization)
 _settings: Optional[Settings] = None
 
 
 def get_settings() -> Settings:
-    """
-    Get or initialize global settings singleton.
-
-    Lazy initialization ensures settings are only loaded when needed.
-
-    Returns:
-        Settings instance
-
-    Raises:
-        ValidationError: If required configuration fields are missing
-    """
+    """Get or initialize global settings singleton."""
     global _settings
     if _settings is None:
         _settings = load_config()
@@ -207,21 +178,12 @@ def get_settings() -> Settings:
 
 
 def override_settings(new_settings: Settings) -> None:
-    """
-    Override global settings (for testing).
-
-    Args:
-        new_settings: New Settings instance to use
-    """
+    """Override global settings (for testing)."""
     global _settings
     _settings = new_settings
 
 
 def reset_settings() -> None:
-    """
-    Reset settings to force re-initialization (for testing).
-
-    This allows tests to change environment variables and reload config.
-    """
+    """Reset settings to force re-initialization (for testing)."""
     global _settings
     _settings = None

@@ -3,11 +3,7 @@ Integration tests for SmartContractClient with REAL Solana devnet.
 
 Tests real escrow operations on deployed smart contract.
 
-Program ID: 9gvUtaF99sQ287PNzRfCbhFTC4PUnnd7jdAjnY5GUVhS
-Network: Solana Devnet
-
 Usage:
-    python -m pourtier.tests.integration.services.test_escrow_contract_client
     laborant pourtier --integration
 """
 
@@ -18,14 +14,9 @@ from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 
-from pourtier.config.settings import load_config
+from pourtier.config.settings import get_settings
 from shared.blockchain.wallets import PlatformWallets
 from shared.tests import LaborantTest
-
-# Load test configuration
-test_settings = load_config("development.yaml", env="development")
-TEST_RPC_URL = test_settings.SOLANA_RPC_URL
-TEST_PROGRAM_ID = test_settings.ESCROW_PROGRAM_ID
 
 
 class TestEscrowContractClient(LaborantTest):
@@ -34,24 +25,26 @@ class TestEscrowContractClient(LaborantTest):
     component_name = "pourtier"
     test_category = "integration"
 
-    # Class-level shared resources
     client: AsyncClient = None
     platform_keypair: Keypair = None
-
-    # ================================================================
-    # Async Lifecycle Hooks
-    # ================================================================
+    rpc_url: str = None
+    program_id: str = None
 
     async def async_setup(self):
-        """Setup Solana client and keypair (runs once before all tests)."""
+        """Setup Solana client and keypair."""
         self.reporter.info("Setting up Solana client...", context="Setup")
-        self.reporter.info(f"RPC URL: {TEST_RPC_URL}", context="Setup")
-        self.reporter.info(f"Program ID: {TEST_PROGRAM_ID}", context="Setup")
+
+        settings = get_settings()
+        TestEscrowContractClient.rpc_url = settings.SOLANA_RPC_URL
+        TestEscrowContractClient.program_id = settings.ESCROW_PROGRAM_ID
+
+        self.reporter.info(f"RPC URL: {self.rpc_url}", context="Setup")
+        self.reporter.info(f"Program ID: {self.program_id}", context="Setup")
 
         # Initialize Solana client
-        TestEscrowContractClient.client = AsyncClient(TEST_RPC_URL)
+        TestEscrowContractClient.client = AsyncClient(self.rpc_url)
 
-        # Load platform keypair from shared test config
+        # Load platform keypair
         TestEscrowContractClient.platform_keypair = self._load_keypair(
             PlatformWallets.get_test_platform_keypair()
         )
@@ -64,7 +57,6 @@ class TestEscrowContractClient(LaborantTest):
         balance = await self._get_balance(self.platform_keypair.pubkey())
         self.reporter.info(f"Platform balance: {balance:.4f} SOL", context="Setup")
 
-        # Verify minimum balance
         if balance < 0.01:
             raise RuntimeError(
                 f"Insufficient balance: {balance:.4f} SOL. "
@@ -74,7 +66,7 @@ class TestEscrowContractClient(LaborantTest):
         self.reporter.info("Solana client ready", context="Setup")
 
     async def async_teardown(self):
-        """Cleanup Solana client (runs once after all tests)."""
+        """Cleanup Solana client."""
         self.reporter.info("Cleaning up Solana client...", context="Teardown")
 
         if TestEscrowContractClient.client:
@@ -82,10 +74,6 @@ class TestEscrowContractClient(LaborantTest):
             TestEscrowContractClient.client = None
 
         self.reporter.info("Cleanup complete", context="Teardown")
-
-    # ================================================================
-    # Helper Methods
-    # ================================================================
 
     def _load_keypair(self, path: str) -> Keypair:
         """Load Solana keypair from JSON file."""
@@ -96,7 +84,7 @@ class TestEscrowContractClient(LaborantTest):
     async def _get_balance(self, pubkey: Pubkey) -> float:
         """Get SOL balance for pubkey."""
         response = await self.client.get_balance(pubkey)
-        return response.value / 1e9  # Convert lamports to SOL
+        return response.value / 1e9
 
     def _derive_escrow_pda(
         self, program_id: Pubkey, user_pubkey: Pubkey, strategy_id: bytes
@@ -105,15 +93,10 @@ class TestEscrowContractClient(LaborantTest):
         seeds = [b"escrow", bytes(user_pubkey), strategy_id]
         return Pubkey.find_program_address(seeds, program_id)
 
-    # ================================================================
-    # Test Methods
-    # ================================================================
-
     async def test_rpc_connection(self):
         """Test connection to Solana devnet RPC."""
         self.reporter.info("Testing RPC connection to devnet", context="Test")
 
-        # Get latest blockhash to verify connection
         response = await self.client.get_latest_blockhash()
 
         assert response.value is not None
@@ -147,13 +130,11 @@ class TestEscrowContractClient(LaborantTest):
         """Test deriving escrow PDA address."""
         self.reporter.info("Testing escrow PDA derivation", context="Test")
 
-        program_id = Pubkey.from_string(TEST_PROGRAM_ID)
+        program_id = Pubkey.from_string(self.program_id)
         user_pubkey = self.platform_keypair.pubkey()
 
-        # Generate strategy ID (16 bytes UUID)
         strategy_id = uuid4().bytes
 
-        # Derive PDA
         escrow_pda, bump = self._derive_escrow_pda(program_id, user_pubkey, strategy_id)
 
         assert escrow_pda is not None
@@ -166,9 +147,8 @@ class TestEscrowContractClient(LaborantTest):
         """Test checking program account exists."""
         self.reporter.info("Testing program account check", context="Test")
 
-        program_id = Pubkey.from_string(TEST_PROGRAM_ID)
+        program_id = Pubkey.from_string(self.program_id)
 
-        # Get account info
         response = await self.client.get_account_info(program_id)
 
         assert response.value is not None
@@ -184,7 +164,6 @@ class TestEscrowContractClient(LaborantTest):
 
         idl_account = Pubkey.from_string("AGtwfgMNBMPyRFv8WLN7m3ndFEA81Azyn3HWBt5ag7kj")
 
-        # Check IDL account exists
         response = await self.client.get_account_info(idl_account)
 
         assert response.value is not None
@@ -198,22 +177,17 @@ class TestEscrowContractClient(LaborantTest):
         """Test full escrow initialization flow (simulated)."""
         self.reporter.info("Testing escrow initialization flow", context="Test")
 
-        program_id = Pubkey.from_string(TEST_PROGRAM_ID)
+        program_id = Pubkey.from_string(self.program_id)
         user_pubkey = self.platform_keypair.pubkey()
 
-        # Generate strategy ID
         strategy_id = uuid4().bytes
 
-        # Derive escrow PDA
         escrow_pda, bump = self._derive_escrow_pda(program_id, user_pubkey, strategy_id)
 
         self.reporter.info(f"Would initialize escrow at: {escrow_pda}", context="Test")
         self.reporter.info(f"User: {user_pubkey}", context="Test")
         self.reporter.info(f"Strategy ID: {strategy_id.hex()}", context="Test")
         self.reporter.info(f"Bump: {bump}", context="Test")
-
-        # Note: Actual initialization requires building and sending TX
-        # This test verifies all prerequisites are in place
 
         assert escrow_pda is not None
         assert bump is not None
