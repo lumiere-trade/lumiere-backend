@@ -212,9 +212,9 @@ class DIContainer:
         if self._multi_layer_cache is None:
             self._multi_layer_cache = MultiLayerCache(
                 redis_client=self.cache_client,
-                l1_maxsize=1000,  # 1000 items in memory
-                l1_ttl=300,  # 5 minutes
-                l2_ttl=3600,  # 1 hour
+                l1_maxsize=1000,
+                l1_ttl=300,
+                l2_ttl=3600,
             )
         return self._multi_layer_cache
 
@@ -225,7 +225,7 @@ class DIContainer:
         """Get Passeur Bridge client instance."""
         if self._passeur_bridge is None:
             self._passeur_bridge = PasseurBridgeClient(
-                bridge_url=get_settings().PASSEUR_BRIDGE_URL,
+                bridge_url=get_settings().PASSEUR_URL,
                 timeout=30,
             )
         return self._passeur_bridge
@@ -236,7 +236,7 @@ class DIContainer:
         if self._blockchain_verifier is None:
             self._blockchain_verifier = SolanaTransactionVerifier(
                 rpc_url=get_settings().SOLANA_RPC_URL,
-                timeout=30,
+                total_timeout=30,
             )
         return self._blockchain_verifier
 
@@ -245,7 +245,7 @@ class DIContainer:
         """Get escrow query service instance."""
         if self._escrow_query_service is None:
             self._escrow_query_service = PasseurQueryService(
-                bridge_url=get_settings().PASSEUR_BRIDGE_URL,
+                bridge_url=get_settings().PASSEUR_URL,
                 timeout=30,
             )
         return self._escrow_query_service
@@ -284,7 +284,7 @@ class DIContainer:
         """
         if self._escrow_contract_client is None:
             self._escrow_contract_client = EscrowContractClient(
-                bridge_url=get_settings().PASSEUR_BRIDGE_URL,
+                bridge_url=get_settings().PASSEUR_URL,
                 timeout=30,
             )
         return self._escrow_contract_client
@@ -311,7 +311,6 @@ class DIContainer:
             UserRepository instance or class
         """
         if session is not None:
-            # Inject cache if Redis is enabled
             cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
             return UserRepository(session, cache=cache)
         return UserRepository
@@ -402,7 +401,6 @@ class DIContainer:
         Returns:
             AuthenticateWallet use case instance
         """
-        # Inject cache if Redis enabled
         cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
         user_repository = UserRepository(session, cache=cache)
 
@@ -413,16 +411,15 @@ class DIContainer:
 
     def get_create_user(self) -> CreateUser:
         """Get create user use case."""
-        # Note: Requires repository with active session
-        # TODO: Implement session management for use cases
+        pass
 
     def get_get_user_profile(self) -> GetUserProfile:
         """Get user profile use case."""
-        # TODO: Implement with session management
+        pass
 
     def get_update_user_profile(self) -> UpdateUserProfile:
         """Get update user profile use case."""
-        # TODO: Implement with session management
+        pass
 
     def get_create_subscription(self, session: AsyncSession) -> CreateSubscription:
         """
@@ -435,8 +432,6 @@ class DIContainer:
             CreateSubscription use case instance
         """
         subscription_repo = SubscriptionRepository(session)
-
-        # Inject cache if Redis enabled
         cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
         user_repo = UserRepository(session, cache=cache)
 
@@ -447,7 +442,7 @@ class DIContainer:
 
     def get_check_subscription_status(self) -> CheckSubscriptionStatus:
         """Get check subscription status use case."""
-        # TODO: Implement with session management
+        pass
 
 
 # Global container instance

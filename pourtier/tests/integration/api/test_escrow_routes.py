@@ -4,7 +4,6 @@ Integration tests for Escrow API routes.
 Tests escrow endpoints with httpx.AsyncClient and test database.
 
 Usage:
-    ENV=test python -m pourtier.tests.integration.api.test_escrow_routes
     laborant pourtier --integration
 """
 
@@ -14,9 +13,8 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import httpx
-from sqlalchemy.ext.asyncio import create_async_engine
 
-from pourtier.config.settings import load_config, override_settings
+from pourtier.config.settings import get_settings
 from pourtier.di.dependencies import get_db_session
 from pourtier.domain.entities.user import User
 from pourtier.domain.services.i_blockchain_verifier import (
@@ -37,94 +35,63 @@ class TestEscrowRoutes(LaborantTest):
     component_name = "pourtier"
     test_category = "integration"
 
-    # Class-level shared resources
     db: Database = None
     client: httpx.AsyncClient = None
     test_user: User = None
     test_token: str = None
-    test_settings = None
-
-    # ================================================================
-    # Async Lifecycle Hooks
-    # ================================================================
 
     async def async_setup(self):
         """Setup test database and client."""
-        self.reporter.info("Setting up API integration tests...", context="Setup")
+        self.reporter.info("Setting up escrow API tests...", context="Setup")
 
-        # 1. Load test config and override global settings
-        TestEscrowRoutes.test_settings = load_config(
-            "development.yaml", env="development"
-        )
-        app = create_app(TestEscrowRoutes.test_settings)
-        override_settings(TestEscrowRoutes.test_settings)
+        # Load settings
+        settings = get_settings()
+        self.reporter.info(f"Loaded ENV={settings.ENV}", context="Setup")
 
-        self.reporter.info("Test settings loaded and applied", context="Setup")
-
-        # 2. Create test database instance
-        TestEscrowRoutes.db = Database(
-            database_url=TestEscrowRoutes.test_settings.DATABASE_URL, echo=False
-        )
+        # Create database
+        TestEscrowRoutes.db = Database(database_url=settings.DATABASE_URL, echo=False)
         await TestEscrowRoutes.db.connect()
+        self.reporter.info("Connected to test database", context="Setup")
 
-        # 3. Drop and recreate tables
-        async with TestEscrowRoutes.db._engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.run_sync(Base.metadata.create_all)
+        # Drop and recreate tables
+        # Reset database schema using public method
+        await TestEscrowRoutes.db.reset_schema_for_testing(Base.metadata)
+        self.reporter.info("Database schema reset", context="Setup")
 
-        self.reporter.info("Test database tables created", context="Setup")
+        # Create app
+        app = create_app(settings)
 
-        # 4. Override FastAPI dependency to use test DB
         async def override_get_db_session():
-            """Provide test database session."""
             async with TestEscrowRoutes.db.session() as session:
                 yield session
 
         app.dependency_overrides[get_db_session] = override_get_db_session
-
         self.reporter.info("Database dependency overridden", context="Setup")
 
-        # 5. Create async client (after all overrides)
+        # Create client
         TestEscrowRoutes.client = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         )
 
-        # 6. Create test user with escrow
+        # Create test user with escrow
         await self._create_test_user_with_escrow()
 
-        # 7. Generate test JWT token
+        # Generate token
         TestEscrowRoutes.test_token = self._generate_test_token()
 
-        self.reporter.info("API integration tests ready", context="Setup")
+        self.reporter.info("Escrow API tests ready", context="Setup")
 
     async def async_teardown(self):
         """Cleanup test database."""
-        self.reporter.info("Cleaning up API integration tests...", context="Teardown")
+        self.reporter.info("Cleaning up escrow API tests...", context="Teardown")
 
-        # Close AsyncClient
         if TestEscrowRoutes.client:
             await TestEscrowRoutes.client.aclose()
 
-        # Clear dependency overrides
-        app.dependency_overrides.clear()
-
-        # Disconnect database
         if TestEscrowRoutes.db:
             await TestEscrowRoutes.db.disconnect()
 
-        # Drop all tables
-        engine = create_async_engine(
-            TestEscrowRoutes.test_settings.DATABASE_URL, echo=False
-        )
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-        await engine.dispose()
-
         self.reporter.info("Cleanup complete", context="Teardown")
-
-    # ================================================================
-    # Helper Methods
-    # ================================================================
 
     def _generate_unique_wallet(self) -> str:
         """Generate unique 44-character wallet address."""
@@ -132,16 +99,12 @@ class TestEscrowRoutes(LaborantTest):
         return unique_id.ljust(44, "0")
 
     def _generate_valid_signature(self, prefix: str = "test") -> str:
-        """
-        Generate valid 88-character Solana transaction signature.
-
-        Solana signatures are 88 characters (base58 encoded 64 bytes).
-        """
+        """Generate valid 88-character Solana transaction signature."""
         base = prefix + ("A" * 88)
         return base[:88]
 
     def _generate_mock_block_time(self) -> datetime:
-        """Generate mock blockchain timestamp (datetime)."""
+        """Generate mock blockchain timestamp."""
         return datetime.utcnow() - timedelta(minutes=5)
 
     async def _create_test_user_with_escrow(self):
@@ -157,7 +120,7 @@ class TestEscrowRoutes(LaborantTest):
             TestEscrowRoutes.test_user = await user_repo.create(user)
 
     def _generate_test_token(self) -> str:
-        """Generate test JWT token using test settings."""
+        """Generate test JWT token."""
         from pourtier.infrastructure.auth.jwt_handler import create_access_token
 
         return create_access_token(
@@ -168,10 +131,6 @@ class TestEscrowRoutes(LaborantTest):
     def _auth_headers(self) -> dict:
         """Get authorization headers."""
         return {"Authorization": f"Bearer {self.test_token}"}
-
-    # ================================================================
-    # Initialize Escrow Tests
-    # ================================================================
 
     async def test_initialize_escrow_success(self):
         """Test successful escrow initialization."""
@@ -195,7 +154,7 @@ class TestEscrowRoutes(LaborantTest):
         sig = self._generate_valid_signature("init")
         expected_escrow = "3aV1Pbb5bT4x7dPdKj2fhgrXM2kPGMsTs4zB7CMkKfki"
 
-        # Mock _derive_escrow_pda to return valid escrow
+        # Mock _derive_escrow_pda
         with patch(
             "pourtier.application.use_cases.initialize_escrow.InitializeEscrow._derive_escrow_pda",
             return_value=expected_escrow,
@@ -239,10 +198,8 @@ class TestEscrowRoutes(LaborantTest):
             "Testing initialize escrow (already initialized)", context="Test"
         )
 
-        # Generate valid signature
         sig = self._generate_valid_signature("reinit")
 
-        # Mock blockchain verifier
         with patch(
             "pourtier.di.container.DIContainer.blockchain_verifier"
         ) as mock_verifier:
@@ -273,18 +230,12 @@ class TestEscrowRoutes(LaborantTest):
 
         self.reporter.info("Already initialized error returned", context="Test")
 
-    # ================================================================
-    # Deposit Tests
-    # ================================================================
-
     async def test_deposit_success(self):
         """Test successful deposit."""
         self.reporter.info("Testing deposit (success)", context="Test")
 
-        # Generate valid signature
         sig = self._generate_valid_signature("deposit")
 
-        # Mock blockchain verifier
         with patch(
             "pourtier.di.container.DIContainer.blockchain_verifier"
         ) as mock_verifier:
@@ -336,18 +287,12 @@ class TestEscrowRoutes(LaborantTest):
 
         self.reporter.info("Unauthorized error returned", context="Test")
 
-    # ================================================================
-    # Withdraw Tests
-    # ================================================================
-
     async def test_withdraw_success(self):
         """Test successful withdrawal."""
         self.reporter.info("Testing withdraw (success)", context="Test")
 
-        # Generate valid signature
         sig = self._generate_valid_signature("withdraw")
 
-        # Mock blockchain verifier
         with patch(
             "pourtier.di.container.DIContainer.blockchain_verifier"
         ) as mock_verifier:
@@ -384,10 +329,8 @@ class TestEscrowRoutes(LaborantTest):
         """Test withdrawal with insufficient balance."""
         self.reporter.info("Testing withdraw (insufficient balance)", context="Test")
 
-        # Generate valid signature
         sig = self._generate_valid_signature("withdraw_fail")
 
-        # Mock blockchain verifier with large amount
         with patch(
             "pourtier.di.container.DIContainer.blockchain_verifier"
         ) as mock_verifier:
@@ -418,10 +361,6 @@ class TestEscrowRoutes(LaborantTest):
 
         self.reporter.info("Insufficient balance error returned", context="Test")
 
-    # ================================================================
-    # Get Balance Tests
-    # ================================================================
-
     async def test_get_balance_success(self):
         """Test getting escrow balance."""
         self.reporter.info("Testing get balance (success)", context="Test")
@@ -443,7 +382,6 @@ class TestEscrowRoutes(LaborantTest):
         """Test getting balance with blockchain sync."""
         self.reporter.info("Testing get balance (with sync)", context="Test")
 
-        # Mock escrow query service
         with patch(
             "pourtier.di.container.DIContainer.escrow_query_service"
         ) as mock_query:
@@ -471,10 +409,6 @@ class TestEscrowRoutes(LaborantTest):
         assert response.status_code == 403
 
         self.reporter.info("Unauthorized error returned", context="Test")
-
-    # ================================================================
-    # List Transactions Tests
-    # ================================================================
 
     async def test_list_transactions_success(self):
         """Test listing escrow transactions."""

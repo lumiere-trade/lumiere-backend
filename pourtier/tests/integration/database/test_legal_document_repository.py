@@ -4,7 +4,6 @@ Integration tests for LegalDocumentRepository with real PostgreSQL.
 Tests CRUD operations on test database.
 
 Usage:
-    python -m pourtier.tests.integration.database.test_legal_document_repository
     laborant pourtier --integration
 """
 
@@ -12,9 +11,8 @@ from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
 
-from pourtier.config.settings import load_config
+from pourtier.config.settings import get_settings
 from pourtier.domain.entities.legal_document import (
     DocumentStatus,
     DocumentType,
@@ -22,14 +20,10 @@ from pourtier.domain.entities.legal_document import (
 )
 from pourtier.infrastructure.persistence.database import Database
 from pourtier.infrastructure.persistence.models import Base
-from pourtier.infrastructure.persistence.repositories.legal_document_repository import (  # noqa: E501
+from pourtier.infrastructure.persistence.repositories.legal_document_repository import (
     LegalDocumentRepository,
 )
 from shared.tests import LaborantTest
-
-# Load test configuration
-test_settings = load_config("development.yaml", env="development")
-TEST_DATABASE_URL = test_settings.DATABASE_URL
 
 
 class TestLegalDocumentRepository(LaborantTest):
@@ -38,61 +32,41 @@ class TestLegalDocumentRepository(LaborantTest):
     component_name = "pourtier"
     test_category = "integration"
 
-    # Class-level shared resources
     db: Database = None
 
-    # ================================================================
-    # Async Lifecycle Hooks
-    # ================================================================
-
     async def async_setup(self):
-        """Setup test database (runs once before all tests)."""
+        """Setup test database."""
         self.reporter.info("Setting up test database...", context="Setup")
-        self.reporter.info(f"Database: {TEST_DATABASE_URL}", context="Setup")
 
-        # Drop and recreate tables
-        engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.run_sync(Base.metadata.create_all)
-        await engine.dispose()
+        settings = get_settings()
+        self.reporter.info(f"Loaded ENV={settings.ENV}", context="Setup")
 
-        # Connect database
         TestLegalDocumentRepository.db = Database(
-            database_url=TEST_DATABASE_URL, echo=False
+            database_url=settings.DATABASE_URL, echo=False
         )
         await TestLegalDocumentRepository.db.connect()
+        self.reporter.info("Connected to test database", context="Setup")
+
+        # Reset database schema using public method
+        await TestLegalDocumentRepository.db.reset_schema_for_testing(Base.metadata)
+        self.reporter.info("Database schema reset", context="Setup")
 
         self.reporter.info("Test database ready", context="Setup")
 
     async def async_setup_test(self):
         """Clean database before each test."""
-        # Truncate tables to ensure clean state
         async with self.db.session() as session:
             await session.execute(text("TRUNCATE TABLE legal_documents CASCADE"))
             await session.commit()
 
     async def async_teardown(self):
-        """Cleanup test database (runs once after all tests)."""
-        self.reporter.info(
-            "Cleaning up test database...",
-            context="Teardown",
-        )
+        """Cleanup test database."""
+        self.reporter.info("Cleaning up test database...", context="Teardown")
 
         if TestLegalDocumentRepository.db:
             await TestLegalDocumentRepository.db.disconnect()
 
-        # Drop all tables
-        engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-        await engine.dispose()
-
         self.reporter.info("Cleanup complete", context="Teardown")
-
-    # ================================================================
-    # Test Methods - CRUD Operations
-    # ================================================================
 
     async def test_create_legal_document(self):
         """Test creating a new legal document."""
@@ -115,16 +89,12 @@ class TestLegalDocumentRepository(LaborantTest):
             assert created_doc.version == "1.0.0"
             assert created_doc.status == DocumentStatus.DRAFT
 
-            self.reporter.info(
-                f"Document created: {created_doc.id}",
-                context="Test",
-            )
+            self.reporter.info(f"Document created: {created_doc.id}", context="Test")
 
     async def test_get_document_by_id(self):
         """Test retrieving document by ID."""
         self.reporter.info("Testing get document by ID", context="Test")
 
-        # Create document
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
             doc = LegalDocument(
@@ -135,7 +105,6 @@ class TestLegalDocumentRepository(LaborantTest):
             )
             created_doc = await repo.create(doc)
 
-        # Retrieve by ID
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
             retrieved_doc = await repo.get_by_id(created_doc.id)
@@ -156,16 +125,12 @@ class TestLegalDocumentRepository(LaborantTest):
 
             assert doc is None
 
-            self.reporter.info(
-                "Non-existent document handled correctly",
-                context="Test",
-            )
+            self.reporter.info("Non-existent document handled correctly", context="Test")
 
     async def test_update_legal_document(self):
         """Test updating document information."""
         self.reporter.info("Testing document update", context="Test")
 
-        # Create document
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
             doc = LegalDocument(
@@ -176,7 +141,6 @@ class TestLegalDocumentRepository(LaborantTest):
             )
             created_doc = await repo.create(doc)
 
-        # Update document
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
             doc = await repo.get_by_id(created_doc.id)
@@ -191,15 +155,10 @@ class TestLegalDocumentRepository(LaborantTest):
 
             self.reporter.info("Document updated successfully", context="Test")
 
-    # ================================================================
-    # Test Methods - Status Transitions
-    # ================================================================
-
     async def test_activate_document(self):
         """Test activating a document."""
         self.reporter.info("Testing document activation", context="Test")
 
-        # Create draft document
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
             doc = LegalDocument(
@@ -211,7 +170,6 @@ class TestLegalDocumentRepository(LaborantTest):
             )
             created_doc = await repo.create(doc)
 
-        # Activate document
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
             doc = await repo.get_by_id(created_doc.id)
@@ -229,7 +187,6 @@ class TestLegalDocumentRepository(LaborantTest):
         """Test archiving a document."""
         self.reporter.info("Testing document archival", context="Test")
 
-        # Create active document
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
             doc = LegalDocument(
@@ -242,7 +199,6 @@ class TestLegalDocumentRepository(LaborantTest):
             )
             created_doc = await repo.create(doc)
 
-        # Archive document
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
             doc = await repo.get_by_id(created_doc.id)
@@ -256,19 +212,13 @@ class TestLegalDocumentRepository(LaborantTest):
 
             self.reporter.info("Document archived", context="Test")
 
-    # ================================================================
-    # Test Methods - Query Operations
-    # ================================================================
-
     async def test_get_all_active_documents(self):
         """Test retrieving all active documents."""
         self.reporter.info("Testing get all active documents", context="Test")
 
-        # Create multiple documents with different statuses
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
 
-            # Active document
             active_doc = LegalDocument(
                 document_type=DocumentType.TERMS_OF_SERVICE,
                 version="1.0.0",
@@ -279,7 +229,6 @@ class TestLegalDocumentRepository(LaborantTest):
             )
             await repo.create(active_doc)
 
-            # Draft document
             draft_doc = LegalDocument(
                 document_type=DocumentType.PRIVACY_POLICY,
                 version="1.0.0",
@@ -289,7 +238,6 @@ class TestLegalDocumentRepository(LaborantTest):
             )
             await repo.create(draft_doc)
 
-            # Archived document
             archived_doc = LegalDocument(
                 document_type=DocumentType.TERMS_OF_SERVICE,
                 version="0.9.0",
@@ -300,7 +248,6 @@ class TestLegalDocumentRepository(LaborantTest):
             )
             await repo.create(archived_doc)
 
-        # Get only active documents (in NEW session)
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
             active_docs = await repo.get_all_active()
@@ -310,18 +257,13 @@ class TestLegalDocumentRepository(LaborantTest):
             assert active_docs[0].title == "Active TOS"
 
             self.reporter.info(
-                f"Found {len(active_docs)} active documents",
-                context="Test",
+                f"Found {len(active_docs)} active documents", context="Test"
             )
 
     async def test_get_by_type_and_version(self):
         """Test retrieving document by type and version."""
-        self.reporter.info(
-            "Testing get by type and version",
-            context="Test",
-        )
+        self.reporter.info("Testing get by type and version", context="Test")
 
-        # Create documents with different versions
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
 
@@ -341,7 +283,6 @@ class TestLegalDocumentRepository(LaborantTest):
             )
             await repo.create(doc_v2)
 
-        # Get specific version (in NEW session)
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
             doc = await repo.get_by_type_and_version(
@@ -355,18 +296,10 @@ class TestLegalDocumentRepository(LaborantTest):
 
             self.reporter.info("Document found by type and version", context="Test")
 
-    # ================================================================
-    # Test Methods - Multiple Document Types
-    # ================================================================
-
     async def test_multiple_active_document_types(self):
         """Test having active documents of different types."""
-        self.reporter.info(
-            "Testing multiple active document types",
-            context="Test",
-        )
+        self.reporter.info("Testing multiple active document types", context="Test")
 
-        # Create active documents of different types
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
 
@@ -390,7 +323,6 @@ class TestLegalDocumentRepository(LaborantTest):
             )
             await repo.create(privacy)
 
-        # Retrieve all active (in NEW session)
         async with self.db.session() as session:
             repo = LegalDocumentRepository(session)
             active_docs = await repo.get_all_active()
@@ -400,10 +332,7 @@ class TestLegalDocumentRepository(LaborantTest):
             assert DocumentType.TERMS_OF_SERVICE in doc_types
             assert DocumentType.PRIVACY_POLICY in doc_types
 
-            self.reporter.info(
-                "Multiple active document types stored",
-                context="Test",
-            )
+            self.reporter.info("Multiple active document types stored", context="Test")
 
 
 if __name__ == "__main__":

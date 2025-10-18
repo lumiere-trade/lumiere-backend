@@ -75,7 +75,7 @@ services:
       PASSEUR_BRIDGE_URL: http://passeur:7766
       COURIER_URL: http://courier:7765
       # Redis (disabled)
-      REDIS_ENABLED: false
+      REDIS_ENABLED: "false"
       # Logging
       LOG_LEVEL: DEBUG
       LOG_FILE: null
@@ -201,7 +201,7 @@ services:
       SOLANA_RPC_URL: https://api.devnet.solana.com
       SOLANA_NETWORK: devnet
       # Redis (disabled)
-      REDIS_ENABLED: false
+      REDIS_ENABLED: "false"
       # Logging
       LOG_LEVEL: DEBUG
       LOG_FILE: null

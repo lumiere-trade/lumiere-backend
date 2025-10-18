@@ -2,26 +2,21 @@
 Integration tests for User API routes.
 
 Tests user endpoints with httpx.AsyncClient and real test database.
-All tests are ASYNC, following the same pattern as other integration tests.
 
 Usage:
-    ENV=test python -m pourtier.tests.integration.api.test_user_routes
-    laborant pourtier --integration
+    laborant test pourtier --integration
 """
 
 from decimal import Decimal
 from uuid import uuid4
 
 import httpx
-from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import create_async_engine
 
-from pourtier.config.settings import load_config, override_settings
-from pourtier.di.container import get_container
+from pourtier.config.settings import get_settings
 from pourtier.di.dependencies import get_db_session
 from pourtier.domain.entities.user import User
 from pourtier.infrastructure.persistence.database import Database
-from pourtier.infrastructure.persistence.models import Base, UserModel
+from pourtier.infrastructure.persistence.models import Base
 from pourtier.infrastructure.persistence.repositories.user_repository import (
     UserRepository,
 )
@@ -35,51 +30,39 @@ class TestUserRoutes(LaborantTest):
     component_name = "pourtier"
     test_category = "integration"
 
-    # Class-level shared resources
     db: Database = None
     client: httpx.AsyncClient = None
-    test_settings = None
 
     async def async_setup(self):
-        """Setup test database and API client (runs once before all tests)."""
+        """Setup test database and API client."""
         self.reporter.info("Setting up user API tests...", context="Setup")
 
-        # Load test configuration
-        TestUserRoutes.test_settings = load_config(
-            "development.yaml", env="development"
-        )
-        app = create_app(TestUserRoutes.test_settings)
+        # Load settings
+        settings = get_settings()
+        self.reporter.info(f"Loaded ENV={settings.ENV}", context="Setup")
 
-        TEST_DATABASE_URL = TestUserRoutes.test_settings.DATABASE_URL
-        self.reporter.info(f"Database: {TEST_DATABASE_URL}", context="Setup")
-
-        # Apply test settings globally
-        override_settings(TestUserRoutes.test_settings)
-
-        # Drop and recreate tables
-        engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.run_sync(Base.metadata.create_all)
-        await engine.dispose()
-
-        # Connect database
-        TestUserRoutes.db = Database(database_url=TEST_DATABASE_URL, echo=False)
+        # Create test database instance
+        TestUserRoutes.db = Database(database_url=settings.DATABASE_URL, echo=False)
         await TestUserRoutes.db.connect()
+        self.reporter.info("Connected to test database", context="Setup")
 
-        # Override container's database with test database
-        container = get_container()
-        container._database = TestUserRoutes.db
+        # Reset database schema using public method
+        await TestUserRoutes.db.reset_schema_for_testing(Base.metadata)
+        self.reporter.info("Database schema reset", context="Setup")
 
-        # Override FastAPI dependency to use test DB
+        # Create test app
+        app = create_app(settings)
+
+        # Override FastAPI dependency
         async def override_get_db_session():
             """Provide test database session."""
             async with TestUserRoutes.db.session() as session:
                 yield session
 
         app.dependency_overrides[get_db_session] = override_get_db_session
+        self.reporter.info("Database dependency overridden", context="Setup")
 
-        # Create AsyncClient with ASGI transport
+        # Create async client
         TestUserRoutes.client = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         )
@@ -87,39 +70,16 @@ class TestUserRoutes(LaborantTest):
         self.reporter.info("User API tests ready", context="Setup")
 
     async def async_teardown(self):
-        """Cleanup test database (runs once after all tests)."""
+        """Cleanup test database."""
         self.reporter.info("Cleaning up user API tests...", context="Teardown")
 
-        # Close AsyncClient
         if TestUserRoutes.client:
             await TestUserRoutes.client.aclose()
 
-        # Disconnect database
         if TestUserRoutes.db:
             await TestUserRoutes.db.disconnect()
 
-        # Drop all tables
-        TEST_DATABASE_URL = TestUserRoutes.test_settings.DATABASE_URL
-        engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-        await engine.dispose()
-
         self.reporter.info("Cleanup complete", context="Teardown")
-
-    async def async_setup_test(self):
-        """Setup before each test - ensure clean state."""
-        self.reporter.info("Cleaning test state...", context="Test")
-
-        # Delete all users
-        async with self.db.session() as session:
-            await session.execute(delete(UserModel))
-            await session.commit()
-
-        self.reporter.info("Clean state ready", context="Test")
-
-    async def async_teardown_test(self):
-        """Cleanup after each test."""
 
     def _generate_unique_wallet(self) -> str:
         """Generate unique 44-character wallet address."""
@@ -127,15 +87,7 @@ class TestUserRoutes(LaborantTest):
         return unique_id.ljust(44, "0")
 
     async def _create_test_user(self, with_escrow: bool = False) -> User:
-        """
-        Create test user in database.
-
-        Args:
-            with_escrow: If True, initialize escrow with balance
-
-        Returns:
-            Created User entity
-        """
+        """Create test user in database."""
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             user = User(wallet_address=self._generate_unique_wallet())

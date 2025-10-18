@@ -28,6 +28,9 @@ from pourtier.infrastructure.persistence.models import (
     UserLegalAcceptanceModel,
     UserModel,
 )
+from pourtier.infrastructure.persistence.repositories.user_repository import (
+    UserRepository,
+)
 from pourtier.main import create_app
 from shared.blockchain.wallets import PlatformWallets
 from shared.tests import LaborantTest
@@ -48,9 +51,7 @@ class TestAuthRoutes(LaborantTest):
 
     async def async_setup(self):
         """Setup test database and client."""
-        self.reporter.info(
-            "Setting up auth API integration tests...", context="Setup"
-        )
+        self.reporter.info("Setting up auth API integration tests...", context="Setup")
 
         # Load settings (DATABASE_URL from environment)
         settings = get_settings()
@@ -61,21 +62,16 @@ class TestAuthRoutes(LaborantTest):
         await TestAuthRoutes.db.connect()
         self.reporter.info("Connected to test database", context="Setup")
 
-        # Drop and recreate tables
-        async with TestAuthRoutes.db._engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.run_sync(Base.metadata.create_all)
-        self.reporter.info("Database schema created", context="Setup")
+        # Reset database schema using public method
+        await TestAuthRoutes.db.reset_schema_for_testing(Base.metadata)
+        self.reporter.info("Database schema reset", context="Setup")
 
         # Seed legal documents
         await self._seed_legal_documents()
 
-        # Override container's database with test database
-        container = get_container()
-        container._database = TestAuthRoutes.db
-
         # Initialize cache if enabled
         if settings.REDIS_ENABLED:
+            container = get_container()
             await container.cache_client.connect()
             self.reporter.info("Redis cache connected", context="Setup")
 
@@ -121,9 +117,10 @@ class TestAuthRoutes(LaborantTest):
 
         # Disconnect cache
         settings = get_settings()
-        container = get_container()
-        if settings.REDIS_ENABLED and container._cache_client:
-            await container.cache_client.disconnect()
+        if settings.REDIS_ENABLED:
+            container = get_container()
+            if container._cache_client:
+                await container.cache_client.disconnect()
 
         # Disconnect database
         if TestAuthRoutes.db:
@@ -138,20 +135,19 @@ class TestAuthRoutes(LaborantTest):
         async with self.db.session() as session:
             await session.execute(
                 delete(UserModel).where(
-                    UserModel.wallet_address.in_(
-                        [self.alice_wallet, self.bob_wallet]
-                    )
+                    UserModel.wallet_address.in_([self.alice_wallet, self.bob_wallet])
                 )
             )
             await session.commit()
 
         settings = get_settings()
-        container = get_container()
-        if settings.REDIS_ENABLED and container._multi_layer_cache:
-            cache = container.multi_layer_cache
-            async with cache.l1_lock:
-                cache.l1_cache.clear()
-            await cache.invalidate_pattern("user:*")
+        if settings.REDIS_ENABLED:
+            container = get_container()
+            if container._multi_layer_cache:
+                cache = container.multi_layer_cache
+                async with cache.l1_lock:
+                    cache.l1_cache.clear()
+                await cache.invalidate_pattern("user:*")
 
         self.reporter.info("Clean state verified", context="Test")
 
@@ -162,9 +158,7 @@ class TestAuthRoutes(LaborantTest):
         async with self.db.session() as session:
             result = await session.execute(
                 select(UserModel.id).where(
-                    UserModel.wallet_address.in_(
-                        [self.alice_wallet, self.bob_wallet]
-                    )
+                    UserModel.wallet_address.in_([self.alice_wallet, self.bob_wallet])
                 )
             )
             user_ids = [row[0] for row in result]
@@ -178,20 +172,19 @@ class TestAuthRoutes(LaborantTest):
 
             await session.execute(
                 delete(UserModel).where(
-                    UserModel.wallet_address.in_(
-                        [self.alice_wallet, self.bob_wallet]
-                    )
+                    UserModel.wallet_address.in_([self.alice_wallet, self.bob_wallet])
                 )
             )
             await session.commit()
 
         settings = get_settings()
-        container = get_container()
-        if settings.REDIS_ENABLED and container._multi_layer_cache:
-            cache = container.multi_layer_cache
-            async with cache.l1_lock:
-                cache.l1_cache.clear()
-            await cache.invalidate_pattern("user:*")
+        if settings.REDIS_ENABLED:
+            container = get_container()
+            if container._multi_layer_cache:
+                cache = container.multi_layer_cache
+                async with cache.l1_lock:
+                    cache.l1_cache.clear()
+                await cache.invalidate_pattern("user:*")
 
         self.reporter.info("Test cleanup complete", context="Test")
 
@@ -592,9 +585,9 @@ class TestAuthRoutes(LaborantTest):
         """Test logging in user with pending legal documents."""
         self.reporter.info("Testing login (non-compliant user)", context="Test")
 
-        container = get_container()
+        # Create user directly in database without legal acceptance
         async with self.db.session() as session:
-            user_repo = container.get_user_repository(session)
+            user_repo = UserRepository(session)
             user = User(wallet_address=self.bob_wallet)
             await user_repo.create(user)
 

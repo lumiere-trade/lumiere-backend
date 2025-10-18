@@ -1,24 +1,18 @@
 """
 Integration tests for EventPublisher (CourierPublisher).
 
-Tests real event publishing to Courier with automatic lifecycle management.
+Tests real event publishing to Courier running in test infrastructure.
 
 Usage:
-    python -m pourtier.tests.integration.services.test_event_publisher
     laborant pourtier --integration
 """
 
-import os
-import signal
-import subprocess
-import sys
-import time
 from datetime import datetime
 from uuid import uuid4
 
 import httpx
 
-from pourtier.config.settings import load_config
+from pourtier.config.settings import get_settings
 from pourtier.domain.value_objects.strategy_reference import StrategyReference
 from pourtier.domain.value_objects.wallet_address import WalletAddress
 from pourtier.infrastructure.event_bus.courier_publisher import CourierPublisher
@@ -32,155 +26,46 @@ class TestEventPublisher(LaborantTest):
     component_name = "pourtier"
     test_category = "integration"
 
-    # Class-level shared resources
-    courier_process: subprocess.Popen = None
-    courier_log_file = None
-    test_settings = None
+    courier_url: str = None
 
     async def async_setup(self):
-        """Setup Courier server (runs once before all tests)."""
-        self.reporter.info("Setting up Courier...", context="Setup")
+        """Setup - verify Courier is accessible."""
+        self.reporter.info("Setting up event publisher tests...", context="Setup")
 
-        # Load test configuration
-        TestEventPublisher.test_settings = load_config(
-            "development.yaml", env="development"
+        settings = get_settings()
+        TestEventPublisher.COURIER_URL = settings.COURIER_URL
+
+        self.reporter.info(
+            f"Using Courier at: {self.COURIER_URL}", context="Setup"
         )
-
-        COURIER_URL = TestEventPublisher.test_settings.COURIER_URL
-        COURIER_PORT = TestEventPublisher.test_settings.COURIER_PORT
-
-        self.reporter.info(f"Courier URL: {COURIER_URL}", context="Setup")
-        self.reporter.info(f"Courier Port: {COURIER_PORT}", context="Setup")
-
-        # Start Courier
-        self._start_courier()
 
         # Verify Courier is running
         if not await self._is_courier_running():
-            raise RuntimeError("Courier failed to start")
+            raise RuntimeError(
+                f"Courier not accessible at {self.COURIER_URL}. "
+                "Ensure test infrastructure is running."
+            )
 
-        self.reporter.info("Courier running", context="Setup")
+        self.reporter.info("Courier is accessible", context="Setup")
 
     async def async_teardown(self):
-        """Cleanup Courier server (runs once after all tests)."""
-        self.reporter.info("Cleaning up Courier...", context="Teardown")
-
-        self._stop_courier()
-
-        self.reporter.info("Cleanup complete", context="Teardown")
-
-    def _start_courier(self):
-        """Start Courier on test port."""
-        COURIER_PORT = TestEventPublisher.test_settings.COURIER_PORT
-
-        self.reporter.info(
-            f"Starting Courier on port {COURIER_PORT}...", context="Setup"
-        )
-
-        # Set test config environment
-        env = os.environ.copy()
-        env["COURIER_CONFIG"] = "development.yaml"
-        env["COURIER_PORT"] = str(COURIER_PORT)
-
-        # Create log file for Courier output
-        courier_log_path = f"{self.log_dir}/courier_test.log"
-
-        TestEventPublisher.courier_log_file = open(courier_log_path, "w")
-
-        # Start Courier process
-        TestEventPublisher.courier_process = subprocess.Popen(
-            [sys.executable, "-m", "courier.broker"],
-            stdout=TestEventPublisher.courier_log_file,
-            stderr=TestEventPublisher.courier_log_file,
-            env=env,
-            preexec_fn=os.setsid,
-        )
-
-        self.reporter.info(f"Courier log: {courier_log_path}", context="Setup")
-
-        # Wait for Courier to be ready
-        COURIER_URL = TestEventPublisher.test_settings.COURIER_URL
-        max_attempts = 30
-        for attempt in range(max_attempts):
-            try:
-                response = httpx.get(f"{COURIER_URL}/health", timeout=2.0)
-                if response.status_code == 200:
-                    self.reporter.info(
-                        f"Courier started (attempt {attempt + 1})", context="Setup"
-                    )
-                    return
-            except (httpx.ConnectError, httpx.TimeoutException):
-                time.sleep(1.0)
-
-        # Failed to start
-        self.reporter.error(
-            f"Courier failed to start after {max_attempts} attempts", context="Setup"
-        )
-
-        # Show last 20 lines of log
-        try:
-            with open(courier_log_path, "r") as f:
-                lines = f.readlines()
-                if lines:
-                    self.reporter.error(
-                        "Last 20 lines of Courier log:", context="Setup"
-                    )
-                    for line in lines[-20:]:
-                        self.reporter.error(f"  {line.rstrip()}", context="Setup")
-        except BaseException:
-            pass
-
-        self._stop_courier()
-        raise RuntimeError("Courier startup failed")
-
-    def _stop_courier(self):
-        """Stop Courier process."""
-        if TestEventPublisher.courier_process:
-            self.reporter.info("Stopping Courier...", context="Teardown")
-
-            try:
-                os.killpg(
-                    os.getpgid(TestEventPublisher.courier_process.pid),
-                    signal.SIGTERM,
-                )
-                TestEventPublisher.courier_process.wait(timeout=5)
-                self.reporter.info("Courier stopped", context="Teardown")
-            except subprocess.TimeoutExpired:
-                self.reporter.warning(
-                    "Courier didn't stop gracefully, forcing...",
-                    context="Teardown",
-                )
-                os.killpg(
-                    os.getpgid(TestEventPublisher.courier_process.pid),
-                    signal.SIGKILL,
-                )
-                TestEventPublisher.courier_process.wait()
-            except Exception as e:
-                self.reporter.error(f"Error stopping Courier: {e}", context="Teardown")
-
-            TestEventPublisher.courier_process = None
-
-        # Close log file
-        if TestEventPublisher.courier_log_file:
-            try:
-                TestEventPublisher.courier_log_file.close()
-            except BaseException:
-                pass
-            TestEventPublisher.courier_log_file = None
+        """Cleanup - nothing to do (Courier managed by docker-compose)."""
+        self.reporter.info("Event publisher tests complete", context="Teardown")
 
     async def _is_courier_running(self) -> bool:
         """Check if Courier is running."""
         try:
-            COURIER_URL = TestEventPublisher.test_settings.COURIER_URL
-            response = httpx.get(f"{COURIER_URL}/health", timeout=1.0)
-            return response.status_code == 200
-        except BaseException:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.COURIER_URL}/health", timeout=2.0
+                )
+                return response.status_code == 200
+        except Exception:
             return False
 
     def _create_publisher(self) -> CourierPublisher:
         """Create CourierPublisher with test Courier client."""
-        COURIER_URL = TestEventPublisher.test_settings.COURIER_URL
-        courier_client = CourierClient(courier_url=COURIER_URL)
+        courier_client = CourierClient(courier_url=self.COURIER_URL)
         return CourierPublisher(courier_client=courier_client)
 
     async def test_publish_strategy_activation(self):
@@ -205,9 +90,8 @@ class TestEventPublisher(LaborantTest):
         )
 
         # Verify Courier received it
-        COURIER_URL = TestEventPublisher.test_settings.COURIER_URL
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{COURIER_URL}/stats")
+            response = await client.get(f"{self.COURIER_URL}/stats")
             stats = response.json()
             assert stats["total_messages_sent"] >= 0
 
@@ -302,11 +186,9 @@ class TestEventPublisher(LaborantTest):
         """Test verifying Courier received events."""
         self.reporter.info("Testing Courier stats verification", context="Test")
 
-        COURIER_URL = TestEventPublisher.test_settings.COURIER_URL
-
         # Get Courier stats
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{COURIER_URL}/stats")
+            response = await client.get(f"{self.COURIER_URL}/stats")
             assert response.status_code == 200
 
             stats = response.json()

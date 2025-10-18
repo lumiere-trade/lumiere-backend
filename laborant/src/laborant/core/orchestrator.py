@@ -68,7 +68,7 @@ class Laborant:
 
     Coordinates all components to detect changes, map to tests,
     execute tests, and report results.
-    
+
     Uses:
     - TestExecutor for unit tests (fast, local execution)
     - DockerTestExecutor for integration/e2e tests (Docker environment)
@@ -106,10 +106,12 @@ class Laborant:
         # Initialize components
         self.change_detector = ChangeDetector(self.project_root, self.reporter)
         self.component_mapper = ComponentMapper(self.project_root, self.reporter)
-        
+
         # Initialize executors
         self.test_executor = TestExecutor(self.project_root, timeout, self.reporter)
-        self.docker_executor = DockerTestExecutor(self.project_root, timeout, self.reporter)
+        self.docker_executor = DockerTestExecutor(
+            self.project_root, timeout, self.reporter
+        )
 
         # Initialize display reporter and Rich console
         self.display_reporter = LaborantReporter()
@@ -250,10 +252,10 @@ class Laborant:
     def _get_executor_for_category(self, category: str):
         """
         Get appropriate executor for test category.
-        
+
         Args:
             category: Test category (unit, integration, e2e)
-            
+
         Returns:
             TestExecutor for unit tests, DockerTestExecutor for others
         """
@@ -345,9 +347,7 @@ class Laborant:
             # Run each test file in category
             for test_file in all_test_files[category]:
                 # Execute test with appropriate executor
-                result = executor.execute_test_file(
-                    test_file, component_name, category
-                )
+                result = executor.execute_test_file(test_file, component_name, category)
 
                 # Add to component results
                 component_result.add_result(category, result)

@@ -4,16 +4,13 @@ Integration tests for SubscriptionRepository with real PostgreSQL.
 Tests subscription CRUD operations on test database.
 
 Usage:
-    python -m pourtier.tests.integration.database.test_subscription_repository
     laborant pourtier --integration
 """
 
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from sqlalchemy.ext.asyncio import create_async_engine
-
-from pourtier.config.settings import load_config
+from pourtier.config.settings import get_settings
 from pourtier.domain.entities.subscription import (
     Subscription,
     SubscriptionPlan,
@@ -31,10 +28,6 @@ from pourtier.infrastructure.persistence.repositories.user_repository import (
 )
 from shared.tests import LaborantTest
 
-# Load test configuration
-test_settings = load_config("development.yaml", env="development")
-TEST_DATABASE_URL = test_settings.DATABASE_URL
-
 
 class TestSubscriptionRepository(LaborantTest):
     """Integration tests for SubscriptionRepository."""
@@ -42,51 +35,35 @@ class TestSubscriptionRepository(LaborantTest):
     component_name = "pourtier"
     test_category = "integration"
 
-    # Class-level shared resources
     db: Database = None
 
-    # ================================================================
-    # Async Lifecycle Hooks
-    # ================================================================
-
     async def async_setup(self):
-        """Setup test database (runs once before all tests)."""
+        """Setup test database."""
         self.reporter.info("Setting up test database...", context="Setup")
-        self.reporter.info(f"Database: {TEST_DATABASE_URL}", context="Setup")
 
-        # Drop and recreate tables
-        engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.run_sync(Base.metadata.create_all)
-        await engine.dispose()
+        settings = get_settings()
+        self.reporter.info(f"Loaded ENV={settings.ENV}", context="Setup")
 
-        # Connect database
         TestSubscriptionRepository.db = Database(
-            database_url=TEST_DATABASE_URL, echo=False
+            database_url=settings.DATABASE_URL, echo=False
         )
         await TestSubscriptionRepository.db.connect()
+        self.reporter.info("Connected to test database", context="Setup")
+
+        # Reset database schema using public method
+        await TestSubscriptionRepository.db.reset_schema_for_testing(Base.metadata)
+        self.reporter.info("Database schema reset", context="Setup")
 
         self.reporter.info("Test database ready", context="Setup")
 
     async def async_teardown(self):
-        """Cleanup test database (runs once after all tests)."""
+        """Cleanup test database."""
         self.reporter.info("Cleaning up test database...", context="Teardown")
 
         if TestSubscriptionRepository.db:
             await TestSubscriptionRepository.db.disconnect()
 
-        # Drop all tables
-        engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-        await engine.dispose()
-
         self.reporter.info("Cleanup complete", context="Teardown")
-
-    # ================================================================
-    # Helper Methods
-    # ================================================================
 
     def _generate_unique_wallet(self) -> str:
         """Generate unique 44-character wallet address."""
@@ -99,10 +76,6 @@ class TestSubscriptionRepository(LaborantTest):
             user_repo = UserRepository(session)
             user = User(wallet_address=self._generate_unique_wallet())
             return await user_repo.create(user)
-
-    # ================================================================
-    # Test Methods
-    # ================================================================
 
     async def test_create_subscription(self):
         """Test creating a subscription."""
@@ -136,7 +109,6 @@ class TestSubscriptionRepository(LaborantTest):
 
         user = await self._create_test_user()
 
-        # Create subscription
         async with self.db.session() as session:
             repo = SubscriptionRepository(session)
             subscription = Subscription(
@@ -148,7 +120,6 @@ class TestSubscriptionRepository(LaborantTest):
             )
             created = await repo.create(subscription)
 
-        # Retrieve by ID
         async with self.db.session() as session:
             repo = SubscriptionRepository(session)
             retrieved = await repo.get_by_id(created.id)
@@ -166,7 +137,6 @@ class TestSubscriptionRepository(LaborantTest):
 
         user = await self._create_test_user()
 
-        # Create active subscription
         async with self.db.session() as session:
             repo = SubscriptionRepository(session)
             subscription = Subscription(
@@ -178,7 +148,6 @@ class TestSubscriptionRepository(LaborantTest):
             )
             await repo.create(subscription)
 
-        # Get active subscription
         async with self.db.session() as session:
             repo = SubscriptionRepository(session)
             active = await repo.get_active_by_user(user.id)
@@ -195,7 +164,6 @@ class TestSubscriptionRepository(LaborantTest):
 
         user = await self._create_test_user()
 
-        # Create expired subscription
         async with self.db.session() as session:
             repo = SubscriptionRepository(session)
             subscription = Subscription(
@@ -207,16 +175,13 @@ class TestSubscriptionRepository(LaborantTest):
             )
             await repo.create(subscription)
 
-        # Try to get active (should be None)
         async with self.db.session() as session:
             repo = SubscriptionRepository(session)
             active = await repo.get_active_by_user(user.id)
 
-            assert active is None, "Should return None for expired subscription"
+            assert active is None
 
-            self.reporter.info(
-                "No active subscription correctly returned", context="Test"
-            )
+            self.reporter.info("No active subscription correctly returned", context="Test")
 
     async def test_update_subscription(self):
         """Test updating subscription."""
@@ -224,7 +189,6 @@ class TestSubscriptionRepository(LaborantTest):
 
         user = await self._create_test_user()
 
-        # Create subscription
         async with self.db.session() as session:
             repo = SubscriptionRepository(session)
             subscription = Subscription(
@@ -236,7 +200,6 @@ class TestSubscriptionRepository(LaborantTest):
             )
             created = await repo.create(subscription)
 
-        # Update subscription
         async with self.db.session() as session:
             repo = SubscriptionRepository(session)
             created.status = SubscriptionStatus.CANCELLED
@@ -252,11 +215,9 @@ class TestSubscriptionRepository(LaborantTest):
 
         user = await self._create_test_user()
 
-        # Create multiple subscriptions
         async with self.db.session() as session:
             repo = SubscriptionRepository(session)
 
-            # Active subscription
             sub1 = Subscription(
                 user_id=user.id,
                 plan_type=SubscriptionPlan.PRO,
@@ -266,7 +227,6 @@ class TestSubscriptionRepository(LaborantTest):
             )
             await repo.create(sub1)
 
-            # Expired subscription
             sub2 = Subscription(
                 user_id=user.id,
                 plan_type=SubscriptionPlan.BASIC,
@@ -276,7 +236,6 @@ class TestSubscriptionRepository(LaborantTest):
             )
             await repo.create(sub2)
 
-        # List all subscriptions
         async with self.db.session() as session:
             repo = SubscriptionRepository(session)
             subscriptions = await repo.list_by_user(user.id)
@@ -296,7 +255,6 @@ class TestSubscriptionRepository(LaborantTest):
         async with self.db.session() as session:
             repo = SubscriptionRepository(session)
 
-            # Create subscription that doesn't exist in DB
             subscription = Subscription(
                 id=uuid4(),
                 user_id=uuid4(),
@@ -321,13 +279,12 @@ class TestSubscriptionRepository(LaborantTest):
         async with self.db.session() as session:
             repo = SubscriptionRepository(session)
 
-            # Free plan has no expiration
             subscription = Subscription(
                 user_id=user.id,
                 plan_type=SubscriptionPlan.FREE,
                 status=SubscriptionStatus.ACTIVE,
                 started_at=datetime.now(),
-                expires_at=None,  # No expiration
+                expires_at=None,
             )
 
             created = await repo.create(subscription)
