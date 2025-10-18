@@ -22,6 +22,7 @@ from shared.tests.models import TestFileResult
 
 from laborant.core.change_detector import ChangeDetector
 from laborant.core.component_mapper import ComponentMapper
+from laborant.core.docker_test_executor import DockerTestExecutor
 from laborant.core.reporter import LaborantReporter
 from laborant.core.test_executor import TestExecutor
 
@@ -67,6 +68,10 @@ class Laborant:
 
     Coordinates all components to detect changes, map to tests,
     execute tests, and report results.
+    
+    Uses:
+    - TestExecutor for unit tests (fast, local execution)
+    - DockerTestExecutor for integration/e2e tests (Docker environment)
     """
 
     def __init__(
@@ -101,7 +106,10 @@ class Laborant:
         # Initialize components
         self.change_detector = ChangeDetector(self.project_root, self.reporter)
         self.component_mapper = ComponentMapper(self.project_root, self.reporter)
+        
+        # Initialize executors
         self.test_executor = TestExecutor(self.project_root, timeout, self.reporter)
+        self.docker_executor = DockerTestExecutor(self.project_root, timeout, self.reporter)
 
         # Initialize display reporter and Rich console
         self.display_reporter = LaborantReporter()
@@ -185,6 +193,9 @@ class Laborant:
                     )
                     break
 
+        # Cleanup Docker infrastructure if we used it
+        self.docker_executor.cleanup_infrastructure()
+
         # Print final summary
         total_duration = time.time() - start_time
         self._print_final_summary(total_duration)
@@ -235,6 +246,22 @@ class Laborant:
         components = self.component_mapper.extract_component_names(relevant_files)
 
         return components
+
+    def _get_executor_for_category(self, category: str):
+        """
+        Get appropriate executor for test category.
+        
+        Args:
+            category: Test category (unit, integration, e2e)
+            
+        Returns:
+            TestExecutor for unit tests, DockerTestExecutor for others
+        """
+        if category == "unit":
+            return self.test_executor
+        else:
+            # integration and e2e tests run in Docker
+            return self.docker_executor
 
     def _run_component_tests(
         self, component_name: str, categories: Optional[List[str]] = None
@@ -303,6 +330,9 @@ class Laborant:
             if categories and category not in categories:
                 continue
 
+            # Get appropriate executor for this category
+            executor = self._get_executor_for_category(category)
+
             # Get file count for category
             file_count = len(all_test_files[category])
 
@@ -314,8 +344,8 @@ class Laborant:
 
             # Run each test file in category
             for test_file in all_test_files[category]:
-                # Execute test
-                result = self.test_executor.execute_test_file(
+                # Execute test with appropriate executor
+                result = executor.execute_test_file(
                     test_file, component_name, category
                 )
 

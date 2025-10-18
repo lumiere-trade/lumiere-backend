@@ -1,4 +1,3 @@
-
 # =============================================
 # TEST INFRASTRUCTURE
 # Ports: 7xxx range (avoid prod 8xxx, dev 9xxx)
@@ -28,6 +27,7 @@ services:
       POSTGRES_DB: lumiere_test
     volumes:
       - test-postgres-data:/var/lib/postgresql/data
+      - ./postgres/init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - lumiere-test-net
     ports:
@@ -40,6 +40,7 @@ services:
     profiles:
       - integration
       - e2e
+      - test-runner
     logging:
       driver: "json-file"
       options:
@@ -93,6 +94,7 @@ services:
     profiles:
       - integration
       - e2e
+      - test-runner
     logging:
       driver: "json-file"
       options:
@@ -126,6 +128,7 @@ services:
       retries: 3
     profiles:
       - e2e
+      - test-runner
     logging:
       driver: "json-file"
       options:
@@ -169,8 +172,56 @@ services:
       retries: 3
     profiles:
       - e2e
+      - test-runner
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+
+  # -------------------------------------------
+  # Test Runner
+  # Executes tests inside Docker network
+  # -------------------------------------------
+  test-runner:
+    image: pourtier:development
+    container_name: lumiere-test-runner
+    environment:
+      ENV: test
+      # Database (Docker DNS)
+      DATABASE_URL: postgresql+asyncpg://pourtier_user:pourtier_pass@postgres:5432/pourtier_test_db
+      # Service Discovery (Docker DNS)
+      courier_url: http://courier:7765
+      passeur_url: http://passeur:7766
+      # JWT (test values)
+      JWT_SECRET_KEY: test_secret_key_for_testing_only
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_HOURS: 24
+      # Solana (devnet)
+      SOLANA_RPC_URL: https://api.devnet.solana.com
+      SOLANA_NETWORK: devnet
+      # Redis (disabled)
+      REDIS_ENABLED: false
+      # Logging
+      LOG_LEVEL: DEBUG
+      LOG_FILE: null
+      # Python path for imports
+      PYTHONPATH: /app/src:/app
+    volumes:
+      # Mount source code to run tests
+      - ./pourtier/src:/app/src:ro
+      - ./pourtier/tests:/app/tests:ro
+      - ./pourtier/config:/app/config:ro
+      # Mount shared package
+      - ./shared:/shared:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pourtier:
+        condition: service_healthy
+    networks:
+      - lumiere-test-net
+    profiles:
+      - test-runner
+    working_dir: /app
+    command: ["sleep", "infinity"]
