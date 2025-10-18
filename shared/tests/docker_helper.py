@@ -109,11 +109,11 @@ def run_compose_command(
 async def check_service_health(service: str, timeout: float = 2.0) -> bool:
     """
     Check if a single service is healthy.
-    
+
     Args:
         service: Service name
         timeout: HTTP request timeout
-        
+
     Returns:
         True if healthy, False otherwise
     """
@@ -130,10 +130,10 @@ async def check_service_health(service: str, timeout: float = 2.0) -> bool:
 async def check_services_running(services: List[str]) -> bool:
     """
     Check if all services are running and healthy.
-    
+
     Args:
         services: List of service names to check
-        
+
     Returns:
         True if all services healthy, False otherwise
     """
@@ -150,12 +150,12 @@ async def wait_for_health(
 ) -> None:
     """
     Wait for all services to be healthy.
-    
+
     Args:
         services: List of service names to wait for
         timeout: Maximum seconds to wait
         interval: Seconds between checks
-        
+
     Raises:
         TimeoutError: If services don't become healthy within timeout
     """
@@ -163,7 +163,7 @@ async def wait_for_health(
 
     while True:
         elapsed = asyncio.get_event_loop().time() - start_time
-        
+
         if elapsed > timeout:
             # Get logs for debugging
             logs_info = []
@@ -173,7 +173,7 @@ async def wait_for_health(
                     logs_info.append(f"\n{service} logs:\n{logs}")
                 except Exception:
                     pass
-            
+
             raise TimeoutError(
                 f"Services {services} not healthy within {timeout}s"
                 f"{''.join(logs_info)}"
@@ -198,33 +198,33 @@ async def ensure_test_containers(
 ) -> None:
     """
     Ensure test containers are running (smart detection).
-    
+
     Only starts containers if not already running.
     Tracks if we started them for cleanup decision.
-    
+
     Args:
         profile: "integration" (postgres + pourtier) or "e2e" (full stack)
         timeout: Maximum seconds to wait for health checks
     """
     global _started_by_us
-    
+
     # Determine services
     if profile == "integration":
         services_to_check = ["pourtier"]
     else:  # e2e
         services_to_check = ["pourtier", "courier", "passeur"]
-    
+
     # Check if already running
     already_running = await check_services_running(services_to_check)
-    
+
     if already_running:
         _started_by_us = False
         return
-    
+
     # Start containers
     run_compose_command(["--profile", profile, "up", "-d"])
     _started_by_us = True
-    
+
     # Wait for health
     await wait_for_health(services_to_check, timeout=timeout)
 
@@ -232,17 +232,17 @@ async def ensure_test_containers(
 async def cleanup_test_containers(force: bool = False) -> None:
     """
     Cleanup test containers (smart decision).
-    
+
     Only stops containers if we started them, unless force=True.
-    
+
     Args:
         force: If True, always stop regardless of who started
     """
     global _started_by_us
-    
+
     if not force and not _started_by_us:
         return
-    
+
     run_compose_command(["down", "-v", "--remove-orphans"], check=False)
     _started_by_us = False
 

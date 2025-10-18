@@ -6,9 +6,9 @@ Tests the new auth flow:
 - POST /api/auth/create-account
 - POST /api/auth/login
 
-Usage:
-    ENV=test python -m pourtier.tests.integration.api.test_auth_routes
-    laborant pourtier --integration
+Execution:
+    laborant test pourtier --integration
+    laborant test pourtier --file test_auth_routes.py
 """
 
 import json
@@ -17,9 +17,8 @@ import httpx
 from base58 import b58encode
 from solders.keypair import Keypair
 from sqlalchemy import delete, select, text
-from sqlalchemy.ext.asyncio import create_async_engine
 
-from pourtier.config.settings import load_config, override_settings
+from pourtier.config.settings import get_settings
 from pourtier.di.container import get_container
 from pourtier.di.dependencies import get_db_session
 from pourtier.domain.entities.user import User
@@ -40,77 +39,63 @@ class TestAuthRoutes(LaborantTest):
     component_name = "pourtier"
     test_category = "integration"
 
-    # Class-level shared resources
     db: Database = None
     client: httpx.AsyncClient = None
-    test_settings = None
     alice_keypair: Keypair = None
     alice_wallet: str = None
     bob_keypair: Keypair = None
     bob_wallet: str = None
 
-    # ================================================================
-    # Async Lifecycle Hooks
-    # ================================================================
-
     async def async_setup(self):
         """Setup test database and client."""
-        self.reporter.info("Setting up auth API integration tests...", context="Setup")
-
-        # 1. Load test config and override global settings
-        TestAuthRoutes.test_settings = load_config(
-            "development.yaml", env="development"
+        self.reporter.info(
+            "Setting up auth API integration tests...", context="Setup"
         )
 
-        # Create test app with test settings
-        app = create_app(TestAuthRoutes.test_settings)
-        override_settings(TestAuthRoutes.test_settings)
+        # Load settings (DATABASE_URL from environment)
+        settings = get_settings()
+        self.reporter.info(f"Loaded ENV={settings.ENV}", context="Setup")
 
-        self.reporter.info("Test settings loaded and applied", context="Setup")
-
-        # 2. Create test database instance
-        TestAuthRoutes.db = Database(
-            database_url=TestAuthRoutes.test_settings.DATABASE_URL, echo=False
-        )
+        # Create test database instance
+        TestAuthRoutes.db = Database(database_url=settings.DATABASE_URL, echo=False)
         await TestAuthRoutes.db.connect()
+        self.reporter.info("Connected to test database", context="Setup")
 
-        # 3. Drop and recreate tables
+        # Drop and recreate tables
         async with TestAuthRoutes.db._engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
+        self.reporter.info("Database schema created", context="Setup")
 
-        self.reporter.info("Test database tables created", context="Setup")
-
-        # 4. Seed legal documents
+        # Seed legal documents
         await self._seed_legal_documents()
 
-        # 5. Override container's database with test database
+        # Override container's database with test database
         container = get_container()
         container._database = TestAuthRoutes.db
 
-        # 6. Initialize cache if enabled
-        if TestAuthRoutes.test_settings.REDIS_ENABLED:
+        # Initialize cache if enabled
+        if settings.REDIS_ENABLED:
             await container.cache_client.connect()
             self.reporter.info("Redis cache connected", context="Setup")
 
-        self.reporter.info("Container database overridden", context="Setup")
+        # Create test app with overridden dependencies
+        app = create_app(settings)
 
-        # 7. Override FastAPI dependency to use test DB
         async def override_get_db_session():
             """Provide test database session."""
             async with TestAuthRoutes.db.session() as session:
                 yield session
 
         app.dependency_overrides[get_db_session] = override_get_db_session
-
         self.reporter.info("Database dependency overridden", context="Setup")
 
-        # 8. Create async client (after all overrides)
+        # Create async client
         TestAuthRoutes.client = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         )
 
-        # 9. Load test wallets
+        # Load test wallets
         TestAuthRoutes.alice_wallet = PlatformWallets.get_test_alice_address()
         TestAuthRoutes.alice_keypair = self._load_keypair(
             PlatformWallets.get_test_alice_keypair()
@@ -125,7 +110,7 @@ class TestAuthRoutes(LaborantTest):
         self.reporter.info("Auth API integration tests ready", context="Setup")
 
     async def async_teardown(self):
-        """Cleanup test database."""
+        """Cleanup test database and connections."""
         self.reporter.info(
             "Cleaning up auth API integration tests...", context="Teardown"
         )
@@ -134,77 +119,56 @@ class TestAuthRoutes(LaborantTest):
         if TestAuthRoutes.client:
             await TestAuthRoutes.client.aclose()
 
-        # Clear dependency overrides
-        app.dependency_overrides.clear()
-
         # Disconnect cache
+        settings = get_settings()
         container = get_container()
-        if TestAuthRoutes.test_settings.REDIS_ENABLED and container._cache_client:
+        if settings.REDIS_ENABLED and container._cache_client:
             await container.cache_client.disconnect()
 
         # Disconnect database
         if TestAuthRoutes.db:
             await TestAuthRoutes.db.disconnect()
 
-        # Drop all tables
-        engine = create_async_engine(
-            TestAuthRoutes.test_settings.DATABASE_URL, echo=False
-        )
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-        await engine.dispose()
-
         self.reporter.info("Cleanup complete", context="Teardown")
-
-    # ================================================================
-    # Per-Test Lifecycle Hooks
-    # ================================================================
 
     async def async_setup_test(self):
         """Setup before each test - ensure clean state."""
         self.reporter.info("Verifying clean state...", context="Test")
 
-        # Clean test users from DB
         async with self.db.session() as session:
-            # Delete Alice
             await session.execute(
-                delete(UserModel).where(UserModel.wallet_address == self.alice_wallet)
+                delete(UserModel).where(
+                    UserModel.wallet_address.in_(
+                        [self.alice_wallet, self.bob_wallet]
+                    )
+                )
             )
-
-            # Delete Bob
-            await session.execute(
-                delete(UserModel).where(UserModel.wallet_address == self.bob_wallet)
-            )
-
             await session.commit()
 
-        # Clear cache for test users (if Redis enabled)
+        settings = get_settings()
         container = get_container()
-        if self.test_settings.REDIS_ENABLED and container._multi_layer_cache:
+        if settings.REDIS_ENABLED and container._multi_layer_cache:
             cache = container.multi_layer_cache
-            # Clear L1 cache
             async with cache.l1_lock:
                 cache.l1_cache.clear()
-            # Clear L2 cache patterns
             await cache.invalidate_pattern("user:*")
 
         self.reporter.info("Clean state verified", context="Test")
 
     async def async_teardown_test(self):
-        """Cleanup after each test - leave no trace."""
+        """Cleanup after each test."""
         self.reporter.info("Cleaning up test traces...", context="Test")
 
-        # Remove all test data
         async with self.db.session() as session:
-            # Get test user IDs
             result = await session.execute(
                 select(UserModel.id).where(
-                    UserModel.wallet_address.in_([self.alice_wallet, self.bob_wallet])
+                    UserModel.wallet_address.in_(
+                        [self.alice_wallet, self.bob_wallet]
+                    )
                 )
             )
             user_ids = [row[0] for row in result]
 
-            # Delete legal acceptances for test users
             if user_ids:
                 await session.execute(
                     delete(UserLegalAcceptanceModel).where(
@@ -212,30 +176,24 @@ class TestAuthRoutes(LaborantTest):
                     )
                 )
 
-            # Delete test users
             await session.execute(
                 delete(UserModel).where(
-                    UserModel.wallet_address.in_([self.alice_wallet, self.bob_wallet])
+                    UserModel.wallet_address.in_(
+                        [self.alice_wallet, self.bob_wallet]
+                    )
                 )
             )
-
             await session.commit()
 
-        # Clear cache
+        settings = get_settings()
         container = get_container()
-        if self.test_settings.REDIS_ENABLED and container._multi_layer_cache:
+        if settings.REDIS_ENABLED and container._multi_layer_cache:
             cache = container.multi_layer_cache
-            # Clear L1
             async with cache.l1_lock:
                 cache.l1_cache.clear()
-            # Clear L2
             await cache.invalidate_pattern("user:*")
 
         self.reporter.info("Test cleanup complete", context="Test")
-
-    # ================================================================
-    # Helper Methods
-    # ================================================================
 
     async def _seed_legal_documents(self):
         """Seed legal documents for testing."""
@@ -305,10 +263,6 @@ class TestAuthRoutes(LaborantTest):
         assert response.status_code == 201
         return response.json()
 
-    # ================================================================
-    # POST /api/auth/verify Tests
-    # ================================================================
-
     async def test_verify_wallet_new_user_valid_signature(self):
         """Test verifying wallet with valid signature for new user."""
         self.reporter.info(
@@ -341,11 +295,9 @@ class TestAuthRoutes(LaborantTest):
         """Test verifying wallet for existing user."""
         self.reporter.info("Testing verify wallet (existing user)", context="Test")
 
-        # Create Alice's account first
         account_data = await self._create_alice_account()
         user_id = account_data["user_id"]
 
-        # Now verify wallet
         message = "Sign in to Lumiere"
         signature = self._sign_message(self.alice_keypair, message)
 
@@ -393,11 +345,9 @@ class TestAuthRoutes(LaborantTest):
         """Test verifying wallet with wrong message."""
         self.reporter.info("Testing verify wallet (wrong message)", context="Test")
 
-        # Sign one message
         correct_message = "Sign in to Lumiere"
         signature = self._sign_message(self.alice_keypair, correct_message)
 
-        # Send different message
         wrong_message = "Different message"
 
         response = await self.client.post(
@@ -430,13 +380,9 @@ class TestAuthRoutes(LaborantTest):
             },
         )
 
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422
 
         self.reporter.info("Invalid wallet address rejected", context="Test")
-
-    # ================================================================
-    # POST /api/auth/create-account Tests
-    # ================================================================
 
     async def test_create_account_success(self):
         """Test creating account with legal acceptance."""
@@ -468,7 +414,7 @@ class TestAuthRoutes(LaborantTest):
 
         assert data["token_type"] == "bearer"
         assert data["wallet_address"] == self.bob_wallet
-        assert data["access_token"].count(".") == 2  # JWT format
+        assert data["access_token"].count(".") == 2
 
         self.reporter.info("Account created successfully", context="Test")
 
@@ -476,10 +422,8 @@ class TestAuthRoutes(LaborantTest):
         """Test creating account that already exists."""
         self.reporter.info("Testing create account (already exists)", context="Test")
 
-        # Create Alice's account first
         await self._create_alice_account()
 
-        # Try to create again
         message = "Sign in to Lumiere"
         signature = self._sign_message(self.alice_keypair, message)
         document_ids = await self._get_legal_document_ids()
@@ -538,13 +482,13 @@ class TestAuthRoutes(LaborantTest):
                 "wallet_address": self.bob_wallet,
                 "message": message,
                 "signature": signature,
-                "accepted_documents": [],  # Empty list
+                "accepted_documents": [],
                 "ip_address": "127.0.0.1",
                 "user_agent": "Test Client",
             },
         )
 
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422
 
         self.reporter.info("Missing documents rejected", context="Test")
 
@@ -573,18 +517,12 @@ class TestAuthRoutes(LaborantTest):
 
         self.reporter.info("Invalid document ID rejected", context="Test")
 
-    # ================================================================
-    # POST /api/auth/login Tests
-    # ================================================================
-
     async def test_login_success_compliant_user(self):
         """Test logging in compliant user."""
         self.reporter.info("Testing login (success, compliant)", context="Test")
 
-        # Create Alice's account first
         await self._create_alice_account()
 
-        # Now login
         message = "Sign in to Lumiere"
         signature = self._sign_message(self.alice_keypair, message)
 
@@ -632,10 +570,8 @@ class TestAuthRoutes(LaborantTest):
         """Test logging in with invalid signature."""
         self.reporter.info("Testing login (invalid signature)", context="Test")
 
-        # Create Alice's account first
         await self._create_alice_account()
 
-        # Try to login with invalid signature
         message = "Sign in to Lumiere"
         fake_signature = "1" * 88
 
@@ -648,7 +584,7 @@ class TestAuthRoutes(LaborantTest):
             },
         )
 
-        assert response.status_code == 401  # Now validates signature!
+        assert response.status_code == 401
 
         self.reporter.info("Invalid signature rejected", context="Test")
 
@@ -656,14 +592,12 @@ class TestAuthRoutes(LaborantTest):
         """Test logging in user with pending legal documents."""
         self.reporter.info("Testing login (non-compliant user)", context="Test")
 
-        # Create user directly in DB using container (with cache!)
         container = get_container()
         async with self.db.session() as session:
             user_repo = container.get_user_repository(session)
             user = User(wallet_address=self.bob_wallet)
             await user_repo.create(user)
 
-        # Try to login
         message = "Sign in to Lumiere"
         signature = self._sign_message(self.bob_keypair, message)
 
