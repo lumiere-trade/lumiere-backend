@@ -258,7 +258,7 @@ export default function HomePage() {
             </DialogHeader>
             <div className="space-y-6 mt-4">
               {featureContent[openFeature].sections.map((section, index) => (
-                <div key={index} className="space-y-2">
+                <div key={index} className="space-y-2 p-6 rounded-lg border border-primary/20 bg-card/50">
                   <h3 className="text-xl font-semibold text-primary">{section.header}</h3>
                   <p className="text-base leading-relaxed text-foreground">{section.content}</p>
                 </div>
