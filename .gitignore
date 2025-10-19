@@ -123,8 +123,15 @@ deps/
 sbpf-solana-solana/
 smart_contracts/target/deploy/escrow-keypair.json
 
-# ==================== FRONTEND (NOT READY YET) ====================
-frontend/
+# ==================== FRONTEND ====================
+# Exclude old frontend backup
+frontend-old/
+# Exclude frontend build artifacts and dependencies
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/.env*.local
 
 # ==================== DOCUMENTATION ====================
 docs/_build/
@@ -137,3 +144,6 @@ htmlcov/
 
 # ==================== REDIS ====================
 dump.rdb
+
+# Frontend node_modules explicitly
+frontend/node_modules/
