@@ -450,7 +450,7 @@ export default function HomePage() {
             <DialogTitle className="text-2xl font-bold text-primary">Terms of Use & Legal Agreements</DialogTitle>
           </DialogHeader>
 
-          <ScrollArea className="h-[400px] rounded-md border border-border/30 p-6">
+          <ScrollArea className="h-[400px] rounded-md border border-primary/20 bg-card/30 p-6">
             <div className="space-y-6 text-sm">
               <section>
                 <h3 className="mb-2 text-lg font-semibold text-primary">1. Acceptance of Terms</h3>
@@ -521,7 +521,7 @@ export default function HomePage() {
             </div>
           </ScrollArea>
 
-          <div className="flex items-center space-x-2 rounded-md border border-border/30 p-4">
+          <div className="flex items-center space-x-2 rounded-md border border-primary/20 bg-card/30 p-4">
             <Checkbox
               id="terms"
               checked={agreedToTerms}
