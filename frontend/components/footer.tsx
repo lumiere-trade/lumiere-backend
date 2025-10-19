@@ -6,11 +6,13 @@ export function Footer() {
     <footer className="border-t border-border/50 bg-background">
       <div className="container mx-auto px-6 py-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          {/* Brand Section */}
           <div className="flex flex-col gap-1">
             <div className="text-2xl font-bold tracking-wider text-primary">LUMIERE</div>
             <p className="text-[13px] text-muted-foreground">Blind to emotion, guided by algorithm</p>
           </div>
 
+          {/* Links and Email - Horizontal Layout */}
           <div className="flex flex-wrap items-center gap-6 text-sm">
             <Link href="/docs" className="text-muted-foreground hover:text-primary transition-colors">
               Documentation
@@ -28,11 +30,12 @@ export function Footer() {
               <Mail className="w-4 h-4" />
               hello@lumiere.trade
             </a>
-            <span className="text-muted-foreground text-xs">
+            <span className="text-muted-foreground">
               © {new Date().getFullYear()} Lumiere
             </span>
           </div>
 
+          {/* Social Icons */}
           <div className="flex gap-3">
             
               href="https://twitter.com"
