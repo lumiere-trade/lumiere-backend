@@ -308,7 +308,7 @@ export default function HomePage() {
                         <button
                           key={wallet.name}
                           onClick={() => handleWalletClick(wallet.name)}
-                          className="w-full flex items-center justify-between p-4 rounded-xl bg-card hover:bg-card/80 border border-border/30 hover:border-primary/20 transition-all group"
+                          className="w-full flex items-center justify-between p-4 rounded-xl bg-card/20 hover:bg-card/30 border border-border/30 hover:border-primary/20 transition-all group"
                         >
                           <div className="flex items-center gap-4">
                             <div className="rounded-lg bg-primary/10 p-2">
@@ -373,7 +373,7 @@ export default function HomePage() {
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
                     selectedRpc === "triton"
                       ? "bg-primary/10 border-primary"
-                      : "bg-card border-border/30 hover:border-primary/20"
+                      : "bg-card/20 border-border/30 hover:border-primary/20"
                   }`}
                 >
                   <div
@@ -391,7 +391,7 @@ export default function HomePage() {
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
                     selectedRpc === "syndica"
                       ? "bg-primary/10 border-primary"
-                      : "bg-card border-border/30 hover:border-primary/20"
+                      : "bg-card/20 border-border/30 hover:border-primary/20"
                   }`}
                 >
                   <div
@@ -409,7 +409,7 @@ export default function HomePage() {
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
                     selectedRpc === "custom"
                       ? "bg-primary/10 border-primary"
-                      : "bg-card border-border/30 hover:border-primary/20"
+                      : "bg-card/20 border-border/30 hover:border-primary/20"
                   }`}
                 >
                   <div
@@ -428,7 +428,7 @@ export default function HomePage() {
                     placeholder="Enter custom RPC"
                     value={customRpc}
                     onChange={(e) => setCustomRpc(e.target.value)}
-                    className="w-full p-4 rounded-xl bg-card border border-border/30 focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground"
+                    className="w-full p-4 rounded-xl bg-card/20 border border-border/30 focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground"
                   />
                 )}
               </div>
