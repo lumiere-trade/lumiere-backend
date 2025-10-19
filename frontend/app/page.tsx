@@ -240,7 +240,7 @@ export default function HomePage() {
 
       {openFeature && (
         <Dialog open={!!openFeature} onOpenChange={() => setOpenFeature(null)}>
-          <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto bg-background border-2 border-primary/30 rounded-2xl shadow-2xl">
+          <DialogContent className="max-w-7xl max-h-[85vh] overflow-y-auto bg-background border-2 border-primary/30 rounded-2xl shadow-2xl">
             <DialogHeader>
               <div className="flex items-center gap-4 mb-6">
                 <div className="rounded-full bg-primary/10 p-4">
