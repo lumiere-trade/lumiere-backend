@@ -240,7 +240,7 @@ export default function HomePage() {
 
       {openFeature && (
         <Dialog open={!!openFeature} onOpenChange={() => setOpenFeature(null)}>
-          <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto bg-[#2a1f1a] border-2 border-primary/30 rounded-2xl shadow-2xl">
+          <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto bg-background border-2 border-primary/30 rounded-2xl shadow-2xl">
             <DialogHeader>
               <div className="flex items-center gap-4 mb-6">
                 <div className="rounded-full bg-primary/10 p-4">
@@ -274,7 +274,7 @@ export default function HomePage() {
           onClick={() => setShowAuthDialog(false)}
         >
           <div
-            className="relative w-full max-w-lg max-h-[90vh] mx-4 bg-[#2a1f1a] rounded-2xl border-2 border-primary/30 shadow-2xl flex flex-col"
+            className="relative w-full max-w-lg max-h-[90vh] mx-4 bg-background rounded-2xl border-2 border-primary/30 shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -350,7 +350,7 @@ export default function HomePage() {
           onClick={() => setShowRpcSettings(false)}
         >
           <div
-            className="relative w-full max-w-lg mx-4 bg-[#2a1f1a] rounded-2xl border-2 border-primary/30 shadow-2xl"
+            className="relative w-full max-w-lg mx-4 bg-background rounded-2xl border-2 border-primary/30 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -445,7 +445,7 @@ export default function HomePage() {
       )}
 
       <Dialog open={showTermsDialog} onOpenChange={setShowTermsDialog}>
-        <DialogContent className="max-w-2xl bg-[#2a1f1a] border-2 border-primary/30 rounded-2xl shadow-2xl">
+        <DialogContent className="max-w-2xl bg-background border-2 border-primary/30 rounded-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-primary">Terms of Use & Legal Agreements</DialogTitle>
           </DialogHeader>
