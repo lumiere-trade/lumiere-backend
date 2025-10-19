@@ -25,7 +25,6 @@ from pourtier.infrastructure.persistence.database import Database
 from pourtier.infrastructure.persistence.models import Base
 from shared.blockchain.wallets import PlatformWallets
 from shared.reporter.emojis.emoji import Emoji
-from shared.reporter.emojis.errors_emojis import ErrorEmoji
 from shared.tests import LaborantTest
 
 AUTH_MESSAGE = "Sign this message to authenticate with Lumiere"

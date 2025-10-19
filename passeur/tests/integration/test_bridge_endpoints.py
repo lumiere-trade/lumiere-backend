@@ -4,20 +4,13 @@ Integration tests for Bridge HTTP API endpoints.
 Tests all bridge REST endpoints for user-based escrow operations.
 
 Usage:
-    python -m passeur.tests.integration.test_bridge_endpoints
     laborant passeur --integration
 """
 
-import sys
-from pathlib import Path
-
 import requests
-from helpers.bridge_manager import BridgeManager
-from shared.tests import LaborantTest
 
 from passeur.config.settings import load_config
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
+from shared.tests import LaborantTest
 
 
 class TestBridgeEndpoints(LaborantTest):
@@ -27,42 +20,17 @@ class TestBridgeEndpoints(LaborantTest):
     test_category = "integration"
 
     def setup(self):
-        """Setup before all tests - start bridge server."""
-        self.reporter.info("Setting up bridge...", context="Setup")
+        """Setup before all tests - connect to running bridge service."""
+        self.reporter.info("Connecting to bridge service...", context="Setup")
 
-        # Load test config
-        self.test_config = load_config("development.yaml")
+        self.test_config = load_config("test.yaml")
+        self.bridge_url = f"http://passeur:{self.test_config.bridge_port}"
 
-        # Initialize bridge manager
-        self.bridge = BridgeManager(
-            config_file="development.yaml", reporter=self.reporter
-        )
-
-        # Start bridge
-        success = self.bridge.start(timeout=30)
-
-        if not success:
-            self.reporter.error("Failed to start bridge", context="Setup")
-            sys.exit(1)
-
-        # Setup bridge URL
-        self.bridge_url = (
-            f"http://{self.test_config.bridge_host}:" f"{self.test_config.bridge_port}"
-        )
-
-        self.reporter.info(f"Bridge ready: {self.bridge_url}", context="Setup")
+        self.reporter.info(f"Bridge URL: {self.bridge_url}", context="Setup")
 
     def teardown(self):
-        """Cleanup after all tests - stop bridge server."""
-        if hasattr(self, "bridge") and self.bridge.is_running():
-            self.reporter.info("Stopping bridge...", context="Teardown")
-            self.bridge.stop()
-
+        """Cleanup after all tests."""
         self.reporter.info("Cleanup complete", context="Teardown")
-
-    # ================================================================
-    # Health endpoint tests
-    # ================================================================
 
     def test_health_endpoint(self):
         """Test /health endpoint returns correct structure."""
@@ -73,7 +41,6 @@ class TestBridgeEndpoints(LaborantTest):
         assert response.status_code == 200
         data = response.json()
 
-        # Check required fields
         assert "status" in data
         assert data["status"] == "healthy"
         assert "network" in data
@@ -108,19 +75,14 @@ class TestBridgeEndpoints(LaborantTest):
         data = response.json()
 
         assert data["program"] == self.test_config.program_id
-        assert len(data["program"]) == 44  # Solana address length
+        assert len(data["program"]) == 44
 
         self.reporter.info(f"Program ID: {data['program'][:8]}...", context="Test")
-
-    # ================================================================
-    # Prepare-Initialize endpoint tests (user-based, no strategy_id)
-    # ================================================================
 
     def test_prepare_initialize_missing_params(self):
         """Test /escrow/prepare-initialize rejects missing userWallet."""
         self.reporter.info("Testing prepare-initialize missing params", context="Test")
 
-        # Missing userWallet
         response = requests.post(
             f"{self.bridge_url}/escrow/prepare-initialize",
             json={},
@@ -146,7 +108,6 @@ class TestBridgeEndpoints(LaborantTest):
             timeout=10,
         )
 
-        # Should return error (400 or 500)
         assert response.status_code in [400, 500]
         data = response.json()
         assert data["success"] is False
@@ -179,10 +140,6 @@ class TestBridgeEndpoints(LaborantTest):
             "Valid params accepted, transaction prepared", context="Test"
         )
 
-    # ================================================================
-    # Prepare-Delegate-Platform endpoint tests
-    # ================================================================
-
     def test_prepare_delegate_platform_missing_params(self):
         """Test /escrow/prepare-delegate-platform missing parameters."""
         self.reporter.info(
@@ -190,7 +147,6 @@ class TestBridgeEndpoints(LaborantTest):
             context="Test",
         )
 
-        # Missing authority
         response = requests.post(
             f"{self.bridge_url}/escrow/prepare-delegate-platform",
             json={
@@ -233,10 +189,6 @@ class TestBridgeEndpoints(LaborantTest):
             "Valid params accepted, transaction prepared", context="Test"
         )
 
-    # ================================================================
-    # Prepare-Delegate-Trading endpoint tests
-    # ================================================================
-
     def test_prepare_delegate_trading_missing_params(self):
         """Test /escrow/prepare-delegate-trading missing parameters."""
         self.reporter.info(
@@ -244,7 +196,6 @@ class TestBridgeEndpoints(LaborantTest):
             context="Test",
         )
 
-        # Missing authority
         response = requests.post(
             f"{self.bridge_url}/escrow/prepare-delegate-trading",
             json={
@@ -287,10 +238,6 @@ class TestBridgeEndpoints(LaborantTest):
             "Valid params accepted, transaction prepared", context="Test"
         )
 
-    # ================================================================
-    # Prepare-Revoke-Platform endpoint tests
-    # ================================================================
-
     def test_prepare_revoke_platform_missing_params(self):
         """Test /escrow/prepare-revoke-platform missing parameters."""
         self.reporter.info(
@@ -298,7 +245,6 @@ class TestBridgeEndpoints(LaborantTest):
             context="Test",
         )
 
-        # Missing escrowAccount
         response = requests.post(
             f"{self.bridge_url}/escrow/prepare-revoke-platform",
             json={"userWallet": "11111111111111111111111111111111"},
@@ -337,10 +283,6 @@ class TestBridgeEndpoints(LaborantTest):
             "Valid params accepted, transaction prepared", context="Test"
         )
 
-    # ================================================================
-    # Prepare-Revoke-Trading endpoint tests
-    # ================================================================
-
     def test_prepare_revoke_trading_missing_params(self):
         """Test /escrow/prepare-revoke-trading missing parameters."""
         self.reporter.info(
@@ -348,7 +290,6 @@ class TestBridgeEndpoints(LaborantTest):
             context="Test",
         )
 
-        # Missing escrowAccount
         response = requests.post(
             f"{self.bridge_url}/escrow/prepare-revoke-trading",
             json={"userWallet": "11111111111111111111111111111111"},
@@ -387,15 +328,10 @@ class TestBridgeEndpoints(LaborantTest):
             "Valid params accepted, transaction prepared", context="Test"
         )
 
-    # ================================================================
-    # Prepare-Deposit endpoint tests
-    # ================================================================
-
     def test_prepare_deposit_missing_params(self):
         """Test /escrow/prepare-deposit rejects missing parameters."""
         self.reporter.info("Testing prepare-deposit missing params", context="Test")
 
-        # Missing amount
         response = requests.post(
             f"{self.bridge_url}/escrow/prepare-deposit",
             json={
@@ -412,15 +348,10 @@ class TestBridgeEndpoints(LaborantTest):
 
         self.reporter.info("Missing params correctly rejected", context="Test")
 
-    # ================================================================
-    # Prepare-Withdraw endpoint tests
-    # ================================================================
-
     def test_prepare_withdraw_missing_params(self):
         """Test /escrow/prepare-withdraw rejects missing parameters."""
         self.reporter.info("Testing prepare-withdraw missing params", context="Test")
 
-        # Missing escrowAccount
         response = requests.post(
             f"{self.bridge_url}/escrow/prepare-withdraw",
             json={"userWallet": "11111111111111111111111111111111"},
@@ -434,15 +365,10 @@ class TestBridgeEndpoints(LaborantTest):
 
         self.reporter.info("Missing params correctly rejected", context="Test")
 
-    # ================================================================
-    # Prepare-Close endpoint tests
-    # ================================================================
-
     def test_prepare_close_missing_params(self):
         """Test /escrow/prepare-close rejects missing parameters."""
         self.reporter.info("Testing prepare-close missing params", context="Test")
 
-        # Missing escrowAccount
         response = requests.post(
             f"{self.bridge_url}/escrow/prepare-close",
             json={"userWallet": "11111111111111111111111111111111"},
@@ -456,15 +382,10 @@ class TestBridgeEndpoints(LaborantTest):
 
         self.reporter.info("Missing params correctly rejected", context="Test")
 
-    # ================================================================
-    # Send-Transaction endpoint tests
-    # ================================================================
-
     def test_send_transaction_missing_params(self):
         """Test /escrow/send-transaction rejects missing parameters."""
         self.reporter.info("Testing send-transaction missing params", context="Test")
 
-        # Missing signedTransaction
         response = requests.post(
             f"{self.bridge_url}/escrow/send-transaction",
             json={},
@@ -478,16 +399,11 @@ class TestBridgeEndpoints(LaborantTest):
 
         self.reporter.info("Missing params correctly rejected", context="Test")
 
-    # ================================================================
-    # Transaction status endpoint tests
-    # ================================================================
-
     def test_transaction_status_not_found(self):
         """Test /transaction/status with non-existent signature."""
         self.reporter.info("Testing transaction status not found", context="Test")
 
-        # Generate valid-looking signature (88 chars base58)
-        fake_sig = "1" * 88  # Valid length but doesn't exist
+        fake_sig = "1" * 88
 
         response = requests.get(
             f"{self.bridge_url}/transaction/status/{fake_sig}", timeout=10
@@ -498,7 +414,6 @@ class TestBridgeEndpoints(LaborantTest):
 
         assert data["success"] is True
         assert data["confirmed"] is False
-        # Can be 'not_found' or 'invalid_signature'
         assert data["status"] in ["not_found", "invalid_signature"]
 
         self.reporter.info("Non-existent transaction handled", context="Test")
@@ -513,17 +428,12 @@ class TestBridgeEndpoints(LaborantTest):
             f"{self.bridge_url}/transaction/status/invalid-sig", timeout=10
         )
 
-        # Should handle gracefully with invalid_signature status
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
         assert data["status"] == "invalid_signature"
 
         self.reporter.info("Invalid signature handled", context="Test")
-
-    # ================================================================
-    # Balance endpoint tests
-    # ================================================================
 
     def test_balance_endpoint_invalid_account(self):
         """Test /escrow/balance with invalid account address."""
@@ -533,7 +443,6 @@ class TestBridgeEndpoints(LaborantTest):
             f"{self.bridge_url}/escrow/balance/invalid-account", timeout=10
         )
 
-        # Should return error
         assert response.status_code in [404, 500]
         data = response.json()
         assert data["success"] is False
@@ -544,23 +453,17 @@ class TestBridgeEndpoints(LaborantTest):
         """Test /escrow/balance with non-existent but valid address."""
         self.reporter.info("Testing balance with non-existent account", context="Test")
 
-        # Use valid address format that doesn't exist
         fake_account = "11111111111111111111111111111111"
 
         response = requests.get(
             f"{self.bridge_url}/escrow/balance/{fake_account}", timeout=10
         )
 
-        # Should return error (account doesn't exist)
         assert response.status_code in [404, 500]
         data = response.json()
         assert data["success"] is False
 
         self.reporter.info("Non-existent account handled", context="Test")
-
-    # ================================================================
-    # Escrow details endpoint tests
-    # ================================================================
 
     def test_escrow_details_invalid_address(self):
         """Test /escrow/:address with invalid address."""

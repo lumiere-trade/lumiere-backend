@@ -411,15 +411,12 @@ class DIContainer:
 
     def get_create_user(self) -> CreateUser:
         """Get create user use case."""
-        pass
 
     def get_get_user_profile(self) -> GetUserProfile:
         """Get user profile use case."""
-        pass
 
     def get_update_user_profile(self) -> UpdateUserProfile:
         """Get update user profile use case."""
-        pass
 
     def get_create_subscription(self, session: AsyncSession) -> CreateSubscription:
         """
@@ -442,7 +439,6 @@ class DIContainer:
 
     def get_check_subscription_status(self) -> CheckSubscriptionStatus:
         """Get check subscription status use case."""
-        pass
 
 
 # Global container instance

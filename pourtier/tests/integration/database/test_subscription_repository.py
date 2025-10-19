@@ -181,7 +181,9 @@ class TestSubscriptionRepository(LaborantTest):
 
             assert active is None
 
-            self.reporter.info("No active subscription correctly returned", context="Test")
+            self.reporter.info(
+                "No active subscription correctly returned", context="Test"
+            )
 
     async def test_update_subscription(self):
         """Test updating subscription."""

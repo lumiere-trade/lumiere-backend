@@ -11,11 +11,9 @@ FROM node:18-alpine AS node-builder
 
 WORKDIR /app/bridge
 
-# Install Node.js dependencies
 COPY passeur/bridge/package*.json ./
 RUN npm ci --only=production
 
-# Copy bridge source code
 COPY passeur/bridge/ ./
 
 # ============================================
@@ -25,18 +23,15 @@ FROM python:3.11-slim AS python-builder
 
 WORKDIR /build
 
-# Install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python package files
 COPY passeur/pyproject.toml ./
 COPY passeur/src/ ./src/
 
-# Install Python package (shared will be fetched from PyPI registry)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --user --no-cache-dir \
     --extra-index-url http://172.17.0.1:9001/simple/ \
@@ -50,7 +45,6 @@ FROM python:3.11-slim AS development
 
 WORKDIR /app
 
-# Install runtime dependencies including Node.js
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
@@ -59,29 +53,28 @@ RUN apt-get update && \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python packages from builder
 COPY --from=python-builder /root/.local /root/.local
 
-# Copy Node.js dependencies and bridge code
 COPY --from=node-builder /app/bridge ./bridge
 
-# Update PATH
 ENV PATH=/root/.local/bin:$PATH
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV NODE_ENV=development
 
-# Copy application code
 COPY passeur/ .
 
-# Expose bridge port
+# Install passeur as editable for development
+RUN pip install --no-cache-dir \
+    --extra-index-url http://172.17.0.1:9001/simple/ \
+    --trusted-host 172.17.0.1 \
+    -e ".[dev]"
+
 EXPOSE 8766
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8766/health || exit 1
 
-# Run with nodemon for auto-reload in development
 CMD ["npm", "run", "dev", "--prefix", "bridge"]
 
 # ============================================
@@ -89,7 +82,6 @@ CMD ["npm", "run", "dev", "--prefix", "bridge"]
 # ============================================
 FROM python:3.11-slim AS production
 
-# Create non-root user
 RUN useradd -m -u 1000 -s /bin/bash passeur && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -101,31 +93,23 @@ RUN useradd -m -u 1000 -s /bin/bash passeur && \
 
 WORKDIR /app
 
-# Copy Python packages from builder
 COPY --from=python-builder /root/.local /home/passeur/.local
 
-# Copy Node.js dependencies and bridge code
 COPY --from=node-builder /app/bridge ./bridge
 
-# Copy configuration and source code
 COPY --chown=passeur:passeur passeur/config/ ./config/
 COPY --chown=passeur:passeur passeur/src/ ./src/
 
-# Switch to non-root user
 USER passeur
 
-# Update PATH
 ENV PATH=/home/passeur/.local/bin:$PATH
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV NODE_ENV=production
 
-# Expose bridge port
 EXPOSE 8766
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8766/health || exit 1
 
-# Run bridge server in production mode
 CMD ["node", "bridge/server.js"]

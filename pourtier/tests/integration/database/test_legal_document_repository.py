@@ -125,7 +125,9 @@ class TestLegalDocumentRepository(LaborantTest):
 
             assert doc is None
 
-            self.reporter.info("Non-existent document handled correctly", context="Test")
+            self.reporter.info(
+                "Non-existent document handled correctly", context="Test"
+            )
 
     async def test_update_legal_document(self):
         """Test updating document information."""

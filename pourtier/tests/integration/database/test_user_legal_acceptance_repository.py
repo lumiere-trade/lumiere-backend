@@ -58,7 +58,9 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
         self.reporter.info("Connected to test database", context="Setup")
 
         # Reset database schema using public method
-        await TestUserLegalAcceptanceRepository.db.reset_schema_for_testing(Base.metadata)
+        await TestUserLegalAcceptanceRepository.db.reset_schema_for_testing(
+            Base.metadata
+        )
         self.reporter.info("Database schema reset", context="Setup")
 
         self.reporter.info("Test database ready", context="Setup")
@@ -172,7 +174,9 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
 
             assert acceptance is None
 
-            self.reporter.info("Non-existent acceptance handled correctly", context="Test")
+            self.reporter.info(
+                "Non-existent acceptance handled correctly", context="Test"
+            )
 
     async def test_get_by_user_and_document(self):
         """Test retrieving acceptance by user and document."""
@@ -413,7 +417,9 @@ class TestUserLegalAcceptanceRepository(LaborantTest):
 
     async def test_acceptance_without_optional_audit_fields(self):
         """Test acceptance without IP and user agent."""
-        self.reporter.info("Testing acceptance without optional audit fields", context="Test")
+        self.reporter.info(
+            "Testing acceptance without optional audit fields", context="Test"
+        )
 
         async with self.db.session() as session:
             user_repo = UserRepository(session)

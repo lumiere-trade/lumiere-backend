@@ -30,32 +30,28 @@ class PasseurConfig(BaseSettings):
         extra="allow",
     )
 
-    # Bridge Server
     bridge_host: str = Field(default="0.0.0.0")
     bridge_port: int = Field(default=8766, ge=1024, le=65535)
 
-    # Service Discovery (Docker DNS)
     courier_url: str = Field(
-        default="http://courier:8765", description="Courier WebSocket URL (Docker DNS)"
+        default="http://courier:8765",
+        description="Courier WebSocket URL (Docker DNS)",
     )
     pourtier_url: str = Field(
-        default="http://pourtier:8000", description="Pourtier API URL (Docker DNS)"
+        default="http://pourtier:8000",
+        description="Pourtier API URL (Docker DNS)",
     )
 
-    # Connection Settings
     heartbeat_interval: int = Field(default=30, ge=5, le=300)
     request_timeout: int = Field(default=30, ge=5, le=300)
 
-    # Logging
     log_level: str = Field(default="info")
     log_dir: str = Field(default="logs")
 
-    # Solana (from ENV)
     solana_rpc_url: Optional[str] = Field(default=None)
     solana_network: str = Field(default="devnet")
     program_id: str = Field(default="9gvUtaF99sQ287PNzRfCbhFTC4PUnnd7jdAjnY5GUVhS")
 
-    # Platform Keypair (from ENV)
     platform_keypair_path: Optional[str] = Field(default=None)
 
     @field_validator("log_level")
@@ -99,21 +95,18 @@ def load_config(config_file: Optional[str] = None) -> PasseurConfig:
     Returns:
         PasseurConfig instance
     """
-    # Determine environment
     env = os.getenv("ENV", "production")
 
-    # Map environment to config file
     config_map = {
         "production": "production.yaml",
         "development": "development.yaml",
+        "test": "test.yaml",
     }
 
-    # Find config directory
     current_file = Path(__file__).resolve()
     project_root = current_file.parent.parent.parent.parent
     config_dir = project_root / "config"
 
-    # Load default config first
     default_config_path = config_dir / "default.yaml"
     merged_config = {}
 
@@ -123,9 +116,7 @@ def load_config(config_file: Optional[str] = None) -> PasseurConfig:
             if loaded:
                 merged_config = loaded
 
-    # Load environment-specific config
     if config_file is None:
-        # Check for PASSEUR_CONFIG env var
         config_file = os.getenv("PASSEUR_CONFIG")
         if not config_file:
             config_file = config_map.get(env, "production.yaml")
@@ -138,5 +129,4 @@ def load_config(config_file: Optional[str] = None) -> PasseurConfig:
             if loaded:
                 merged_config.update(loaded)
 
-    # Create config (env vars will override YAML)
     return PasseurConfig(**merged_config)
