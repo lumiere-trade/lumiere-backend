@@ -23,18 +23,21 @@ export function Footer() {
             <Link href="/terms" className="text-muted-foreground hover:text-primary transition-colors">
               Terms of Use
             </Link>
-            <a
+            
               href="mailto:hello@lumiere.trade"
               className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5"
             >
               <Mail className="w-4 h-4" />
               hello@lumiere.trade
             </a>
+            <span className="text-muted-foreground text-xs">
+              © {new Date().getFullYear()} Lumiere
+            </span>
           </div>
 
           {/* Social Icons */}
           <div className="flex gap-3">
-            <a
+            
               href="https://twitter.com"
               target="_blank"
               rel="noopener noreferrer"
@@ -42,7 +45,7 @@ export function Footer() {
             >
               <Twitter className="w-4 h-4" />
             </a>
-            <a
+            
               href="https://discord.com"
               target="_blank"
               rel="noopener noreferrer"
@@ -50,7 +53,7 @@ export function Footer() {
             >
               <MessageCircle className="w-4 h-4" />
             </a>
-            <a
+            
               href="https://telegram.org"
               target="_blank"
               rel="noopener noreferrer"
@@ -58,7 +61,7 @@ export function Footer() {
             >
               <Send className="w-4 h-4" />
             </a>
-            <a
+            
               href="https://github.com"
               target="_blank"
               rel="noopener noreferrer"
