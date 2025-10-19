@@ -19,16 +19,16 @@ Usage:
 import time
 
 import requests
-from solders.pubkey import Pubkey
-
-from passeur.config.settings import load_config
-from passeur.utils.bridge_manager import BridgeManager
 from shared.blockchain import (
     TransactionSigner,
     check_escrow_exists,
 )
 from shared.blockchain.wallets import PlatformWallets
 from shared.tests import LaborantTest
+from solders.pubkey import Pubkey
+
+from passeur.config.settings import load_config
+from passeur.utils.bridge_manager import BridgeManager
 
 TEST_PLATFORM_AUTHORITY = PlatformWallets.get_test_authority_address()
 TEST_TRADING_AUTHORITY = PlatformWallets.get_test_authority_address()
@@ -68,9 +68,7 @@ class TestEscrowE2E(LaborantTest):
 
         self.test_config = load_config("test.yaml")
 
-        self.bridge = BridgeManager(
-            config_file="test.yaml", reporter=self.reporter
-        )
+        self.bridge = BridgeManager(config_file="test.yaml", reporter=self.reporter)
         success = self.bridge.start(timeout=30)
 
         if not success:

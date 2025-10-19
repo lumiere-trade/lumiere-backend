@@ -8,9 +8,9 @@ Usage:
 """
 
 import requests
+from shared.tests import LaborantTest
 
 from passeur.config.settings import load_config
-from shared.tests import LaborantTest
 
 
 class TestBridgeEndpoints(LaborantTest):
