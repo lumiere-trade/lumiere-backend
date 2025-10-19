@@ -28,6 +28,9 @@ export function Footer() {
               <Mail className="w-4 h-4" />
               hello@lumiere.trade
             </a>
+            <span className="text-muted-foreground">
+              © {new Date().getFullYear()} Lumiere
+            </span>
           </div>
 
           <div className="flex gap-3">
