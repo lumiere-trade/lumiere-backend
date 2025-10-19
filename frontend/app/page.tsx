@@ -240,7 +240,7 @@ export default function HomePage() {
 
       {openFeature && (
         <Dialog open={!!openFeature} onOpenChange={() => setOpenFeature(null)}>
-          <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto bg-[#2a1f1a] border-2 border-primary/30 rounded-2xl shadow-2xl">
+          <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto bg-background border-2 border-primary/30 rounded-2xl shadow-2xl">
             <DialogHeader>
               <div className="flex items-center gap-4 mb-6">
                 <div className="rounded-full bg-primary/10 p-4">
@@ -270,11 +270,11 @@ export default function HomePage() {
 
       {showAuthDialog && !showRpcSettings && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-card/60 backdrop-blur-sm"
           onClick={() => setShowAuthDialog(false)}
         >
           <div
-            className="relative w-full max-w-lg max-h-[90vh] mx-4 bg-[#2a1f1a] rounded-2xl border-2 border-primary/30 shadow-2xl flex flex-col"
+            className="relative w-full max-w-lg max-h-[90vh] mx-4 bg-background rounded-2xl border-2 border-primary/30 shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -308,7 +308,7 @@ export default function HomePage() {
                         <button
                           key={wallet.name}
                           onClick={() => handleWalletClick(wallet.name)}
-                          className="w-full flex items-center justify-between p-4 rounded-xl bg-[#1a1410] hover:bg-[#3a2f2a] border border-primary/20 hover:border-primary/40 transition-all group"
+                          className="w-full flex items-center justify-between p-4 rounded-xl bg-card hover:bg-secondary border border-primary/20 hover:border-primary/40 transition-all group"
                         >
                           <div className="flex items-center gap-4">
                             <div className="rounded-lg bg-primary/10 p-2">
@@ -346,11 +346,11 @@ export default function HomePage() {
 
       {showRpcSettings && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-card/60 backdrop-blur-sm"
           onClick={() => setShowRpcSettings(false)}
         >
           <div
-            className="relative w-full max-w-lg mx-4 bg-[#2a1f1a] rounded-2xl border-2 border-primary/30 shadow-2xl"
+            className="relative w-full max-w-lg mx-4 bg-background rounded-2xl border-2 border-primary/30 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -373,7 +373,7 @@ export default function HomePage() {
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
                     selectedRpc === "triton"
                       ? "bg-primary/10 border-primary"
-                      : "bg-[#1a1410] border-primary/20 hover:border-primary/40"
+                      : "bg-card border-primary/20 hover:border-primary/40"
                   }`}
                 >
                   <div
@@ -391,7 +391,7 @@ export default function HomePage() {
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
                     selectedRpc === "syndica"
                       ? "bg-primary/10 border-primary"
-                      : "bg-[#1a1410] border-primary/20 hover:border-primary/40"
+                      : "bg-card border-primary/20 hover:border-primary/40"
                   }`}
                 >
                   <div
@@ -409,7 +409,7 @@ export default function HomePage() {
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
                     selectedRpc === "custom"
                       ? "bg-primary/10 border-primary"
-                      : "bg-[#1a1410] border-primary/20 hover:border-primary/40"
+                      : "bg-card border-primary/20 hover:border-primary/40"
                   }`}
                 >
                   <div
@@ -428,7 +428,7 @@ export default function HomePage() {
                     placeholder="Enter custom RPC"
                     value={customRpc}
                     onChange={(e) => setCustomRpc(e.target.value)}
-                    className="w-full p-4 rounded-xl bg-[#1a1410] border border-primary/20 focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground"
+                    className="w-full p-4 rounded-xl bg-card border border-primary/20 focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground"
                   />
                 )}
               </div>
@@ -445,7 +445,7 @@ export default function HomePage() {
       )}
 
       <Dialog open={showTermsDialog} onOpenChange={setShowTermsDialog}>
-        <DialogContent className="max-w-2xl bg-[#2a1f1a] border-2 border-primary/30 rounded-2xl shadow-2xl">
+        <DialogContent className="max-w-2xl bg-background border-2 border-primary/30 rounded-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-primary">Terms of Use & Legal Agreements</DialogTitle>
           </DialogHeader>
