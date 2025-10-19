@@ -308,7 +308,7 @@ export default function HomePage() {
                         <button
                           key={wallet.name}
                           onClick={() => handleWalletClick(wallet.name)}
-                          className="w-full flex items-center justify-between p-4 rounded-xl bg-[#3d2e28] hover:bg-[#4a382f] border border-primary/20 hover:border-primary/40 transition-all group"
+                          className="w-full flex items-center justify-between p-4 rounded-xl bg-background/40 hover:bg-background/60 border border-border/30 hover:border-primary/20 transition-all group"
                         >
                           <div className="flex items-center gap-4">
                             <div className="rounded-lg bg-primary/10 p-2">
@@ -373,7 +373,7 @@ export default function HomePage() {
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
                     selectedRpc === "triton"
                       ? "bg-primary/10 border-primary"
-                      : "bg-[#3d2e28] border-primary/20 hover:border-primary/40"
+                      : "bg-background/40 border-border/30 hover:border-primary/20"
                   }`}
                 >
                   <div
@@ -391,7 +391,7 @@ export default function HomePage() {
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
                     selectedRpc === "syndica"
                       ? "bg-primary/10 border-primary"
-                      : "bg-[#3d2e28] border-primary/20 hover:border-primary/40"
+                      : "bg-background/40 border-border/30 hover:border-primary/20"
                   }`}
                 >
                   <div
@@ -409,7 +409,7 @@ export default function HomePage() {
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
                     selectedRpc === "custom"
                       ? "bg-primary/10 border-primary"
-                      : "bg-[#3d2e28] border-primary/20 hover:border-primary/40"
+                      : "bg-background/40 border-border/30 hover:border-primary/20"
                   }`}
                 >
                   <div
@@ -428,7 +428,7 @@ export default function HomePage() {
                     placeholder="Enter custom RPC"
                     value={customRpc}
                     onChange={(e) => setCustomRpc(e.target.value)}
-                    className="w-full p-4 rounded-xl bg-[#3d2e28] border border-primary/20 focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground"
+                    className="w-full p-4 rounded-xl bg-background/40 border border-border/30 focus:border-primary focus:outline-none text-foreground placeholder:text-muted-foreground"
                   />
                 )}
               </div>
@@ -450,7 +450,7 @@ export default function HomePage() {
             <DialogTitle className="text-2xl font-bold text-primary">Terms of Use & Legal Agreements</DialogTitle>
           </DialogHeader>
 
-          <ScrollArea className="h-[400px] rounded-md border border-primary/20 p-6">
+          <ScrollArea className="h-[400px] rounded-md border border-border/30 p-6">
             <div className="space-y-6 text-sm">
               <section>
                 <h3 className="mb-2 text-lg font-semibold text-primary">1. Acceptance of Terms</h3>
@@ -521,7 +521,7 @@ export default function HomePage() {
             </div>
           </ScrollArea>
 
-          <div className="flex items-center space-x-2 rounded-md border border-primary/20 p-4">
+          <div className="flex items-center space-x-2 rounded-md border border-border/30 p-4">
             <Checkbox
               id="terms"
               checked={agreedToTerms}
