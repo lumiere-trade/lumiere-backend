@@ -80,7 +80,6 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
         )
         await TestUserOnboardingEscrowFlow.db.connect()
 
-        # Reset database schema using public method
         await TestUserOnboardingEscrowFlow.db.reset_schema_for_testing(Base.metadata)
 
         await self._seed_legal_documents()
@@ -176,56 +175,110 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
                     raise RuntimeError("Passeur not accessible")
 
     async def _cleanup_existing_escrow(self):
-        """Cleanup existing escrow if present - ALWAYS close account."""
+        """
+        ROBUST cleanup: Always start with clean slate.
+        
+        Handles all edge cases:
+        - Account exists with authority delegated
+        - Account exists with funds
+        - Account exists but empty
+        - Account doesn't exist
+        - Close transaction fails
+        """
         expected_escrow = self._derive_escrow_pda(self.alice_address)
         escrow_exists = await self._check_escrow_exists(expected_escrow)
 
         if not escrow_exists:
-            self.reporter.info("No existing escrow found", context="Setup")
+            self.reporter.info("Clean slate: No escrow exists", context="Setup")
             return
 
         self.reporter.info(
-            f"Found existing escrow: {expected_escrow[:8]}...", context="Setup"
+            f"Cleanup needed: Escrow {expected_escrow[:8]}...", context="Setup"
         )
 
-        # Step 1: Try to revoke authority (best effort)
+        # Step 1: Revoke authority (best effort, may not exist)
         try:
             sig, _ = self.transaction_signer.prepare_and_sign_revoke_platform(
                 escrow_account=expected_escrow
             )
             await self._wait_for_transaction(sig, max_wait=30)
-            self.reporter.info("Authority revoked", context="Setup")
+            self.reporter.info("  ✓ Authority revoked", context="Setup")
         except Exception as e:
-            self.reporter.warning(f"Could not revoke authority: {e}", context="Setup")
+            error_msg = str(e).lower()
+            if "already" in error_msg or "not delegated" in error_msg:
+                self.reporter.info("  - No authority to revoke", context="Setup")
+            else:
+                self.reporter.warning(
+                    f"  ⚠ Revoke failed (continuing): {str(e)[:60]}", context="Setup"
+                )
 
-        # Step 2: Try to withdraw all funds (best effort)
+        # Step 2: Withdraw all funds (best effort, account may be empty)
         try:
             sig, _ = self.transaction_signer.prepare_and_sign_withdraw(
                 escrow_account=expected_escrow
             )
             await self._wait_for_transaction(sig, max_wait=30)
-            self.reporter.info("Funds withdrawn", context="Setup")
+            self.reporter.info("  ✓ Funds withdrawn", context="Setup")
         except Exception as e:
-            error_str = str(e).lower()
-            if "invalidamount" in error_str or "insufficient" in error_str:
-                self.reporter.info("No funds to withdraw", context="Setup")
+            error_msg = str(e).lower()
+            if (
+                "invalidamount" in error_msg
+                or "insufficient" in error_msg
+                or "empty" in error_msg
+            ):
+                self.reporter.info("  - No funds to withdraw", context="Setup")
             else:
-                self.reporter.warning(f"Withdraw failed: {e}", context="Setup")
+                self.reporter.warning(
+                    f"  ⚠ Withdraw failed (continuing): {str(e)[:60]}", context="Setup"
+                )
 
-        # Step 3: ALWAYS try to close account (CRITICAL)
-        try:
-            sig, _ = self.transaction_signer.prepare_and_sign_close(
-                escrow_account=expected_escrow
-            )
-            await self._wait_for_transaction(sig, max_wait=30)
-            self.reporter.info("Escrow account closed", context="Setup")
-        except Exception as e:
-            # If close fails, test cannot proceed
-            raise RuntimeError(
-                f"CRITICAL: Cannot close escrow account {expected_escrow[:8]}. "
-                f"Account must be manually closed before retrying test. "
-                f"Error: {e}"
-            )
+        # Step 3: Close account - CRITICAL, retry with exponential backoff
+        max_retries = 5
+        base_delay = 3
+
+        for attempt in range(max_retries):
+            try:
+                sig, _ = self.transaction_signer.prepare_and_sign_close(
+                    escrow_account=expected_escrow
+                )
+                await self._wait_for_transaction(sig, max_wait=30)
+                self.reporter.info(
+                    f"  ✓ Escrow closed (attempt {attempt + 1})", context="Setup"
+                )
+                return
+
+            except Exception as e:
+                error_msg = str(e)
+
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2**attempt)
+                    self.reporter.warning(
+                        f"  ⚠ Close attempt {attempt + 1} failed, "
+                        f"retrying in {delay}s: {str(e)[:60]}",
+                        context="Setup",
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    self.reporter.error(
+                        f"  ✗ Close failed after {max_retries} attempts: {error_msg}",
+                        context="Setup",
+                    )
+
+                    # Check if account still exists
+                    still_exists = await self._check_escrow_exists(expected_escrow)
+
+                    if still_exists:
+                        raise RuntimeError(
+                            f"CRITICAL: Cannot close escrow {expected_escrow[:8]}. "
+                            f"Manual intervention required on Solana devnet. "
+                            f"Last error: {error_msg[:100]}"
+                        )
+                    else:
+                        self.reporter.info(
+                            "  ✓ Account doesn't exist anymore (closed by network)",
+                            context="Setup",
+                        )
+                        return
 
     async def _create_account(self):
         """Create Alice's account with legal acceptance."""

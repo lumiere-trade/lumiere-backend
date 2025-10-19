@@ -52,9 +52,7 @@ class BridgeManager:
         )
         self.env = env
         self.process: Optional[subprocess.Popen] = None
-        self.bridge_url = (
-            f"http://{self.config.bridge_host}:{self.config.bridge_port}"
-        )
+        self.bridge_url = f"http://{self.config.bridge_host}:{self.config.bridge_port}"
 
     def start(self, timeout: int = 30) -> bool:
         """
@@ -132,9 +130,7 @@ class BridgeManager:
             return False
 
         except Exception as e:
-            self.reporter.error(
-                f"Failed to start bridge: {e}", context="BridgeManager"
-            )
+            self.reporter.error(f"Failed to start bridge: {e}", context="BridgeManager")
             return False
 
     def stop(self) -> None:
@@ -160,9 +156,7 @@ class BridgeManager:
             self.reporter.info("Bridge server stopped", context="BridgeManager")
 
         except Exception as e:
-            self.reporter.error(
-                f"Error stopping bridge: {e}", context="BridgeManager"
-            )
+            self.reporter.error(f"Error stopping bridge: {e}", context="BridgeManager")
 
         finally:
             self.process = None
