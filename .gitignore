@@ -27,6 +27,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Exception: Allow frontend lib directory
+!frontend/lib/
+
 # ==================== NODE.JS ====================
 node_modules/
 npm-debug.log*
@@ -44,7 +47,6 @@ yarn.lock
 *.env
 
 # ==================== CONFIG DIRECTORIES (CRITICAL!) ====================
-# Exclude ALL config directories to prevent secrets leak
 pourtier/config
 passeur/config
 courier/config
@@ -99,17 +101,13 @@ shared/tests/logs/*
 .pytest_cache/
 
 # ==================== KEYPAIRS (CRITICAL!) ====================
-# Top-level keypairs
 keypairs/
-# Shared blockchain keypairs
 shared/blockchain/keypairs/production/
 shared/blockchain/keypairs/test/
-# Any keypair files
 *.key
 *.pem
 *.p12
 *.pfx
-# Allow needed JSON files
 !package.json
 !tsconfig.json
 !**/idl/*.json
@@ -124,9 +122,7 @@ sbpf-solana-solana/
 smart_contracts/target/deploy/escrow-keypair.json
 
 # ==================== FRONTEND ====================
-# Exclude old frontend backup
 frontend-old/
-# Exclude frontend build artifacts and dependencies
 frontend/node_modules/
 frontend/.next/
 frontend/out/
@@ -144,6 +140,3 @@ htmlcov/
 
 # ==================== REDIS ====================
 dump.rdb
-
-# Frontend node_modules explicitly
-frontend/node_modules/
