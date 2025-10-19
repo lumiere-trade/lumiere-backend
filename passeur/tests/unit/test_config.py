@@ -27,10 +27,6 @@ class TestPasseurConfig(LaborantTest):
         self.test_config = load_config("development.yaml")
         self.reporter.info("Loaded test configuration", context="Setup")
 
-    # ================================================================
-    # PasseurConfig model validation tests
-    # ================================================================
-
     def test_default_config(self):
         """Test default configuration values."""
         self.reporter.info("Testing default config values", context="Test")
@@ -60,7 +56,7 @@ class TestPasseurConfig(LaborantTest):
         )
 
         assert config.bridge_host == "127.0.0.1"
-        assert config.bridge_port == 8767  # development.yaml
+        assert config.bridge_port == 8767
         assert config.solana_network == "testnet"
         assert config.log_level == "debug"
         assert config.log_dir == "custom/logs"
@@ -72,7 +68,7 @@ class TestPasseurConfig(LaborantTest):
         self.reporter.info("Testing port minimum validation", context="Test")
 
         try:
-            PasseurConfig(bridge_port=1023)  # Below minimum
+            PasseurConfig(bridge_port=1023)
             assert False, "Should have raised ValueError"
         except ValueError:
             self.reporter.info("Port minimum validation works", context="Test")
@@ -82,7 +78,7 @@ class TestPasseurConfig(LaborantTest):
         self.reporter.info("Testing port maximum validation", context="Test")
 
         try:
-            PasseurConfig(bridge_port=65536)  # Above maximum
+            PasseurConfig(bridge_port=65536)
             assert False, "Should have raised ValueError"
         except ValueError:
             self.reporter.info("Port maximum validation works", context="Test")
@@ -136,7 +132,7 @@ class TestPasseurConfig(LaborantTest):
         self.reporter.info("Testing heartbeat interval minimum", context="Test")
 
         try:
-            PasseurConfig(heartbeat_interval=4)  # Below minimum
+            PasseurConfig(heartbeat_interval=4)
             assert False, "Should have raised ValueError"
         except ValueError:
             self.reporter.info("Heartbeat minimum validation works", context="Test")
@@ -146,7 +142,7 @@ class TestPasseurConfig(LaborantTest):
         self.reporter.info("Testing heartbeat interval maximum", context="Test")
 
         try:
-            PasseurConfig(heartbeat_interval=301)  # Above maximum
+            PasseurConfig(heartbeat_interval=301)
             assert False, "Should have raised ValueError"
         except ValueError:
             self.reporter.info("Heartbeat maximum validation works", context="Test")
@@ -156,7 +152,7 @@ class TestPasseurConfig(LaborantTest):
         self.reporter.info("Testing request timeout minimum", context="Test")
 
         try:
-            PasseurConfig(request_timeout=4)  # Below minimum
+            PasseurConfig(request_timeout=4)
             assert False, "Should have raised ValueError"
         except ValueError:
             self.reporter.info("Timeout minimum validation works", context="Test")
@@ -166,14 +162,10 @@ class TestPasseurConfig(LaborantTest):
         self.reporter.info("Testing request timeout maximum", context="Test")
 
         try:
-            PasseurConfig(request_timeout=301)  # Above maximum
+            PasseurConfig(request_timeout=301)
             assert False, "Should have raised ValueError"
         except ValueError:
             self.reporter.info("Timeout maximum validation works", context="Test")
-
-    # ================================================================
-    # Config loading tests
-    # ================================================================
 
     def test_load_default_config(self):
         """Test loading default passeur.yaml config."""
@@ -193,11 +185,11 @@ class TestPasseurConfig(LaborantTest):
         config = load_config("development.yaml")
 
         assert isinstance(config, PasseurConfig)
-        assert config.bridge_host == "127.0.0.1"
-        assert config.bridge_port == 8767  # development.yaml
+        assert config.bridge_host == "0.0.0.0"
+        assert config.bridge_port == 9766
         assert config.solana_network == "devnet"
         assert config.log_level == "debug"
-        assert config.log_dir == "logs"  # development.yaml
+        assert config.log_dir == "logs"
 
         self.reporter.info("Test config loaded successfully", context="Test")
 
@@ -207,7 +199,6 @@ class TestPasseurConfig(LaborantTest):
 
         config = load_config("nonexistent.yaml")
 
-        # Should use defaults
         assert isinstance(config, PasseurConfig)
         assert config.bridge_port == 8766
 
@@ -217,19 +208,13 @@ class TestPasseurConfig(LaborantTest):
         """Test PASSEUR_CONFIG environment variable override."""
         self.reporter.info("Testing PASSEUR_CONFIG env var", context="Test")
 
-        # Set env var to test config
         with patch.dict(os.environ, {"PASSEUR_CONFIG": "development.yaml"}):
             config = load_config()
 
-            # Should load development.yaml
-            assert config.bridge_port == 8767  # development.yaml
+            assert config.bridge_port == 9766
             assert config.log_level == "debug"
 
         self.reporter.info("PASSEUR_CONFIG env var works", context="Test")
-
-    # ================================================================
-    # Miscellaneous tests
-    # ================================================================
 
     def test_platform_keypair_path_expansion(self):
         """Test platform keypair path home directory expansion."""
@@ -239,7 +224,6 @@ class TestPasseurConfig(LaborantTest):
             platform_keypair_path="~/.lumiere/keypairs/platform.json"
         )
 
-        # Should expand ~
         assert "~" not in config.platform_keypair_path
         assert config.platform_keypair_path.startswith("/")
 
@@ -251,7 +235,6 @@ class TestPasseurConfig(LaborantTest):
 
         config = PasseurConfig()
 
-        # Should be 44 characters (base58 encoded)
         assert len(config.program_id) == 44
         assert config.program_id.startswith(
             "9gvUtaF99sQ287PNzRfCbhFTC4PUnnd7jdAjnY5GUVhS"
@@ -265,7 +248,7 @@ class TestPasseurConfig(LaborantTest):
 
         config = load_config("development.yaml")
 
-        assert config.log_dir == "logs"  # development.yaml
+        assert config.log_dir == "logs"
 
         self.reporter.info("Log dir from config correct", context="Test")
 

@@ -13,10 +13,10 @@ from decimal import Decimal
 
 import httpx
 from base58 import b58encode
+from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.signature import Signature
-from solana.rpc.async_api import AsyncClient
 from sqlalchemy import text
 
 from pourtier.config.settings import get_settings
@@ -185,8 +185,7 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
             return
 
         self.reporter.info(
-            f"Found existing escrow: {expected_escrow[:8]}...",
-            context="Setup"
+            f"Found existing escrow: {expected_escrow[:8]}...", context="Setup"
         )
 
         # Step 1: Try to revoke authority (best effort)
@@ -197,10 +196,7 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
             await self._wait_for_transaction(sig, max_wait=30)
             self.reporter.info("Authority revoked", context="Setup")
         except Exception as e:
-            self.reporter.warning(
-                f"Could not revoke authority: {e}",
-                context="Setup"
-            )
+            self.reporter.warning(f"Could not revoke authority: {e}", context="Setup")
 
         # Step 2: Try to withdraw all funds (best effort)
         try:
@@ -214,10 +210,7 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
             if "invalidamount" in error_str or "insufficient" in error_str:
                 self.reporter.info("No funds to withdraw", context="Setup")
             else:
-                self.reporter.warning(
-                    f"Withdraw failed: {e}",
-                    context="Setup"
-                )
+                self.reporter.warning(f"Withdraw failed: {e}", context="Setup")
 
         # Step 3: ALWAYS try to close account (CRITICAL)
         try:
@@ -331,9 +324,7 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
     async def test_complete_user_onboarding_and_escrow_flow(self):
         """Test complete user journey from onboarding to withdrawal."""
         available_balance = await self._get_wallet_balance(self.alice_address)
-        deposit_amount = (available_balance * Decimal("0.8")).quantize(
-            Decimal("0.01")
-        )
+        deposit_amount = (available_balance * Decimal("0.8")).quantize(Decimal("0.01"))
 
         if deposit_amount < Decimal("0.01"):
             deposit_amount = Decimal("0.01")

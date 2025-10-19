@@ -439,7 +439,10 @@ Examples:
         "--fail-fast", action="store_true", help="Stop on first failure"
     )
     test_parser.add_argument(
-        "--timeout", type=int, default=300, help="Test timeout in seconds (default: 300)"
+        "--timeout",
+        type=int,
+        default=300,
+        help="Test timeout in seconds (default: 300)",
     )
 
     # Lint command

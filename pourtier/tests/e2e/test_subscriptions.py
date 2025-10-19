@@ -147,9 +147,7 @@ class TestSubscriptions(LaborantTest):
 
         # Get legal documents
         async with httpx.AsyncClient() as client:
-            docs_response = await client.get(
-                f"{self.api_base_url}/api/legal/documents"
-            )
+            docs_response = await client.get(f"{self.api_base_url}/api/legal/documents")
             if docs_response.status_code != 200:
                 raise RuntimeError("Failed to get legal documents")
 

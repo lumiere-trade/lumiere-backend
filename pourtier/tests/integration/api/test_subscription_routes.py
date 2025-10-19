@@ -82,9 +82,7 @@ class TestSubscriptionRoutes(LaborantTest):
 
     async def async_teardown(self):
         """Cleanup test database."""
-        self.reporter.info(
-            "Cleaning up subscription API tests...", context="Teardown"
-        )
+        self.reporter.info("Cleaning up subscription API tests...", context="Teardown")
 
         if TestSubscriptionRoutes.client:
             await TestSubscriptionRoutes.client.aclose()

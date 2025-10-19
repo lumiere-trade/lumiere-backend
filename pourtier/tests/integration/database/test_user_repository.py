@@ -165,7 +165,9 @@ class TestUserRepository(LaborantTest):
                 await repo.create(user2)
             assert False, "Should raise IntegrityError"
         except IntegrityError:
-            self.reporter.info("Duplicate wallet error raised correctly", context="Test")
+            self.reporter.info(
+                "Duplicate wallet error raised correctly", context="Test"
+            )
 
     async def test_update_nonexistent_user(self):
         """Test updating non-existent user raises error."""
@@ -182,7 +184,9 @@ class TestUserRepository(LaborantTest):
                 await repo.update(user)
                 assert False, "Should raise EntityNotFoundError"
             except (EntityNotFoundError, ValueError):
-                self.reporter.info("Update non-existent user error raised", context="Test")
+                self.reporter.info(
+                    "Update non-existent user error raised", context="Test"
+                )
 
     async def test_update_user_escrow_balance(self):
         """Test updating user escrow balance."""

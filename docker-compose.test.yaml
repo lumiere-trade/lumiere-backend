@@ -40,7 +40,7 @@ services:
     profiles:
       - integration
       - e2e
-      - test-runner
+      - test-pourtier
     logging:
       driver: "json-file"
       options:
@@ -94,7 +94,7 @@ services:
     profiles:
       - integration
       - e2e
-      - test-runner
+      - test-pourtier
     logging:
       driver: "json-file"
       options:
@@ -128,7 +128,7 @@ services:
       retries: 3
     profiles:
       - e2e
-      - test-runner
+      - test-pourtier
     logging:
       driver: "json-file"
       options:
@@ -172,7 +172,7 @@ services:
       retries: 3
     profiles:
       - e2e
-      - test-runner
+      - test-pourtier
     logging:
       driver: "json-file"
       options:
@@ -183,9 +183,9 @@ services:
   # Test Runner
   # Executes tests inside Docker network
   # -------------------------------------------
-  test-runner:
+  test-pourtier:
     image: pourtier:development
-    container_name: lumiere-test-runner
+    container_name: lumiere-test-pourtier
     environment:
       ENV: test
       # Database (Docker DNS)
@@ -222,6 +222,6 @@ services:
     networks:
       - lumiere-test-net
     profiles:
-      - test-runner
+      - test-pourtier
     working_dir: /app
     command: ["sleep", "infinity"]

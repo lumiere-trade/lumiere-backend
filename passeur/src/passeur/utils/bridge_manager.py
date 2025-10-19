@@ -28,21 +28,21 @@ class BridgeManager:
 
     def __init__(
         self,
-        config_file: str = "development.yaml",
+        config_file: str = "test.yaml",
+        env: str = "test",
         reporter: Optional[SystemReporter] = None,
     ):
         """
         Initialize bridge manager.
 
         Args:
-            config_file: Config file to use (default: development.yaml)
+            config_file: Config file to use (default: test.yaml)
+            env: Environment name (test, development, production)
             reporter: Optional SystemReporter for logging
         """
-        # Set ENV to development FIRST
-        os.environ["ENV"] = "development"
+        os.environ["ENV"] = env
 
-        # Load .env.development for tests
-        env_path = Path(__file__).parents[2] / ".env.development"
+        env_path = Path(__file__).parents[2] / f".env.{env}"
         if env_path.exists():
             load_dotenv(env_path)
 
@@ -50,8 +50,11 @@ class BridgeManager:
         self.reporter = reporter or SystemReporter(
             name="bridge_manager", level=20, verbose=1
         )
+        self.env = env
         self.process: Optional[subprocess.Popen] = None
-        self.bridge_url = f"http://{self.config.bridge_host}:{self.config.bridge_port}"
+        self.bridge_url = (
+            f"http://{self.config.bridge_host}:{self.config.bridge_port}"
+        )
 
     def start(self, timeout: int = 30) -> bool:
         """
@@ -67,8 +70,7 @@ class BridgeManager:
             self.reporter.warning("Bridge already running", context="BridgeManager")
             return True
 
-        # Get bridge directory
-        bridge_dir = Path(__file__).parents[2] / "bridge"
+        bridge_dir = Path("/app/bridge")
 
         if not bridge_dir.exists():
             self.reporter.error(
@@ -77,7 +79,6 @@ class BridgeManager:
             )
             return False
 
-        # Check if server.js exists
         server_js = bridge_dir / "server.js"
         if not server_js.exists():
             self.reporter.error(
@@ -89,11 +90,9 @@ class BridgeManager:
         self.reporter.info("Starting bridge server...", context="BridgeManager")
 
         try:
-            # Copy environment variables
             env = os.environ.copy()
-            env["ENV"] = "development"
+            env["ENV"] = self.env
 
-            # Start Node.js server
             self.process = subprocess.Popen(
                 ["node", "server.js"],
                 cwd=str(bridge_dir),
@@ -103,19 +102,18 @@ class BridgeManager:
                 text=True,
             )
 
-            # Wait for server to be ready
             start_time = time.time()
             attempt = 0
             while time.time() - start_time < timeout:
                 attempt += 1
                 if self._is_ready():
                     self.reporter.info(
-                        f"Bridge server ready after {attempt} attempts: {self.bridge_url}",
+                        f"Bridge server ready after {attempt} attempts: "
+                        f"{self.bridge_url}",
                         context="BridgeManager",
                     )
                     return True
 
-                # Check if process died
                 if self.process.poll() is not None:
                     stderr = self.process.stderr.read()
                     self.reporter.error(
@@ -134,7 +132,9 @@ class BridgeManager:
             return False
 
         except Exception as e:
-            self.reporter.error(f"Failed to start bridge: {e}", context="BridgeManager")
+            self.reporter.error(
+                f"Failed to start bridge: {e}", context="BridgeManager"
+            )
             return False
 
     def stop(self) -> None:
@@ -145,14 +145,11 @@ class BridgeManager:
         self.reporter.info("Stopping bridge server...", context="BridgeManager")
 
         try:
-            # Send SIGTERM for graceful shutdown
             self.process.terminate()
 
-            # Wait up to 5 seconds for graceful shutdown
             try:
                 self.process.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                # Force kill if didn't stop gracefully
                 self.reporter.warning(
                     "Bridge didn't stop gracefully, forcing kill",
                     context="BridgeManager",
@@ -163,7 +160,9 @@ class BridgeManager:
             self.reporter.info("Bridge server stopped", context="BridgeManager")
 
         except Exception as e:
-            self.reporter.error(f"Error stopping bridge: {e}", context="BridgeManager")
+            self.reporter.error(
+                f"Error stopping bridge: {e}", context="BridgeManager"
+            )
 
         finally:
             self.process = None
@@ -184,8 +183,7 @@ class BridgeManager:
                     context="BridgeManager",
                 )
             return ready
-        except requests.exceptions.RequestException as e:
-            # Don't log every failed attempt, too noisy
+        except requests.exceptions.RequestException:
             return False
 
     def is_running(self) -> bool:

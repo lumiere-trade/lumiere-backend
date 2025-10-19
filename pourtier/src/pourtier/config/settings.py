@@ -46,12 +46,10 @@ class Settings(BaseSettings):
 
     # Service Discovery (Docker DNS)
     COURIER_URL: str = Field(
-        default="http://courier:8765",
-        description="Courier service URL (Docker DNS)"
+        default="http://courier:8765", description="Courier service URL (Docker DNS)"
     )
     PASSEUR_URL: str = Field(
-        default="http://passeur:8766",
-        description="Passeur bridge URL (Docker DNS)"
+        default="http://passeur:8766", description="Passeur bridge URL (Docker DNS)"
     )
 
     # Database (from environment - REQUIRED in production)

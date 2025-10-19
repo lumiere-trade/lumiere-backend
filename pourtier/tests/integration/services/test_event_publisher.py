@@ -35,9 +35,7 @@ class TestEventPublisher(LaborantTest):
         settings = get_settings()
         TestEventPublisher.COURIER_URL = settings.COURIER_URL
 
-        self.reporter.info(
-            f"Using Courier at: {self.COURIER_URL}", context="Setup"
-        )
+        self.reporter.info(f"Using Courier at: {self.COURIER_URL}", context="Setup")
 
         # Verify Courier is running
         if not await self._is_courier_running():
@@ -56,9 +54,7 @@ class TestEventPublisher(LaborantTest):
         """Check if Courier is running."""
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self.COURIER_URL}/health", timeout=2.0
-                )
+                response = await client.get(f"{self.COURIER_URL}/health", timeout=2.0)
                 return response.status_code == 200
         except Exception:
             return False

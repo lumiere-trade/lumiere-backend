@@ -1,8 +1,8 @@
 """
 Docker test executor - runs tests inside Docker containers.
 
-Manages test infrastructure lifecycle and executes tests in test-runner container.
-Provides clean separation between orchestration and test execution.
+Manages test infrastructure lifecycle and executes tests in component-specific
+test containers. Provides clean separation between orchestration and execution.
 """
 
 import subprocess
@@ -18,11 +18,11 @@ from shared.tests.result_schema import parse_test_output, validate_test_output
 
 class DockerTestExecutor:
     """
-    Executes tests inside Docker test-runner container.
+    Executes tests inside component-specific Docker test containers.
 
     Responsibilities:
     - Manage test infrastructure lifecycle (start/stop containers)
-    - Execute tests in isolated Docker environment
+    - Execute tests in isolated Docker environment per component
     - Parse and return test results
     """
 
@@ -48,14 +48,58 @@ class DockerTestExecutor:
         self.compose_file = project_root / "docker-compose.test.yaml"
         self._infrastructure_started = False
 
-    def ensure_infrastructure(self, profile: str = "test-runner") -> bool:
+    def _get_container_name(self, component: str) -> str:
+        """
+        Get test container name for component.
+
+        Args:
+            component: Component name (e.g., 'pourtier', 'passeur')
+
+        Returns:
+            Container name (e.g., 'lumiere-test-pourtier')
+        """
+        return f"lumiere-test-{component}"
+
+    def _container_exists(self, container_name: str) -> bool:
+        """
+        Check if container exists and is running.
+
+        Args:
+            container_name: Name of container to check
+
+        Returns:
+            True if container exists and is running
+        """
+        try:
+            result = subprocess.run(
+                [
+                    "docker",
+                    "ps",
+                    "--filter",
+                    f"name={container_name}",
+                    "--format",
+                    "{{.Names}}",
+                ],
+                cwd=str(self.project_root),
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return container_name in result.stdout
+        except subprocess.CalledProcessError:
+            return False
+
+    def ensure_infrastructure(
+        self, component: Optional[str] = None, profile: str = "test-pourtier"
+    ) -> bool:
         """
         Ensure test infrastructure is running.
 
         Uses smart detection - only starts if not already running.
 
         Args:
-            profile: Docker compose profile (default: test-runner)
+            component: Component name (for container verification)
+            profile: Docker compose profile (default: test-pourtier)
 
         Returns:
             True if infrastructure is ready
@@ -71,12 +115,13 @@ class DockerTestExecutor:
         )
 
         try:
+            # Check if any test container is running
             result = subprocess.run(
                 [
                     "docker",
                     "ps",
                     "--filter",
-                    "name=lumiere-test-runner",
+                    "name=lumiere-test-",
                     "--format",
                     "{{.Names}}",
                 ],
@@ -86,7 +131,7 @@ class DockerTestExecutor:
                 check=True,
             )
 
-            if "lumiere-test-runner" in result.stdout:
+            if "lumiere-test-" in result.stdout:
                 self.reporter.info(
                     "Test infrastructure already running", context="DockerTestExecutor"
                 )
@@ -175,11 +220,11 @@ class DockerTestExecutor:
         self, test_file: Path, component: str, category: str
     ) -> TestFileResult:
         """
-        Execute a single test file in Docker container.
+        Execute a single test file in component-specific Docker container.
 
         Args:
             test_file: Path to test file (relative to project root)
-            component: Component name
+            component: Component name (pourtier, passeur, courier)
             category: Test category (unit, integration, e2e)
 
         Returns:
@@ -191,7 +236,10 @@ class DockerTestExecutor:
             f"Executing in container: {relative_path}", context="DockerTestExecutor"
         )
 
-        if not self.ensure_infrastructure():
+        # Determine container name from component
+        container_name = self._get_container_name(component)
+
+        if not self.ensure_infrastructure(component=component):
             return self._create_error_result(
                 test_file=test_file,
                 component=component,
@@ -201,10 +249,23 @@ class DockerTestExecutor:
                 duration=0.0,
             )
 
+        # Verify container exists
+        if not self._container_exists(container_name):
+            return self._create_error_result(
+                test_file=test_file,
+                component=component,
+                category=category,
+                error=f"Test container {container_name} not found. "
+                f"Ensure docker-compose profile for {component} is configured.",
+                stderr="",
+                duration=0.0,
+            )
+
         # Construct path inside container
         # Handle both with and without subcategory
         # E2E: pourtier/tests/e2e/test_file.py -> /app/tests/e2e/test_file.py
-        # Integration: pourtier/tests/integration/api/test_file.py -> /app/tests/integration/api/test_file.py
+        # Integration: pourtier/tests/integration/api/test_file.py ->
+        # /app/tests/integration/api/test_file.py
         parts = relative_path.parts
         if len(parts) == 4:
             container_path = f"/app/tests/{parts[2]}/{parts[3]}"
@@ -218,7 +279,7 @@ class DockerTestExecutor:
                 [
                     "docker",
                     "exec",
-                    "lumiere-test-runner",
+                    container_name,
                     "python",
                     container_path,
                 ],

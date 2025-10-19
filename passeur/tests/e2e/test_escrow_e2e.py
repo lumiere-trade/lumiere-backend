@@ -13,29 +13,23 @@ Tests full user-based escrow lifecycle on Solana devnet:
 - Close escrow
 
 Usage:
-    python -m passeur.tests.e2e.test_escrow_e2e
     laborant passeur --e2e
 """
 
-import sys
 import time
-from pathlib import Path
 
 import requests
-from helpers.bridge_manager import BridgeManager
+from solders.pubkey import Pubkey
+
+from passeur.config.settings import load_config
+from passeur.utils.bridge_manager import BridgeManager
 from shared.blockchain import (
     TransactionSigner,
     check_escrow_exists,
 )
 from shared.blockchain.wallets import PlatformWallets
 from shared.tests import LaborantTest
-from solders.pubkey import Pubkey  # Correct import
 
-from passeur.config.settings import load_config
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-# Test authority addresses
 TEST_PLATFORM_AUTHORITY = PlatformWallets.get_test_authority_address()
 TEST_TRADING_AUTHORITY = PlatformWallets.get_test_authority_address()
 
@@ -72,12 +66,10 @@ class TestEscrowE2E(LaborantTest):
         self.reporter.info("SETTING UP E2E TEST (USER-BASED ESCROW)", context="Setup")
         self.reporter.info("=" * 60, context="Setup")
 
-        # Load test config
-        self.test_config = load_config("development.yaml")
+        self.test_config = load_config("test.yaml")
 
-        # Start bridge
         self.bridge = BridgeManager(
-            config_file="development.yaml", reporter=self.reporter
+            config_file="test.yaml", reporter=self.reporter
         )
         success = self.bridge.start(timeout=30)
 
@@ -87,20 +79,18 @@ class TestEscrowE2E(LaborantTest):
 
         self.bridge_url = self.bridge.bridge_url
 
-        # Initialize transaction signer with Alice's keypair
         self.transaction_signer = TransactionSigner(
             bridge_url=self.bridge_url,
             keypair_path=PlatformWallets.get_test_alice_keypair(),
             rpc_url=self.test_config.solana_rpc_url,
         )
 
-        # E2E test state
         self.test_escrow_account = None
-        self.deposit_amount = 10.0  # 10 USDC
+        self.deposit_amount = 10.0
 
         self.reporter.info(f"Bridge ready: {self.bridge_url}", context="Setup")
         self.reporter.info(
-            f"Test user Alice: " f"{PlatformWallets.get_test_alice_address()[:8]}...",
+            f"Test user Alice: {PlatformWallets.get_test_alice_address()[:8]}...",
             context="Setup",
         )
         self.reporter.info(
@@ -126,21 +116,15 @@ class TestEscrowE2E(LaborantTest):
         self.reporter.info("Cleanup complete", context="Teardown")
         self.reporter.info("=" * 60, context="Teardown")
 
-    # ================================================================
-    # Initialize escrow tests (user-based, no strategy_id)
-    # ================================================================
-
     def test_01_initialize_escrow(self):
         """Test initializing user-based escrow (no strategy_id)."""
         self.reporter.info("Testing user-based escrow initialization", context="Test")
 
-        # Derive expected escrow PDA (user-only seeds)
         expected_escrow = derive_user_escrow_pda(
             PlatformWallets.get_test_alice_address(),
             self.test_config.program_id,
         )
 
-        # Check if escrow already exists
         escrow_exists = check_escrow_exists(
             expected_escrow, self.test_config.solana_rpc_url
         )
@@ -153,7 +137,6 @@ class TestEscrowE2E(LaborantTest):
             self.test_escrow_account = expected_escrow
             return
 
-        # Create new escrow (no strategy_id)
         try:
             escrow_account, signature, _ = (
                 self.transaction_signer.prepare_and_sign_initialize()
@@ -209,10 +192,6 @@ class TestEscrowE2E(LaborantTest):
             context="Test",
         )
 
-    # ================================================================
-    # Deposit funds tests
-    # ================================================================
-
     def test_04_deposit_funds(self):
         """Test depositing funds."""
         self.reporter.info("Testing deposit funds", context="Test")
@@ -253,10 +232,6 @@ class TestEscrowE2E(LaborantTest):
         ), f"Expected {self.deposit_amount}, got {balance}"
 
         self.reporter.info(f"Balance: {balance} USDC", context="Test")
-
-    # ================================================================
-    # Delegate platform authority tests
-    # ================================================================
 
     def test_07_delegate_platform_authority(self):
         """Test delegating platform authority."""
@@ -300,17 +275,13 @@ class TestEscrowE2E(LaborantTest):
         assert escrow["isPlatformActive"] is True
 
         self.reporter.info(
-            f"Platform Authority: " f"{escrow['platformAuthority'][:8]}...",
+            f"Platform Authority: {escrow['platformAuthority'][:8]}...",
             context="Test",
         )
         self.reporter.info(
             f"Platform Active: {escrow['isPlatformActive']}",
             context="Test",
         )
-
-    # ================================================================
-    # Delegate trading authority tests
-    # ================================================================
 
     def test_10_delegate_trading_authority(self):
         """Test delegating trading authority."""
@@ -354,17 +325,13 @@ class TestEscrowE2E(LaborantTest):
         assert escrow["isTradingActive"] is True
 
         self.reporter.info(
-            f"Trading Authority: " f"{escrow['tradingAuthority'][:8]}...",
+            f"Trading Authority: {escrow['tradingAuthority'][:8]}...",
             context="Test",
         )
         self.reporter.info(
             f"Trading Active: {escrow['isTradingActive']}",
             context="Test",
         )
-
-    # ================================================================
-    # Revoke platform authority tests
-    # ================================================================
 
     def test_13_revoke_platform_authority(self):
         """Test revoking platform authority."""
@@ -405,17 +372,13 @@ class TestEscrowE2E(LaborantTest):
         assert escrow["isPlatformActive"] is False
 
         self.reporter.info(
-            f"Platform Authority: " f"{escrow['platformAuthority'][:8]}...",
+            f"Platform Authority: {escrow['platformAuthority'][:8]}...",
             context="Test",
         )
         self.reporter.info(
             f"Platform Active: {escrow['isPlatformActive']}",
             context="Test",
         )
-
-    # ================================================================
-    # Revoke trading authority tests
-    # ================================================================
 
     def test_16_revoke_trading_authority(self):
         """Test revoking trading authority."""
@@ -456,17 +419,13 @@ class TestEscrowE2E(LaborantTest):
         assert escrow["isTradingActive"] is False
 
         self.reporter.info(
-            f"Trading Authority: " f"{escrow['tradingAuthority'][:8]}...",
+            f"Trading Authority: {escrow['tradingAuthority'][:8]}...",
             context="Test",
         )
         self.reporter.info(
             f"Trading Active: {escrow['isTradingActive']}",
             context="Test",
         )
-
-    # ================================================================
-    # Withdraw funds tests
-    # ================================================================
 
     def test_19_withdraw_funds(self):
         """Test withdrawing funds."""
@@ -505,10 +464,6 @@ class TestEscrowE2E(LaborantTest):
         assert balance == 0, f"Expected 0, got {balance}"
 
         self.reporter.info(f"Balance: {balance} USDC", context="Test")
-
-    # ================================================================
-    # Close escrow tests
-    # ================================================================
 
     def test_22_close_escrow(self):
         """Test closing escrow."""
