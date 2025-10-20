@@ -15,24 +15,20 @@ export default function RootPage() {
     if (isLoading) return
 
     if (user) {
-      // User authenticated, redirect to dashboard
       router.push(ROUTES.DASHBOARD)
     } else {
-      // Not authenticated, show wallet modal immediately
       setShowWalletModal(true)
     }
   }, [user, isLoading, router])
 
-  // Show wallet modal with darkened backdrop
   return (
     <div className="min-h-screen bg-background">
       {showWalletModal && (
-        <WalletConnectionModal 
-          isOpen={showWalletModal} 
+        <WalletConnectionModal
+          isOpen={showWalletModal}
           onClose={() => {
-            // User closed modal without connecting - redirect to marketing site
-            window.location.href = 'http://localhost:3000'
-          }} 
+            setShowWalletModal(false)
+          }}
         />
       )}
     </div>

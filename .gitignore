@@ -140,3 +140,4 @@ htmlcov/
 
 # ==================== REDIS ====================
 dump.rdb
+frontend-bak/

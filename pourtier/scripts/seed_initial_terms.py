@@ -5,6 +5,7 @@ Creates the first version of Terms of Service for Lumiere platform.
 """
 
 import asyncio
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +14,6 @@ from uuid import uuid4
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from pourtier.config.settings import settings  # noqa: E402
 from pourtier.domain.entities.legal_document import (  # noqa: E402
     DocumentStatus,
     DocumentType,
@@ -25,6 +25,9 @@ from pourtier.infrastructure.persistence.database import (  # noqa: E402
 from pourtier.infrastructure.persistence.repositories.legal_document_repository import (  # noqa: E402
     LegalDocumentRepository,
 )
+
+# Get DATABASE_URL from environment (Docker provides this)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 TERMS_OF_SERVICE_CONTENT = """
 # LUMIERE TRADING SYSTEM - TERMS OF SERVICE
@@ -274,7 +277,7 @@ async def seed_initial_terms():
 
     # Create database connection
     database = Database(
-        database_url=settings.DATABASE_URL,
+        database_url=DATABASE_URL,
         echo=False,
     )
 
