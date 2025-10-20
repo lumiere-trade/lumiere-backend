@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -21,9 +20,14 @@ import {
   Circle,
   Shield,
   Wallet,
+  Loader2,
 } from "lucide-react"
 import { Footer } from "@/components/footer"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useAuth } from "@/hooks/use-auth"
+import { useWallet } from "@/hooks/use-wallet"
+import { useRouter } from "next/navigation"
+import { ROUTES } from "@/config/constants"
 
 type FeatureType = "ai-designer" | "market-analysis" | "automated-execution" | null
 
@@ -43,6 +47,11 @@ export default function HomePage() {
   const [showTermsDialog, setShowTermsDialog] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  const { login, createAccount, legalDocuments, loadLegalDocuments, error: authError } = useAuth()
+  const { connect, isConnecting, error: walletError, disconnect } = useWallet()
+  const router = useRouter()
 
   const initialWallets: WalletOption[] = [
     { name: "Phantom", icon: Ghost, recent: true },
@@ -60,17 +69,54 @@ export default function HomePage() {
 
   const displayedWallets = showAllWallets ? [...initialWallets, ...additionalWallets] : initialWallets
 
-  const handleWalletClick = (walletName: string) => {
+  const handleWalletClick = async (walletName: string) => {
     setSelectedWallet(walletName)
-    setShowAuthDialog(false)
-    setShowTermsDialog(true)
+    setIsProcessing(true)
+
+    try {
+      await connect()
+      
+      try {
+        await login()
+        setShowAuthDialog(false)
+        router.push(ROUTES.DASHBOARD)
+      } catch (loginError: any) {
+        if (loginError.message?.includes('not found') || loginError.message?.includes('create an account')) {
+          await loadLegalDocuments()
+          setShowAuthDialog(false)
+          setShowTermsDialog(true)
+        } else {
+          console.error('Login error:', loginError)
+        }
+      }
+    } catch (error) {
+      console.error('Wallet connection error:', error)
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
-  const handleConfirmTerms = () => {
-    if (agreedToTerms) {
+  const handleConfirmTerms = async () => {
+    if (!agreedToTerms) return
+
+    setIsProcessing(true)
+    try {
+      const documentIds = legalDocuments.map(doc => doc.id)
+      await createAccount(documentIds)
+      
       setShowTermsDialog(false)
-      window.location.href = "/architect"
+      router.push(ROUTES.DASHBOARD)
+    } catch (error) {
+      console.error('Account creation error:', error)
+    } finally {
+      setIsProcessing(false)
     }
+  }
+
+  const handleCancelTerms = () => {
+    setShowTermsDialog(false)
+    setAgreedToTerms(false)
+    disconnect()
   }
 
   const featureContent = {
@@ -142,6 +188,8 @@ export default function HomePage() {
     },
   }
 
+  const termsDoc = legalDocuments.find(doc => doc.documentType === 'terms_of_service')
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-sm">
@@ -166,8 +214,16 @@ export default function HomePage() {
               size="lg"
               className="rounded-full px-8 font-semibold bg-transparent"
               onClick={() => setShowAuthDialog(true)}
+              disabled={isConnecting || isProcessing}
             >
-              CONNECT WALLET
+              {isConnecting || isProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  CONNECTING...
+                </>
+              ) : (
+                'CONNECT WALLET'
+              )}
             </Button>
           </div>
         </div>
@@ -232,8 +288,16 @@ export default function HomePage() {
             size="lg"
             className="rounded-full px-20 py-8 text-2xl font-bold transition-all duration-300 hover:brightness-110 hover:ring-2 hover:ring-primary/30"
             onClick={() => setShowAuthDialog(true)}
+            disabled={isConnecting || isProcessing}
           >
-            START TRADING
+            {isConnecting || isProcessing ? (
+              <>
+                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                CONNECTING...
+              </>
+            ) : (
+              'START TRADING'
+            )}
           </Button>
         </div>
       </main>
@@ -271,15 +335,16 @@ export default function HomePage() {
       {showAuthDialog && !showRpcSettings && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setShowAuthDialog(false)}
+          onClick={() => !isProcessing && setShowAuthDialog(false)}
         >
           <div
             className="relative w-full max-w-lg max-h-[90vh] mx-4 bg-background rounded-2xl border-2 border-primary/30 shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              onClick={() => setShowAuthDialog(false)}
+              onClick={() => !isProcessing && setShowAuthDialog(false)}
               className="absolute top-6 right-6 text-muted-foreground hover:text-primary transition-colors z-10"
+              disabled={isProcessing}
             >
               <X className="h-5 w-5" />
             </button>
@@ -308,7 +373,8 @@ export default function HomePage() {
                         <button
                           key={wallet.name}
                           onClick={() => handleWalletClick(wallet.name)}
-                          className="w-full flex items-center justify-between p-4 rounded-xl bg-card/50 border border-primary/20 hover:border-primary/30 transition-all group"
+                          disabled={isProcessing}
+                          className="w-full flex items-center justify-between p-4 rounded-xl bg-card/50 border border-primary/20 hover:border-primary/30 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <div className="flex items-center gap-4">
                             <div className="rounded-lg bg-primary/10 p-2">
@@ -318,11 +384,16 @@ export default function HomePage() {
                               {wallet.name}
                             </span>
                           </div>
-                          {wallet.recent && (
-                            <span className="px-3 py-1 text-xs font-semibold rounded-full bg-primary/20 text-primary border border-primary/30">
-                              Recent
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {wallet.recent && (
+                              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-primary/20 text-primary border border-primary/30">
+                                Recent
+                              </span>
+                            )}
+                            {isProcessing && selectedWallet === wallet.name && (
+                              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                            )}
+                          </div>
                         </button>
                       )
                     })}
@@ -330,10 +401,17 @@ export default function HomePage() {
                 </ScrollArea>
               </div>
 
+              {(walletError || authError) && (
+                <div className="flex-shrink-0 text-sm text-red-500 text-center p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+                  {walletError || authError}
+                </div>
+              )}
+
               {!showAllWallets && (
                 <button
                   onClick={() => setShowAllWallets(true)}
                   className="w-full flex items-center justify-center gap-2 py-3 text-primary hover:text-primary/80 transition-colors font-semibold flex-shrink-0"
+                  disabled={isProcessing}
                 >
                   <ChevronDown className="h-5 w-5" />
                   <span>All Wallets</span>
@@ -444,7 +522,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <Dialog open={showTermsDialog} onOpenChange={setShowTermsDialog}>
+      <Dialog open={showTermsDialog} onOpenChange={handleCancelTerms}>
         <DialogContent className="max-w-2xl bg-background border-2 border-primary/30 rounded-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-primary">Terms of Use & Legal Agreements</DialogTitle>
@@ -452,72 +530,78 @@ export default function HomePage() {
 
           <ScrollArea className="h-[400px] rounded-md border border-primary/20 bg-card/30 p-6">
             <div className="space-y-6 text-sm">
-              <section>
-                <h3 className="mb-2 text-lg font-semibold text-primary">1. Acceptance of Terms</h3>
-                <p className="text-muted-foreground">
-                  By accessing and using LUMIERE, you accept and agree to be bound by the terms and provision of this
-                  agreement. If you do not agree to these terms, please do not use our service.
-                </p>
-              </section>
+              {termsDoc ? (
+                <div dangerouslySetInnerHTML={{ __html: termsDoc.content }} />
+              ) : (
+                <>
+                  <section>
+                    <h3 className="mb-2 text-lg font-semibold text-primary">1. Acceptance of Terms</h3>
+                    <p className="text-muted-foreground">
+                      By accessing and using LUMIERE, you accept and agree to be bound by the terms and provision of this
+                      agreement. If you do not agree to these terms, please do not use our service.
+                    </p>
+                  </section>
 
-              <section>
-                <h3 className="mb-2 text-lg font-semibold text-primary">2. Trading Risks</h3>
-                <p className="text-muted-foreground">
-                  Trading cryptocurrencies and digital assets involves substantial risk of loss. You acknowledge that:
-                </p>
-                <ul className="ml-6 mt-2 list-disc space-y-1 text-muted-foreground">
-                  <li>Past performance does not guarantee future results</li>
-                  <li>You may lose some or all of your invested capital</li>
-                  <li>Market conditions can change rapidly and unpredictably</li>
-                  <li>Automated trading strategies carry inherent risks</li>
-                </ul>
-              </section>
+                  <section>
+                    <h3 className="mb-2 text-lg font-semibold text-primary">2. Trading Risks</h3>
+                    <p className="text-muted-foreground">
+                      Trading cryptocurrencies and digital assets involves substantial risk of loss. You acknowledge that:
+                    </p>
+                    <ul className="ml-6 mt-2 list-disc space-y-1 text-muted-foreground">
+                      <li>Past performance does not guarantee future results</li>
+                      <li>You may lose some or all of your invested capital</li>
+                      <li>Market conditions can change rapidly and unpredictably</li>
+                      <li>Automated trading strategies carry inherent risks</li>
+                    </ul>
+                  </section>
 
-              <section>
-                <h3 className="mb-2 text-lg font-semibold text-primary">3. Service Description</h3>
-                <p className="text-muted-foreground">
-                  LUMIERE provides AI-assisted trading strategy creation and deployment tools. We do not provide
-                  financial advice, and our services should not be construed as such. All trading decisions are made at
-                  your own discretion and risk.
-                </p>
-              </section>
+                  <section>
+                    <h3 className="mb-2 text-lg font-semibold text-primary">3. Service Description</h3>
+                    <p className="text-muted-foreground">
+                      LUMIERE provides AI-assisted trading strategy creation and deployment tools. We do not provide
+                      financial advice, and our services should not be construed as such. All trading decisions are made at
+                      your own discretion and risk.
+                    </p>
+                  </section>
 
-              <section>
-                <h3 className="mb-2 text-lg font-semibold text-primary">4. User Responsibilities</h3>
-                <p className="text-muted-foreground">You agree to:</p>
-                <ul className="ml-6 mt-2 list-disc space-y-1 text-muted-foreground">
-                  <li>Maintain the security of your wallet and account credentials</li>
-                  <li>Comply with all applicable laws and regulations</li>
-                  <li>Not use the service for illegal activities</li>
-                  <li>Monitor your trading activities and strategies regularly</li>
-                </ul>
-              </section>
+                  <section>
+                    <h3 className="mb-2 text-lg font-semibold text-primary">4. User Responsibilities</h3>
+                    <p className="text-muted-foreground">You agree to:</p>
+                    <ul className="ml-6 mt-2 list-disc space-y-1 text-muted-foreground">
+                      <li>Maintain the security of your wallet and account credentials</li>
+                      <li>Comply with all applicable laws and regulations</li>
+                      <li>Not use the service for illegal activities</li>
+                      <li>Monitor your trading activities and strategies regularly</li>
+                    </ul>
+                  </section>
 
-              <section>
-                <h3 className="mb-2 text-lg font-semibold text-primary">5. Limitation of Liability</h3>
-                <p className="text-muted-foreground">
-                  LUMIERE and its operators shall not be liable for any direct, indirect, incidental, special, or
-                  consequential damages resulting from the use or inability to use our service, including but not
-                  limited to trading losses, data loss, or service interruptions.
-                </p>
-              </section>
+                  <section>
+                    <h3 className="mb-2 text-lg font-semibold text-primary">5. Limitation of Liability</h3>
+                    <p className="text-muted-foreground">
+                      LUMIERE and its operators shall not be liable for any direct, indirect, incidental, special, or
+                      consequential damages resulting from the use or inability to use our service, including but not
+                      limited to trading losses, data loss, or service interruptions.
+                    </p>
+                  </section>
 
-              <section>
-                <h3 className="mb-2 text-lg font-semibold text-primary">6. Privacy & Data</h3>
-                <p className="text-muted-foreground">
-                  We collect and process data necessary to provide our services. Your wallet address and trading data
-                  may be stored and analyzed to improve strategy performance. We do not sell your personal information
-                  to third parties.
-                </p>
-              </section>
+                  <section>
+                    <h3 className="mb-2 text-lg font-semibold text-primary">6. Privacy & Data</h3>
+                    <p className="text-muted-foreground">
+                      We collect and process data necessary to provide our services. Your wallet address and trading data
+                      may be stored and analyzed to improve strategy performance. We do not sell your personal information
+                      to third parties.
+                    </p>
+                  </section>
 
-              <section>
-                <h3 className="mb-2 text-lg font-semibold text-primary">7. Modifications</h3>
-                <p className="text-muted-foreground">
-                  We reserve the right to modify these terms at any time. Continued use of the service after changes
-                  constitutes acceptance of the modified terms.
-                </p>
-              </section>
+                  <section>
+                    <h3 className="mb-2 text-lg font-semibold text-primary">7. Modifications</h3>
+                    <p className="text-muted-foreground">
+                      We reserve the right to modify these terms at any time. Continued use of the service after changes
+                      constitutes acceptance of the modified terms.
+                    </p>
+                  </section>
+                </>
+              )}
             </div>
           </ScrollArea>
 
@@ -526,6 +610,7 @@ export default function HomePage() {
               id="terms"
               checked={agreedToTerms}
               onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+              disabled={isProcessing}
             />
             <label
               htmlFor="terms"
@@ -535,12 +620,34 @@ export default function HomePage() {
             </label>
           </div>
 
+          {authError && (
+            <div className="text-sm text-red-500 text-center p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+              {authError}
+            </div>
+          )}
+
           <div className="flex gap-3 justify-end">
-            <Button variant="outline" onClick={() => setShowTermsDialog(false)} className="rounded-full">
+            <Button 
+              variant="outline" 
+              onClick={handleCancelTerms} 
+              className="rounded-full"
+              disabled={isProcessing}
+            >
               Cancel
             </Button>
-            <Button onClick={handleConfirmTerms} disabled={!agreedToTerms} className="rounded-full">
-              Confirm & Continue
+            <Button 
+              onClick={handleConfirmTerms} 
+              disabled={!agreedToTerms || isProcessing} 
+              className="rounded-full"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating Account...
+                </>
+              ) : (
+                'Confirm & Continue'
+              )}
             </Button>
           </div>
         </DialogContent>

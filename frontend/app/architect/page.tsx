@@ -238,7 +238,7 @@ export default function ArchitectPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <NavigationHeader currentPage="forger" />
+      <NavigationHeader currentPage="create" />
 
       <Dialog open={chatMode === "popup"} onOpenChange={(open) => !open && handleClosePopup()}>
         <DialogContent className="max-w-3xl max-h-[85vh] bg-[#2a1f1a] border-2 border-primary/30 rounded-2xl shadow-2xl backdrop-blur-xl">
