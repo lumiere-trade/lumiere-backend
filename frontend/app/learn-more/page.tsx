@@ -4,7 +4,7 @@ export default function LearnMorePage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
 
-      <main className="container mx-auto px-6 pt-32 pb-20 max-w-5xl flex-1">
+      <main className="container mx-auto px-6 py-20 max-w-5xl flex-1">
         {/* Hero Section */}
         <div className="text-center mb-20">
           <h1 className="text-6xl font-bold text-primary mb-6 tracking-wide">

@@ -105,15 +105,9 @@
   /* Outline buttons hover - same as LAUNCH APP button */
   button[class*="variant-outline"]:hover,
   button[class*="bg-transparent"]:hover {
-    background-color: oklch(0.78 0.08 70) !important; /* primary gold */
-    color: oklch(0.18 0.03 40) !important; /* dark brown text */
+    background-color: oklch(0.78 0.08 70) !important;
+    color: oklch(0.18 0.03 40) !important;
     border-color: oklch(0.78 0.08 70) !important;
-  }
-
-  /* Primary buttons hover - brighter gold color */
-  button[class*="variant-default"]:hover {
-    background-color: oklch(0.83 0.1 70) !important; /* brighter gold */
-    transition: background-color 0.3s ease;
   }
 
   ::-webkit-scrollbar {
@@ -139,5 +133,34 @@
   * {
     scrollbar-width: thin;
     scrollbar-color: oklch(0.78 0.08 70) oklch(0.24 0.03 40);
+  }
+}
+
+/* Responsive scaling for different screen sizes */
+@media (max-width: 1920px) and (min-width: 1440px) {
+  /* Standard laptops - scale down slightly */
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 1439px) {
+  /* Smaller laptops - scale down more */
+  html {
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 1921px) {
+  /* Large monitors - keep normal or slightly larger */
+  html {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 2560px) {
+  /* 4K monitors - scale up */
+  html {
+    font-size: 18px;
   }
 }

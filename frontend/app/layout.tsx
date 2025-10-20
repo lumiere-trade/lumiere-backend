@@ -26,17 +26,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" suppressHydrationWarning className="h-full">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          <div className="min-h-screen bg-background flex flex-col">
+          <div className="h-full flex flex-col overflow-hidden">
             <MarketingHeader />
-            <main className="flex-1">
+            <main className="flex-1 overflow-y-auto">
               {children}
             </main>
             <Footer />
