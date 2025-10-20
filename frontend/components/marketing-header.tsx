@@ -9,7 +9,7 @@ export function MarketingHeader() {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-border/50 bg-background shrink-0">
       <div className="container mx-auto flex items-center justify-between px-6 py-4">
         <Link href="/" className="flex flex-col transition-all hover:brightness-110">
           <div className="text-2xl font-bold tracking-wider text-primary">LUMIERE</div>

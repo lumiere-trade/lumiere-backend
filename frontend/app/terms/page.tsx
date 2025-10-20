@@ -3,7 +3,7 @@ export default function TermsPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
 
-      <main className="container mx-auto px-6 pt-32 pb-20 max-w-4xl flex-1">
+      <main className="container mx-auto px-6 py-20 max-w-4xl flex-1">
         <h1 className="text-5xl font-bold text-primary mb-8">Terms of Use</h1>
 
         <div className="space-y-8 text-muted-foreground leading-relaxed">

@@ -123,7 +123,7 @@ export default function DocsPage() {
   const currentDoc = docsContent[selectedDoc] || docsContent.introduction
 
   return (
-    <div className="flex pt-20">
+    <div className="flex">
       {/* Sidebar */}
       <aside className="w-64 border-r border-border/50 bg-background/50 overflow-y-auto fixed left-0 top-20 bottom-0">
         <nav className="p-6 space-y-8">

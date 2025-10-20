@@ -80,56 +80,56 @@ export default function HomePage() {
   }
 
   return (
-    <div className="container mx-auto flex min-h-screen items-center justify-center px-6 pt-20">
-      <div className="flex flex-col items-center text-center max-w-7xl w-full">
-        <div className="mb-12 flex flex-col items-center w-full">
-          <div className="w-full max-w-2xl h-1 bg-foreground/20 mb-6" />
-          <h1 className="text-8xl font-bold tracking-wider text-primary mb-6">LUMIERE</h1>
-          <div className="w-full max-w-2xl h-1 bg-foreground/20" />
+    <div className="h-full flex items-center justify-center px-6 -mt-8">
+      <div className="flex flex-col items-center text-center max-w-6xl w-full">
+        <div className="mb-8 flex flex-col items-center w-full">
+          <div className="w-full max-w-xl h-px bg-foreground/20 mb-4" />
+          <h1 className="text-7xl font-bold tracking-wider text-primary mb-4">LUMIERE</h1>
+          <div className="w-full max-w-xl h-px bg-foreground/20" />
         </div>
 
-        <div className="mb-16 space-y-4">
-          <p className="text-3xl font-semibold text-foreground">AI-Powered Trading Strategy Platform</p>
-          <p className="max-w-3xl text-lg leading-relaxed text-muted-foreground">
+        <div className="mb-10 space-y-3">
+          <p className="text-2xl font-semibold text-foreground">AI-Powered Trading Strategy Platform</p>
+          <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
             Transform raw market data into winning strategies with the power of AI. Lumiere combines advanced market
             analysis, intelligent backtesting, and automated deployment to help you trade smarter, not harder.
           </p>
         </div>
 
-        <div className="mb-16 grid grid-cols-1 md:grid-cols-3 gap-12 w-full">
+        <div className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
           <div
             onClick={() => setOpenFeature("ai-designer")}
-            className="flex flex-col items-center gap-4 cursor-pointer transition-colors"
+            className="flex flex-col items-center gap-3 cursor-pointer transition-colors"
           >
-            <div className="rounded-full bg-primary/10 p-6 transition-colors hover:bg-primary/20">
-              <Bot className="w-12 h-12 text-primary" />
+            <div className="rounded-full bg-primary/10 p-5 transition-colors hover:bg-primary/20">
+              <Bot className="w-10 h-10 text-primary" />
             </div>
-            <h3 className="text-xl font-bold text-primary">AI Strategy Designer</h3>
-            <p className="text-base text-muted-foreground leading-relaxed">
+            <h3 className="text-lg font-bold text-primary">AI Strategy Designer</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
               Chat with Prophet AI to create custom trading strategies tailored to your goals
             </p>
           </div>
           <div
             onClick={() => setOpenFeature("market-analysis")}
-            className="flex flex-col items-center gap-4 cursor-pointer transition-colors"
+            className="flex flex-col items-center gap-3 cursor-pointer transition-colors"
           >
-            <div className="rounded-full bg-primary/10 p-6 transition-colors hover:bg-primary/20">
-              <TrendingUp className="w-12 h-12 text-primary" />
+            <div className="rounded-full bg-primary/10 p-5 transition-colors hover:bg-primary/20">
+              <TrendingUp className="w-10 h-10 text-primary" />
             </div>
-            <h3 className="text-xl font-bold text-primary">Deep Market Analysis</h3>
-            <p className="text-base text-muted-foreground leading-relaxed">
+            <h3 className="text-lg font-bold text-primary">Deep Market Analysis</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
               Analyze years of historical data with advanced technical indicators
             </p>
           </div>
           <div
             onClick={() => setOpenFeature("automated-execution")}
-            className="flex flex-col items-center gap-4 cursor-pointer transition-colors"
+            className="flex flex-col items-center gap-3 cursor-pointer transition-colors"
           >
-            <div className="rounded-full bg-primary/10 p-6 transition-colors hover:bg-primary/20">
-              <Zap className="w-12 h-12 text-primary" />
+            <div className="rounded-full bg-primary/10 p-5 transition-colors hover:bg-primary/20">
+              <Zap className="w-10 h-10 text-primary" />
             </div>
-            <h3 className="text-xl font-bold text-primary">Automated Execution</h3>
-            <p className="text-base text-muted-foreground leading-relaxed">
+            <h3 className="text-lg font-bold text-primary">Automated Execution</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
               Deploy strategies instantly with real-time monitoring and alerts
             </p>
           </div>
@@ -137,7 +137,7 @@ export default function HomePage() {
 
         <Button
           size="lg"
-          className="rounded-full px-20 py-8 text-2xl font-bold"
+          className="rounded-full px-16 py-6 text-xl font-bold"
           onClick={() => window.location.href = 'http://localhost:3001'}
         >
           START TRADING
