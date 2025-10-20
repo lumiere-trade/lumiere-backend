@@ -21,11 +21,13 @@ import {
   Shield,
   Wallet,
   Loader2,
+  ExternalLink,
 } from "lucide-react"
 import { Footer } from "@/components/footer"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { useWallet } from "@/hooks/use-wallet"
+import { useWallet as useSolanaWallet } from "@solana/wallet-adapter-react"
 import { useRouter } from "next/navigation"
 import { ROUTES } from "@/config/constants"
 
@@ -35,6 +37,7 @@ type WalletOption = {
   name: string
   icon: React.ComponentType<{ className?: string }>
   recent?: boolean
+  installUrl?: string
 }
 
 export default function HomePage() {
@@ -48,14 +51,26 @@ export default function HomePage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [localError, setError] = useState<string | null>(null)
 
   const { login, createAccount, legalDocuments, loadLegalDocuments, error: authError } = useAuth()
   const { connect, isConnecting, error: walletError, disconnect } = useWallet()
+  const solanaWallet = useSolanaWallet()
   const router = useRouter()
 
   const initialWallets: WalletOption[] = [
-    { name: "Phantom", icon: Ghost, recent: true },
-    { name: "Solflare", icon: Sun, recent: false },
+    {
+      name: "Phantom",
+      icon: Ghost,
+      recent: true,
+      installUrl: "https://phantom.app/download"
+    },
+    {
+      name: "Solflare",
+      icon: Sun,
+      recent: false,
+      installUrl: "https://solflare.com/download"
+    },
     { name: "Backpack", icon: Backpack, recent: false },
     { name: "Binance Wallet", icon: Gem, recent: false },
   ]
@@ -69,13 +84,48 @@ export default function HomePage() {
 
   const displayedWallets = showAllWallets ? [...initialWallets, ...additionalWallets] : initialWallets
 
-  const handleWalletClick = async (walletName: string) => {
-    setSelectedWallet(walletName)
+  const handleWalletClick = async (wallet: WalletOption) => {
+    setSelectedWallet(wallet.name)
     setIsProcessing(true)
+    setError(null)
 
     try {
-      await connect()
-      
+      // Find the wallet adapter
+      const walletAdapter = solanaWallet.wallets.find(
+        w => w.adapter.name.toLowerCase() === wallet.name.toLowerCase()
+      )
+
+      // If wallet not found (not installed), redirect to install page
+      if (!walletAdapter) {
+        if (wallet.installUrl) {
+          window.open(wallet.installUrl, '_blank')
+          setError(`Please install ${wallet.name} wallet first`)
+        } else {
+          setError(`${wallet.name} wallet is not available`)
+        }
+        setIsProcessing(false)
+        return
+      }
+
+      // Select the wallet
+      solanaWallet.select(walletAdapter.adapter.name)
+
+      // Wait for wallet adapter to be ready (poll until ready)
+      let attempts = 0
+      const maxAttempts = 20
+      while (!solanaWallet.wallet && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        attempts++
+      }
+
+      // Check if wallet is ready
+      if (!solanaWallet.wallet) {
+        throw new Error('Wallet failed to initialize. Please try again.')
+      }
+
+      // Now connect
+      await solanaWallet.connect()
+
       try {
         await login()
         setShowAuthDialog(false)
@@ -89,8 +139,15 @@ export default function HomePage() {
           console.error('Login error:', loginError)
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Wallet connection error:', error)
+
+      // Check if user rejected the connection
+      if (error.message?.includes('User rejected')) {
+        setError('Connection rejected. Please try again.')
+      } else {
+        setError(error.message || 'Failed to connect wallet. Please try again.')
+      }
     } finally {
       setIsProcessing(false)
     }
@@ -103,7 +160,7 @@ export default function HomePage() {
     try {
       const documentIds = legalDocuments.map(doc => doc.id)
       await createAccount(documentIds)
-      
+
       setShowTermsDialog(false)
       router.push(ROUTES.DASHBOARD)
     } catch (error) {
@@ -369,10 +426,14 @@ export default function HomePage() {
                   <div className="space-y-3">
                     {displayedWallets.map((wallet) => {
                       const IconComponent = wallet.icon
+                      const isInstalled = solanaWallet.wallets.some(
+                        w => w.adapter.name.toLowerCase() === wallet.name.toLowerCase()
+                      )
+
                       return (
                         <button
                           key={wallet.name}
-                          onClick={() => handleWalletClick(wallet.name)}
+                          onClick={() => handleWalletClick(wallet)}
                           disabled={isProcessing}
                           className="w-full flex items-center justify-between p-4 rounded-xl bg-card/50 border border-primary/20 hover:border-primary/30 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -385,6 +446,9 @@ export default function HomePage() {
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
+                            {!isInstalled && wallet.installUrl && (
+                              <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                            )}
                             {wallet.recent && (
                               <span className="px-3 py-1 text-xs font-semibold rounded-full bg-primary/20 text-primary border border-primary/30">
                                 Recent
@@ -401,9 +465,9 @@ export default function HomePage() {
                 </ScrollArea>
               </div>
 
-              {(walletError || authError) && (
+              {(walletError || authError || localError) && (
                 <div className="flex-shrink-0 text-sm text-red-500 text-center p-3 bg-red-500/10 rounded-lg border border-red-500/20">
-                  {walletError || authError}
+                  {localError || walletError || authError}
                 </div>
               )}
 
@@ -627,17 +691,17 @@ export default function HomePage() {
           )}
 
           <div className="flex gap-3 justify-end">
-            <Button 
-              variant="outline" 
-              onClick={handleCancelTerms} 
+            <Button
+              variant="outline"
+              onClick={handleCancelTerms}
               className="rounded-full"
               disabled={isProcessing}
             >
               Cancel
             </Button>
-            <Button 
-              onClick={handleConfirmTerms} 
-              disabled={!agreedToTerms || isProcessing} 
+            <Button
+              onClick={handleConfirmTerms}
+              disabled={!agreedToTerms || isProcessing}
               className="rounded-full"
             >
               {isProcessing ? (

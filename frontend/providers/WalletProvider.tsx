@@ -2,12 +2,12 @@
 
 /**
  * Wallet Provider.
- * Manages Solana wallet connection state.
+ * Bridges Solana Wallet Adapter with our Clean Architecture.
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
+import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { container } from '@/lib/infrastructure/di/container';
-import type { SolanaWalletAdapter } from '@/lib/infrastructure/wallet/solana-wallet-provider';
 import {
   WalletNotConnectedError,
   WalletConnectionError,
@@ -27,54 +27,43 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 interface WalletProviderProps {
   children: React.ReactNode;
-  adapter?: SolanaWalletAdapter;
 }
 
-export function WalletProvider({ children, adapter }: WalletProviderProps) {
-  const [address, setAddress] = useState<string | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
+export function WalletProvider({ children }: WalletProviderProps) {
+  const solanaWallet = useSolanaWallet();
   const [error, setError] = useState<string | null>(null);
 
   const walletProvider = container.walletProvider;
 
+  // Sync Solana wallet with our adapter
   useEffect(() => {
-    if (adapter) {
-      walletProvider.setWallet(adapter);
-      
-      if (adapter.connected && adapter.publicKey) {
-        setAddress(adapter.publicKey.toString());
-      }
+    if (solanaWallet.wallet?.adapter) {
+      walletProvider.setWallet(solanaWallet.wallet.adapter as any);
     }
-  }, [adapter, walletProvider]);
+  }, [solanaWallet.wallet, walletProvider]);
 
   const connect = useCallback(async () => {
-    setIsConnecting(true);
     setError(null);
 
     try {
-      const connectedAddress = await walletProvider.connect();
-      setAddress(connectedAddress);
-    } catch (err) {
-      const errorMessage =
-        err instanceof WalletConnectionError
-          ? err.message
-          : 'Failed to connect wallet';
+      // Wallet should already be selected by page.tsx
+      // Solana adapter will handle the connection
+      // We just expose the state here
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to connect wallet';
       setError(errorMessage);
       throw err;
-    } finally {
-      setIsConnecting(false);
     }
-  }, [walletProvider]);
+  }, []);
 
   const disconnect = useCallback(async () => {
     try {
-      await walletProvider.disconnect();
-      setAddress(null);
+      await solanaWallet.disconnect();
       setError(null);
     } catch (err) {
       console.error('Disconnect error:', err);
     }
-  }, [walletProvider]);
+  }, [solanaWallet]);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -83,9 +72,9 @@ export function WalletProvider({ children, adapter }: WalletProviderProps) {
   return (
     <WalletContext.Provider
       value={{
-        address,
-        isConnected: address !== null,
-        isConnecting,
+        address: solanaWallet.publicKey?.toString() ?? null,
+        isConnected: solanaWallet.connected,
+        isConnecting: solanaWallet.connecting,
         error,
         connect,
         disconnect,
