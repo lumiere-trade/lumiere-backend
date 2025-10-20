@@ -10,11 +10,13 @@ import { useAuth } from "@/hooks/use-auth"
 import { useWallet } from "@/hooks/use-wallet"
 import { useWallet as useSolanaWallet } from "@solana/wallet-adapter-react"
 import { useRouter } from "next/navigation"
-import { ROUTES } from "@/config/constants"
+import { ROUTES, AUTH_CONFIG } from "@/config/constants"
+import { container } from "@/lib/infrastructure/di/container"
 import type React from "react"
+import bs58 from "bs58"
+import { marked } from "marked"
 
 type WalletOption = {
-  name: string
   icon: React.ComponentType<{ className?: string }>
   recent?: boolean
   installUrl?: string
@@ -35,6 +37,7 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [localError, setError] = useState<string | null>(null)
+  const [connectedWalletAddress, setConnectedWalletAddress] = useState<string | null>(null)
 
   const { login, createAccount, legalDocuments, loadLegalDocuments, error: authError } = useAuth()
   const { error: walletError, disconnect } = useWallet()
@@ -63,54 +66,119 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
     setError(null)
 
     try {
-      const walletAdapter = solanaWallet.wallets.find(
-        w => w.adapter.name.toLowerCase() === wallet.name.toLowerCase()
-      )
+      console.log(`[Wallet] Attempting to connect: ${wallet.name}`)
 
-      if (!walletAdapter) {
-        if (wallet.installUrl) {
-          window.open(wallet.installUrl, '_blank')
-          setError(`Please install ${wallet.name} wallet first`)
-        } else {
-          setError(`${wallet.name} wallet is not available`)
+      if (wallet.name === 'Phantom' && typeof window !== 'undefined') {
+        const provider = (window as any).phantom?.solana
+
+        if (!provider?.isPhantom) {
+          if (wallet.installUrl) {
+            window.open(wallet.installUrl, '_blank')
+            setError('Please install Phantom wallet first')
+          }
+          setIsProcessing(false)
+          return
         }
-        setIsProcessing(false)
-        return
-      }
 
-      solanaWallet.select(walletAdapter.adapter.name)
+        console.log('[Wallet] Phantom provider found')
 
-      let attempts = 0
-      const maxAttempts = 20
-      while (!solanaWallet.wallet && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 100))
-        attempts++
-      }
+        if (provider.isConnected && provider.publicKey) {
+          console.log('[Wallet] Phantom already connected')
+          const walletAddress = provider.publicKey.toString()
+          setConnectedWalletAddress(walletAddress)
 
-      if (!solanaWallet.wallet) {
-        throw new Error('Wallet failed to initialize. Please try again.')
-      }
+          const walletAdapter = solanaWallet.wallets.find(
+            w => w.adapter.name.toLowerCase() === 'phantom'
+          )
+          if (walletAdapter) {
+            solanaWallet.select(walletAdapter.adapter.name)
+          }
 
-      await solanaWallet.connect()
+          await authenticateWithBackend(walletAddress)
+          return
+        }
 
-      try {
-        // Try to login existing user
-        await login()
-        onClose()
-        // Existing user -> Dashboard
-        router.push(ROUTES.DASHBOARD)
-      } catch (loginError: any) {
-        if (loginError.message?.includes('not found') || loginError.message?.includes('create an account')) {
-          // New user -> Show terms, then redirect to /create
-          await loadLegalDocuments()
-          setShowTermsDialog(true)
-        } else {
-          console.error('Login error:', loginError)
+        console.log('[Wallet] Requesting Phantom connection...')
+
+        try {
+          const resp = await provider.connect({ onlyIfTrusted: false })
+          const walletAddress = resp.publicKey.toString()
+          console.log('[Wallet] Phantom connected:', walletAddress)
+          setConnectedWalletAddress(walletAddress)
+
+          const walletAdapter = solanaWallet.wallets.find(
+            w => w.adapter.name.toLowerCase() === 'phantom'
+          )
+
+          if (walletAdapter) {
+            console.log('[Wallet] Syncing with wallet adapter...')
+            solanaWallet.select(walletAdapter.adapter.name)
+
+            let attempts = 0
+            while (!solanaWallet.connected && attempts < 20) {
+              await new Promise(resolve => setTimeout(resolve, 100))
+              attempts++
+            }
+          }
+
+          await authenticateWithBackend(walletAddress)
+
+        } catch (connectError: any) {
+          console.error('[Wallet] Phantom connection failed:', connectError)
+
+          if (connectError.code === 4001 || connectError.message?.includes('User rejected')) {
+            setError('Connection rejected. Please try again.')
+          } else {
+            setError(connectError.message || 'Failed to connect. Please try again.')
+          }
+        }
+      } else {
+        const walletAdapter = solanaWallet.wallets.find(
+          w => w.adapter.name.toLowerCase() === wallet.name.toLowerCase()
+        )
+
+        if (!walletAdapter) {
+          if (wallet.installUrl) {
+            window.open(wallet.installUrl, '_blank')
+            setError(`Please install ${wallet.name} wallet first`)
+          } else {
+            setError(`${wallet.name} wallet is not available`)
+          }
+          setIsProcessing(false)
+          return
+        }
+
+        console.log('[Wallet] Selecting adapter...')
+        solanaWallet.select(walletAdapter.adapter.name)
+
+        console.log('[Wallet] Waiting for wallet initialization...')
+        let attempts = 0
+        const maxAttempts = 30
+        while (!solanaWallet.wallet && attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+          attempts++
+        }
+
+        if (!solanaWallet.wallet) {
+          throw new Error('Wallet failed to initialize. Please try again.')
+        }
+
+        console.log('[Wallet] Requesting connection...')
+        await solanaWallet.connect()
+
+        console.log('[Wallet] Connection successful')
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        const walletAddress = solanaWallet.publicKey?.toString()
+        if (walletAddress) {
+          setConnectedWalletAddress(walletAddress)
+          await authenticateWithBackend(walletAddress)
         }
       }
     } catch (error: any) {
-      console.error('Wallet connection error:', error)
-      if (error.message?.includes('User rejected')) {
+      console.error('[Wallet] Connection error:', error)
+
+      if (error.message?.includes('User rejected') || error.code === 4001) {
         setError('Connection rejected. Please try again.')
       } else {
         setError(error.message || 'Failed to connect wallet. Please try again.')
@@ -120,19 +188,111 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
     }
   }
 
+  const authenticateWithBackend = async (walletAddress: string) => {
+    console.log('[Auth] Authenticating with backend, wallet:', walletAddress)
+
+    try {
+      const provider = (window as any).phantom?.solana
+      if (!provider) {
+        throw new Error('Wallet provider not available')
+      }
+
+      const message = AUTH_CONFIG.MESSAGE
+      console.log('[Auth] Requesting signature for message:', message)
+
+      const encodedMessage = new TextEncoder().encode(message)
+      const signedMessage = await provider.signMessage(encodedMessage)
+      const signature = bs58.encode(signedMessage.signature)
+
+      console.log('[Auth] Signature obtained, calling backend...')
+
+      const authRepository = container.authRepository
+
+      try {
+        const verifyResult = await authRepository.verifyWallet(
+          walletAddress,
+          message,
+          signature
+        )
+
+        console.log('[Auth] Verify result:', verifyResult)
+
+        if (!verifyResult.userExists) {
+          console.log('[Auth] User not found, loading legal documents...')
+          await loadLegalDocuments()
+          setShowTermsDialog(true)
+          return
+        }
+
+        console.log('[Auth] User exists, logging in...')
+        const loginResult = await authRepository.login(
+          walletAddress,
+          message,
+          signature
+        )
+
+        console.log('[Auth] Login successful!')
+        container.updateAuthToken(loginResult.accessToken)
+
+        onClose()
+        router.push(ROUTES.DASHBOARD)
+
+      } catch (authError: any) {
+        console.error('[Auth] Authentication error:', authError)
+
+        if (authError.message?.includes('not found')) {
+          await loadLegalDocuments()
+          setShowTermsDialog(true)
+        } else {
+          setError(authError.message || 'Authentication failed')
+        }
+      }
+
+    } catch (error: any) {
+      console.error('[Auth] Backend authentication failed:', error)
+      setError(error.message || 'Authentication failed')
+    }
+  }
+
   const handleConfirmTerms = async () => {
-    if (!agreedToTerms) return
+    if (!agreedToTerms || !connectedWalletAddress) return
 
     setIsProcessing(true)
+    setError(null)
+
     try {
+      console.log('[Account] Creating account for wallet:', connectedWalletAddress)
+
+      const provider = (window as any).phantom?.solana
+      if (!provider) {
+        throw new Error('Wallet provider not available')
+      }
+
+      const message = AUTH_CONFIG.MESSAGE
+      const encodedMessage = new TextEncoder().encode(message)
+      const signedMessage = await provider.signMessage(encodedMessage)
+      const signature = bs58.encode(signedMessage.signature)
+
       const documentIds = legalDocuments.map(doc => doc.id)
-      await createAccount(documentIds)
+      console.log('[Account] Calling create-account API...')
+
+      const authRepository = container.authRepository
+      const result = await authRepository.createAccount(
+        connectedWalletAddress,
+        message,
+        signature,
+        documentIds
+      )
+
+      console.log('[Account] Account created successfully!')
+      container.updateAuthToken(result.accessToken)
+
       setShowTermsDialog(false)
       onClose()
-      // New user after account creation -> Create strategy page
       router.push(ROUTES.CREATE)
-    } catch (error) {
-      console.error('Account creation error:', error)
+    } catch (error: any) {
+      console.error('[Account] Account creation error:', error)
+      setError(error.message || 'Account creation failed')
     } finally {
       setIsProcessing(false)
     }
@@ -141,6 +301,7 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
   const handleCancelTerms = () => {
     setShowTermsDialog(false)
     setAgreedToTerms(false)
+    setConnectedWalletAddress(null)
     disconnect()
   }
 
@@ -155,9 +316,9 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
           </DialogHeader>
 
           <ScrollArea className="h-[400px] rounded-md border border-primary/20 bg-card/30 p-6">
-            <div className="space-y-6 text-sm">
+            <div className="space-y-6 text-sm prose prose-invert prose-sm max-w-none">
               {termsDoc ? (
-                <div dangerouslySetInnerHTML={{ __html: termsDoc.content }} />
+                <div dangerouslySetInnerHTML={{ __html: marked.parse(termsDoc.content) }} />
               ) : (
                 <div className="space-y-6">
                   <section>
@@ -190,9 +351,9 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
             </label>
           </div>
 
-          {authError && (
+          {(authError || localError) && (
             <div className="text-sm text-red-500 text-center p-2 bg-red-500/10 rounded-lg border border-red-500/20">
-              {authError}
+              {localError || authError}
             </div>
           )}
 

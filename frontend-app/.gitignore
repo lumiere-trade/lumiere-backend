@@ -1,0 +1,8 @@
+
+# Next.js build artifacts
+.next/
+.next/*
+
+# Backup folders
+*-bak/
+*-backup/
