@@ -16,8 +16,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
-.env*
+# env files (secrets only, NOT .env.example)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # vercel
 .vercel
@@ -25,8 +28,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-# TypeScript build info
-tsconfig.tsbuildinfo
 
 # Package manager locks (keeping npm, ignoring pnpm)
 pnpm-lock.yaml
