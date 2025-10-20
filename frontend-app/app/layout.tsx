@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+import { Providers } from './providers';
 import { ThemeProvider } from '@/components/theme-provider';
-import { MarketingHeader } from '@/components/marketing-header';
-import { Footer } from '@/components/footer';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -16,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Lumiere - AI-Powered Trading Platform',
-  description: 'Transform raw market data into winning strategies with AI',
+  title: 'Lumiere - DeFi Subscription Platform',
+  description: 'Algorithmic trading platform on Solana blockchain',
 };
 
 export default function RootLayout({
@@ -27,20 +26,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          <div className="min-h-screen bg-background flex flex-col">
-            <MarketingHeader />
-            <main className="flex-1">
-              {children}
-            </main>
-            <Footer />
-          </div>
+          <Providers>
+            {children}
+          </Providers>
         </ThemeProvider>
       </body>
     </html>
