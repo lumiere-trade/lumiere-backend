@@ -164,3 +164,24 @@
     font-size: 18px;
   }
 }
+
+/* Mobile responsive design */
+@media (max-width: 768px) {
+  /* Mobile phones - smaller base font */
+  html {
+    font-size: 14px;
+  }
+  
+  /* Adjust container padding for mobile */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Small mobile phones */
+  html {
+    font-size: 13px;
+  }
+}
