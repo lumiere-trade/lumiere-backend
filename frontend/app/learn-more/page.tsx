@@ -1,39 +1,8 @@
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
 import { MessageSquare, TrendingUp, Shield, Brain, Target, Eye, Lock, RefreshCw } from "lucide-react"
-import { Footer } from "@/components/footer"
 
 export default function LearnMorePage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-sm">
-        <div className="container mx-auto flex items-center justify-between px-6 py-4">
-          <Link href="/">
-            <div className="flex flex-col cursor-pointer">
-              <div className="text-2xl font-bold tracking-wider text-primary">LUMIERE</div>
-              <p className="text-xs text-muted-foreground italic tracking-wide">
-                Blind to emotion, guided by algorithm
-              </p>
-            </div>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link href="/docs">
-              <Button variant="outline" size="lg" className="rounded-full px-6 font-semibold bg-transparent">
-                DOCS
-              </Button>
-            </Link>
-            <Button variant="default" size="lg" className="rounded-full px-6 font-semibold">
-              LEARN MORE
-            </Button>
-            <Link href="/onboarding">
-              <Button variant="outline" size="lg" className="rounded-full px-8 font-semibold bg-transparent">
-                CONNECT WALLET
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
 
       <main className="container mx-auto px-6 pt-32 pb-20 max-w-5xl flex-1">
         {/* Hero Section */}
@@ -160,23 +129,13 @@ export default function LearnMorePage() {
           <p className="text-2xl font-semibold text-primary mb-8">
             To make algorithmic trading accessible, intelligent, and emotionally neutral.
           </p>
-          <p className="text-lg text-muted-foreground leading-relaxed max-w-3xl mx-auto mb-12">
+          <p className="text-lg text-muted-foreground leading-relaxed max-w-3xl mx-auto">
             By merging human creativity with machine precision, Lumiere empowers traders to operate at a level once
             reserved for institutions — all through an intuitive AI experience.
           </p>
-          <Link href="/onboarding">
-            <Button
-              size="lg"
-              className="rounded-full px-16 py-6 text-xl font-bold transition-all duration-300 hover:brightness-110 hover:ring-2 hover:ring-primary/30"
-            >
-              GET STARTED
-            </Button>
-          </Link>
         </section>
       </main>
 
-      {/* Footer */}
-      <Footer />
     </div>
   )
 }

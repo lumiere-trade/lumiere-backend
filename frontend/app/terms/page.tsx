@@ -1,40 +1,7 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Footer } from "@/components/footer"
 
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-sm">
-        <div className="container mx-auto flex items-center justify-between px-6 py-4">
-          <Link href="/">
-            <div className="flex flex-col cursor-pointer">
-              <div className="text-2xl font-bold tracking-wider text-primary">LUMIERE</div>
-              <p className="text-xs text-muted-foreground italic tracking-wide">
-                Blind to emotion, guided by algorithm
-              </p>
-            </div>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link href="/docs">
-              <Button variant="outline" size="lg" className="rounded-full px-6 font-semibold bg-transparent">
-                DOCS
-              </Button>
-            </Link>
-            <Link href="/learn-more">
-              <Button variant="outline" size="lg" className="rounded-full px-6 font-semibold bg-transparent">
-                LEARN MORE
-              </Button>
-            </Link>
-            <Link href="/onboarding">
-              <Button variant="outline" size="lg" className="rounded-full px-8 font-semibold bg-transparent">
-                CONNECT WALLET
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
 
       <main className="container mx-auto px-6 pt-32 pb-20 max-w-4xl flex-1">
         <h1 className="text-5xl font-bold text-primary mb-8">Terms of Use</h1>
@@ -113,7 +80,6 @@ export default function TermsPage() {
         </div>
       </main>
 
-      <Footer />
     </div>
   )
 }

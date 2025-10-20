@@ -1,12 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Footer } from "@/components/footer"
 import { Input } from "@/components/ui/input"
 import { Search, ExternalLink } from "lucide-react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import type { JSX } from "react/jsx-runtime" // Import JSX to fix the undeclared variable error
+import type { JSX } from "react/jsx-runtime"
 
 const docsSections = [
   {
@@ -126,99 +123,82 @@ export default function DocsPage() {
   const currentDoc = docsContent[selectedDoc] || docsContent.introduction
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-sm">
-        <div className="container mx-auto flex items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="text-2xl font-bold tracking-wider text-primary">LUMIERE</div>
-            <span className="text-sm text-muted-foreground">/ Docs</span>
-          </Link>
-          <div className="flex-1 max-w-md mx-8">
-            <div className="relative">
+    <div className="flex pt-20">
+      {/* Sidebar */}
+      <aside className="w-64 border-r border-border/50 bg-background/50 overflow-y-auto fixed left-0 top-20 bottom-0">
+        <nav className="p-6 space-y-8">
+          {docsSections.map((section) => (
+            <div key={section.title}>
+              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">{section.title}</h3>
+              <ul className="space-y-2">
+                {section.items.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      onClick={() => setSelectedDoc(item.id)}
+                      className={`flex items-center justify-between w-full text-sm py-2 px-3 rounded-lg transition-colors ${
+                        selectedDoc === item.id
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      }`}
+                    >
+                      <span>{item.name}</span>
+                      {item.external && <ExternalLink className="w-3 h-3" />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 ml-64 mr-0 xl:mr-64 overflow-y-auto pb-20">
+        <div className="container max-w-4xl mx-auto px-8 py-12">
+          {/* Search Bar - moved inside content */}
+          <div className="mb-8">
+            <div className="relative max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search documentation..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-background/50 border-border/50 rounded-full"
+                className="pl-10 bg-background/50 border-border/50"
               />
               <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 text-xs text-muted-foreground bg-muted/50 rounded">
                 Ctrl K
               </kbd>
             </div>
           </div>
-          <Link href="/dashboard">
-            <Button variant="outline" size="lg" className="rounded-full px-6 font-semibold bg-transparent">
-              DASHBOARD
-            </Button>
-          </Link>
+
+          <h1 className="text-4xl font-bold text-foreground mb-4">{currentDoc.title}</h1>
+          <div className="prose prose-invert max-w-none">{currentDoc.content}</div>
         </div>
-      </header>
+      </main>
 
-      <div className="flex-1 flex">
-        {/* Sidebar */}
-        <aside className="w-64 border-r border-border/50 bg-background/50 overflow-y-auto">
-          <nav className="p-6 space-y-8">
-            {docsSections.map((section) => (
-              <div key={section.title}>
-                <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">{section.title}</h3>
-                <ul className="space-y-2">
-                  {section.items.map((item) => (
-                    <li key={item.id}>
-                      <button
-                        onClick={() => setSelectedDoc(item.id)}
-                        className={`flex items-center justify-between w-full text-sm py-2 px-3 rounded-lg transition-colors ${
-                          selectedDoc === item.id
-                            ? "bg-primary/10 text-primary font-medium"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                        }`}
-                      >
-                        <span>{item.name}</span>
-                        {item.external && <ExternalLink className="w-3 h-3" />}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </nav>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="container max-w-4xl mx-auto px-8 py-12">
-            <h1 className="text-4xl font-bold text-foreground mb-4">{currentDoc.title}</h1>
-            <div className="prose prose-invert max-w-none">{currentDoc.content}</div>
-          </div>
-        </main>
-
-        {/* Right Sidebar - Table of Contents */}
-        <aside className="w-64 border-l border-border/50 bg-background/50 overflow-y-auto hidden xl:block">
-          <nav className="p-6">
-            <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">On This Page</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <a href="#" className="text-primary hover:underline">
-                  What is Lumiere?
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-muted-foreground hover:text-foreground">
-                  Key Features
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-muted-foreground hover:text-foreground">
-                  Getting Started
-                </a>
-              </li>
-            </ul>
-          </nav>
-        </aside>
-      </div>
-
-      <Footer />
+      {/* Right Sidebar - Table of Contents */}
+      <aside className="w-64 border-l border-border/50 bg-background/50 overflow-y-auto fixed right-0 top-20 bottom-0 hidden xl:block">
+        <nav className="p-6">
+          <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">On This Page</h3>
+          <ul className="space-y-2 text-sm">
+            <li>
+              <a href="#" className="text-primary hover:underline">
+                What is Lumiere?
+              </a>
+            </li>
+            <li>
+              <a href="#" className="text-muted-foreground hover:text-foreground">
+                Key Features
+              </a>
+            </li>
+            <li>
+              <a href="#" className="text-muted-foreground hover:text-foreground">
+                Getting Started
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </aside>
     </div>
   )
 }
