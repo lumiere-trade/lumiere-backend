@@ -10,7 +10,7 @@ Priority (highest to lowest):
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import yaml
 from dotenv import load_dotenv
@@ -44,12 +44,25 @@ class Settings(BaseSettings):
     API_PORT: int = Field(default=8000, ge=1024, le=65535)
     API_RELOAD: bool = Field(default=False)
 
+    # CORS Configuration
+    CORS_ORIGINS: List[str] = Field(
+        default=[
+            "http://localhost:3000",
+            "https://lumiere.trade",
+            "https://www.lumiere.trade",
+            "https://app.lumiere.trade",
+        ],
+        description="Allowed CORS origins",
+    )
+
     # Service Discovery (Docker DNS)
     COURIER_URL: str = Field(
-        default="http://courier:8765", description="Courier service URL (Docker DNS)"
+        default="http://courier:8765",
+        description="Courier service URL (Docker DNS)",
     )
     PASSEUR_URL: str = Field(
-        default="http://passeur:8766", description="Passeur bridge URL (Docker DNS)"
+        default="http://passeur:8766",
+        description="Passeur bridge URL (Docker DNS)",
     )
 
     # Database (from environment - REQUIRED in production)
@@ -95,7 +108,9 @@ class Settings(BaseSettings):
         allowed = ["devnet", "testnet", "mainnet-beta"]
         v_lower = v.lower()
         if v_lower not in allowed:
-            raise ValueError(f"Invalid SOLANA_NETWORK. Must be one of: {allowed}")
+            raise ValueError(
+                f"Invalid SOLANA_NETWORK. Must be one of: {allowed}"
+            )
         return v_lower
 
 

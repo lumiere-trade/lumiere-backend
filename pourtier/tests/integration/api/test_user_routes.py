@@ -11,6 +11,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 import httpx
+from sqlalchemy import text
 
 from pourtier.config.settings import get_settings
 from pourtier.di.dependencies import get_db_session
@@ -50,6 +51,9 @@ class TestUserRoutes(LaborantTest):
         await TestUserRoutes.db.reset_schema_for_testing(Base.metadata)
         self.reporter.info("Database schema reset", context="Setup")
 
+        # Seed legal documents for compliance tests
+        await self._seed_legal_documents()
+
         # Create test app
         app = create_app(settings)
 
@@ -80,6 +84,35 @@ class TestUserRoutes(LaborantTest):
             await TestUserRoutes.db.disconnect()
 
         self.reporter.info("Cleanup complete", context="Teardown")
+
+    async def _seed_legal_documents(self):
+        """Seed legal documents for testing."""
+        self.reporter.info("Seeding legal documents...", context="Setup")
+
+        async with self.db.session() as session:
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO legal_documents (
+                        id, document_type, version, title, content,
+                        status, effective_date, created_at, updated_at
+                    ) VALUES (
+                        gen_random_uuid(),
+                        'terms_of_service',
+                        '1.0.0',
+                        'Terms of Service',
+                        'Test Terms of Service Content',
+                        'active',
+                        NOW(),
+                        NOW(),
+                        NOW()
+                    )
+                """
+                )
+            )
+            await session.commit()
+
+        self.reporter.info("Legal documents seeded", context="Setup")
 
     def _generate_unique_wallet(self) -> str:
         """Generate unique 44-character wallet address."""
@@ -134,6 +167,8 @@ class TestUserRoutes(LaborantTest):
         assert Decimal(data["escrow_balance"]) == Decimal("0")
         assert "created_at" in data
         assert "updated_at" in data
+        assert "pending_documents" in data
+        assert isinstance(data["pending_documents"], list)
 
         self.reporter.info("User created successfully", context="Test")
 
@@ -194,6 +229,10 @@ class TestUserRoutes(LaborantTest):
         assert data["wallet_address"] == user.wallet_address
         assert data["escrow_account"] == user.escrow_account
         assert Decimal(data["escrow_balance"]) == Decimal("100.0")
+        assert "pending_documents" in data
+        assert isinstance(data["pending_documents"], list)
+        # User hasn't accepted docs, so should have pending
+        assert len(data["pending_documents"]) > 0
 
         self.reporter.info("Current user retrieved successfully", context="Test")
 
@@ -234,6 +273,7 @@ class TestUserRoutes(LaborantTest):
         assert data["id"] == str(user.id)
         assert data["wallet_address"] == user.wallet_address
         assert data["escrow_account"] == user.escrow_account
+        assert "pending_documents" in data
 
         self.reporter.info("User retrieved by ID successfully", context="Test")
 
@@ -274,6 +314,7 @@ class TestUserRoutes(LaborantTest):
         assert data["id"] == str(user.id)
         assert data["wallet_address"] == user.wallet_address
         assert data["escrow_account"] == user.escrow_account
+        assert "pending_documents" in data
 
         self.reporter.info("User retrieved by wallet successfully", context="Test")
 
@@ -307,6 +348,7 @@ class TestUserRoutes(LaborantTest):
         assert data["escrow_account"] is None
         assert Decimal(data["escrow_balance"]) == Decimal("0")
         assert data["escrow_token_mint"] is None
+        assert "pending_documents" in data
 
         self.reporter.info("User created without escrow", context="Test")
 

@@ -244,10 +244,12 @@ def get_check_user_legal_compliance(
     )
 
     container = get_container()
+    user_repo = container.get_user_repository(session)
     legal_doc_repo = container.get_legal_document_repository(session)
     user_legal_repo = container.get_user_legal_acceptance_repository(session)
 
     return CheckUserLegalCompliance(
+        user_repository=user_repo,
         legal_document_repository=legal_doc_repo,
         user_legal_acceptance_repository=user_legal_repo,
     )

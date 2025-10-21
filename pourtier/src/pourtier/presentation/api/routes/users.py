@@ -12,6 +12,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from pourtier.application.use_cases.check_user_legal_compliance import (
+    CheckUserLegalCompliance,
+)
 from pourtier.application.use_cases.create_user import CreateUser
 from pourtier.application.use_cases.get_user_by_wallet import (
     GetUserByWallet,
@@ -22,6 +25,7 @@ from pourtier.application.use_cases.get_user_profile import (
     GetUserProfileCommand,
 )
 from pourtier.di.dependencies import (
+    get_check_user_legal_compliance,
     get_create_user,
     get_get_user_by_wallet,
     get_get_user_profile,
@@ -29,6 +33,7 @@ from pourtier.di.dependencies import (
 from pourtier.domain.entities.user import User
 from pourtier.domain.exceptions import EntityNotFoundError, ValidationError
 from pourtier.presentation.api.middleware.auth import get_current_user
+from pourtier.presentation.schemas.legal_schemas import LegalDocumentResponse
 from pourtier.presentation.schemas.user_schemas import (
     CreateUserRequest,
     UserResponse,
@@ -75,6 +80,7 @@ async def create_user(
             escrow_token_mint=user.escrow_token_mint,
             created_at=user.created_at,
             updated_at=user.updated_at,
+            pending_documents=[],
         )
 
     except ValidationError as e:
@@ -94,25 +100,49 @@ async def create_user(
     response_model=UserResponse,
     status_code=status.HTTP_200_OK,
     summary="Get current user profile",
-    description="Get authenticated user's profile from JWT token",
+    description="Get authenticated user's profile with legal compliance status",
 )
 async def get_current_user_profile(
     current_user: User = Depends(get_current_user),
+    compliance_use_case: CheckUserLegalCompliance = Depends(
+        get_check_user_legal_compliance
+    ),
 ) -> UserResponse:
     """
     Get current authenticated user's profile.
 
     Requires valid JWT token in Authorization header.
+    Includes pending legal documents that user needs to accept.
 
     Args:
         current_user: User from JWT token (injected by dependency)
+        compliance_use_case: Legal compliance use case (injected)
 
     Returns:
-        Current user profile details
+        Current user profile details with pending_documents
 
     Raises:
         HTTPException: 403 if authentication fails
     """
+    # Check legal compliance
+    _, pending_documents = await compliance_use_case.execute(current_user.id)
+
+    # Convert domain entities to response schemas
+    pending_docs_response = [
+        LegalDocumentResponse(
+            id=str(doc.id),
+            document_type=doc.document_type,
+            version=doc.version,
+            title=doc.title,
+            content=doc.content,
+            status=doc.status,
+            effective_date=doc.effective_date,
+            created_at=doc.created_at,
+            updated_at=doc.updated_at,
+        )
+        for doc in pending_documents
+    ]
+
     return UserResponse(
         id=str(current_user.id),
         wallet_address=current_user.wallet_address,
@@ -121,6 +151,7 @@ async def get_current_user_profile(
         escrow_token_mint=current_user.escrow_token_mint,
         created_at=current_user.created_at,
         updated_at=current_user.updated_at,
+        pending_documents=pending_docs_response,
     )
 
 
@@ -162,6 +193,7 @@ async def get_user_profile(
             escrow_token_mint=user.escrow_token_mint,
             created_at=user.created_at,
             updated_at=user.updated_at,
+            pending_documents=[],
         )
 
     except EntityNotFoundError as e:
@@ -214,6 +246,7 @@ async def get_user_by_wallet(
             escrow_token_mint=user.escrow_token_mint,
             created_at=user.created_at,
             updated_at=user.updated_at,
+            pending_documents=[],
         )
 
     except EntityNotFoundError as e:

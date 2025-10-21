@@ -185,7 +185,7 @@ services:
   # -------------------------------------------
   test-pourtier:
     image: pourtier:development
-    container_name: lumiere-test-pourtier
+    container_name: lumiere-test-runner
     environment:
       ENV: test
       # Database (Docker DNS)

@@ -103,10 +103,10 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         compresslevel=6,
     )
 
-    # CORS middleware
+    # CORS middleware - configured via settings
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # TODO: Configure allowed origins
+        allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

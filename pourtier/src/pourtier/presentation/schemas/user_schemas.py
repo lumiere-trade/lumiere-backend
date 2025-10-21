@@ -1,12 +1,13 @@
 """
 User API schemas.
 """
-
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
+
+from pourtier.presentation.schemas.legal_schemas import LegalDocumentResponse
 
 
 class CreateUserRequest(BaseModel):
@@ -30,6 +31,10 @@ class UserResponse(BaseModel):
     escrow_token_mint: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    pending_documents: List[LegalDocumentResponse] = Field(
+        default=[],
+        description="Legal documents user hasn't accepted yet",
+    )
 
     class Config:
         """Pydantic config."""
@@ -41,3 +46,4 @@ class UpdateUserRequest(BaseModel):
     """Request to update user profile - minimal fields."""
 
     # Future: Add preferences, settings, etc. (non-identifying data)
+    pass
