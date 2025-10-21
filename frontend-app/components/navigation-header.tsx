@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useState } from "react"
-import { Settings, Copy, Wallet, TrendingUp, Activity, ArrowDownToLine } from "lucide-react"
+import { Settings, Copy, Wallet, TrendingUp, Activity, ArrowDownToLine, LogOut } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { useWallet } from "@solana/wallet-adapter-react"
 
@@ -309,6 +309,16 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
               </div>
             </SheetContent>
           </Sheet>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="rounded-full bg-transparent"
+            onClick={handleDisconnect}
+            title="Disconnect Wallet"
+          >
+            <LogOut className="h-5 w-5" />
+          </Button>
         </nav>
       </div>
     </header>
