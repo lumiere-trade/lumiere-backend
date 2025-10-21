@@ -26,7 +26,7 @@ export default function Home() {
                 </p>
                 <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
                   
-                    href="https://app.lumiere.trade"
+                    <a href="https://app.lumiere.trade"
                     className="inline-flex items-center justify-center rounded-full bg-[#d4a574] px-8 py-4 text-lg font-bold text-black transition-colors hover:bg-[#c49564]"
                   >
                     START TRADING
