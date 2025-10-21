@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,8 +26,12 @@ import {
 
 export default function DashboardPage() {
   const { user } = useAuth()
-  const [showWalletModal, setShowWalletModal] = useState(!user)
-  
+  const [showWalletModal, setShowWalletModal] = useState(false)
+
+  useEffect(() => {
+    setShowWalletModal(!user)
+  }, [user])
+
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -115,7 +119,6 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background">
       <NavigationHeader currentPage="dashboard" />
 
-      {/* Blur overlay when not authenticated */}
       {!user && (
         <>
           <div className="fixed inset-0 z-40 backdrop-blur-sm bg-background/30 pointer-events-none" />
@@ -127,7 +130,6 @@ export default function DashboardPage() {
       )}
 
       <div className="flex h-[calc(100vh-80px)] pt-20">
-        {/* Left Sidebar - Chat Interface */}
         <div className="flex w-80 flex-col border-r border-border">
           <div className="flex flex-1 flex-col">
             <div className="border-b border-border p-4">
@@ -192,7 +194,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Right Side - Dashboard Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="container mx-auto px-6 py-6">
             <div className="mb-8 flex items-center justify-between">
@@ -214,7 +215,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Stats Grid */}
             <div className="mb-8 grid gap-6 md:grid-cols-4">
               <Card className="border-primary/20 p-6">
                 <div className="mb-2 flex items-center justify-between">
@@ -257,7 +257,6 @@ export default function DashboardPage() {
             </div>
 
             <div className="mb-8 grid gap-6 lg:grid-cols-3">
-              {/* Portfolio Value Chart */}
               <Card className="lg:col-span-2 border-primary/20 p-6">
                 <div className="mb-4 border-b border-border pb-4">
                   <h2 className="text-xl font-bold">Portfolio Value</h2>
@@ -286,7 +285,6 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </Card>
 
-              {/* Win/Loss Distribution */}
               <Card className="border-primary/20 p-6">
                 <div className="mb-4 border-b border-border pb-4">
                   <h2 className="text-xl font-bold">Win Rate</h2>
@@ -320,7 +318,6 @@ export default function DashboardPage() {
               </Card>
             </div>
 
-            {/* Daily P&L Chart */}
             <Card className="mb-8 border-primary/20 p-6">
               <div className="mb-4 border-b border-border pb-4">
                 <h2 className="text-xl font-bold">Daily P&L</h2>
@@ -348,7 +345,6 @@ export default function DashboardPage() {
             </Card>
 
             <div className="grid gap-6 lg:grid-cols-3">
-              {/* Recent Trades */}
               <Card className="lg:col-span-2 border-primary/20 p-6">
                 <div className="mb-4 flex items-center justify-between border-b border-border pb-4">
                   <h2 className="text-xl font-bold">Recent Trades</h2>
@@ -395,7 +391,6 @@ export default function DashboardPage() {
                 </div>
               </Card>
 
-              {/* Notifications & Status */}
               <div className="space-y-6">
                 <Card className="border-primary/20 p-6">
                   <div className="mb-4 flex items-center gap-2 border-b border-border pb-4">
