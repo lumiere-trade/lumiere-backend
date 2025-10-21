@@ -28,7 +28,7 @@ interface AuthContextType {
   pendingDocuments: PendingDocument[];
   legalDocuments: LegalDocument[];
   error: string | null;
-  
+
   login: () => Promise<void>;
   createAccount: (acceptedDocumentIds: string[]) => Promise<void>;
   logout: () => void;
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
   const [legalDocuments, setLegalDocuments] = useState<LegalDocument[]>([]);
   const [error, setError] = useState<string | null>(null);
-  
+
   const router = useRouter();
   const initRef = useRef(false);
 
@@ -82,26 +82,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (authService.isAuthenticated()) {
         try {
-          await checkCompliance();
-          
-          setUser(
-            new User(
-              '',
-              '',
-              new Date(),
-              new Date()
+          const currentUser = await authService.getCurrentUser();
+          setUser(currentUser);
+          setPendingDocuments(
+            currentUser.pendingDocuments.map((doc) =>
+              PendingDocument.fromApi({
+                id: doc.id,
+                document_type: doc.documentType,
+                version: doc.version,
+                title: doc.title,
+                content: doc.content,
+                status: doc.status,
+                effective_date: doc.effectiveDate.toISOString(),
+                created_at: doc.createdAt.toISOString(),
+                updated_at: doc.updatedAt.toISOString(),
+              })
             )
           );
         } catch (err) {
           authService.logout();
         }
       }
-      
+
       setIsLoading(false);
     };
 
     initAuth();
-  }, [authService, checkCompliance]);
+  }, [authService]);
 
   const login = useCallback(async () => {
     setIsLoading(true);
@@ -109,7 +116,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       const result = await authService.verifyAndLogin();
-      
+
       setUser(result.user);
       setPendingDocuments(result.pendingDocuments);
 
@@ -137,7 +144,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       try {
         const result = await authService.createAccount(acceptedDocumentIds);
-        
+
         setUser(result.user);
         setPendingDocuments([]);
 
@@ -170,7 +177,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       try {
         await authService.acceptPendingDocuments(documentIds);
-        await checkCompliance();
+        
+        const updatedUser = await authService.getCurrentUser();
+        setUser(updatedUser);
+        setPendingDocuments(
+          updatedUser.pendingDocuments.map((doc) =>
+            PendingDocument.fromApi({
+              id: doc.id,
+              document_type: doc.documentType,
+              version: doc.version,
+              title: doc.title,
+              content: doc.content,
+              status: doc.status,
+              effective_date: doc.effectiveDate.toISOString(),
+              created_at: doc.createdAt.toISOString(),
+              updated_at: doc.updatedAt.toISOString(),
+            })
+          )
+        );
       } catch (err) {
         const errorMessage =
           err instanceof Error
@@ -180,7 +204,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw err;
       }
     },
-    [authService, checkCompliance]
+    [authService]
   );
 
   const clearError = useCallback(() => {

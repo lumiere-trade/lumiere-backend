@@ -83,10 +83,9 @@ export class AuthRepository implements IAuthRepository {
     const user = User.fromApi({
       id: response.user_id,
       wallet_address: response.wallet_address,
-      escrow_account: response.escrow_account || null,
-      escrow_balance: response.escrow_balance ? parseFloat(response.escrow_balance) : 0,
       created_at: response.created_at,
       updated_at: response.updated_at,
+      pending_documents: response.pending_documents,
     });
 
     const pendingDocuments = (response.pending_documents || []).map((doc) =>
@@ -123,16 +122,27 @@ export class AuthRepository implements IAuthRepository {
     const user = User.fromApi({
       id: response.user_id,
       wallet_address: response.wallet_address,
-      escrow_account: null,
-      escrow_balance: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      pending_documents: [],
     });
 
     return {
       user,
       accessToken: response.access_token,
     };
+  }
+
+  async getCurrentUser(): Promise<User> {
+    const response = await this.httpClient.get<any>('/api/users/me');
+
+    return User.fromApi({
+      id: response.id,
+      wallet_address: response.wallet_address,
+      created_at: response.created_at,
+      updated_at: response.updated_at,
+      pending_documents: response.pending_documents || [],
+    });
   }
 
   async checkCompliance(): Promise<CheckComplianceResult> {

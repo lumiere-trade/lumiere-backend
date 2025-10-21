@@ -122,9 +122,7 @@ class ComponentMapper:
 
             # Apply file pattern filter if provided
             if file_pattern:
-                test_files = [
-                    f for f in test_files if fnmatch(f.name, file_pattern)
-                ]
+                test_files = [f for f in test_files if fnmatch(f.name, file_pattern)]
 
             if test_files:
                 discovered[category] = test_files
