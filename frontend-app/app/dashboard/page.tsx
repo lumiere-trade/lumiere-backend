@@ -129,7 +129,7 @@ export default function DashboardPage() {
         </>
       )}
 
-      <div className="flex h-[calc(100vh-80px)] pt-20">
+      <div className="flex h-[calc(100vh-80px)] pt-0">
         <div className="flex w-80 flex-col border-r border-border">
           <div className="flex flex-1 flex-col">
             <div className="border-b border-border p-4">
