@@ -306,7 +306,6 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
   }
 
   const termsDoc = legalDocuments.find(doc => doc.documentType === 'terms_of_service')
-  const formattedTermsContent = termsDoc?.content.replace(/\\n/g, '\n') || "Loading terms..."
 
   if (showTermsDialog) {
     return (
@@ -317,9 +316,9 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
           </DialogHeader>
 
           <ScrollArea className="h-[400px] rounded-md border border-primary/20 bg-card/30 p-6">
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
-              {formattedTermsContent}
-            </pre>
+            <div className="whitespace-pre-line font-sans text-sm leading-relaxed text-foreground">
+              {termsDoc?.content || "Loading terms..."}
+            </div>
           </ScrollArea>
 
           <div className="flex items-center space-x-2 rounded-md border border-primary/20 bg-card/30 p-4">
