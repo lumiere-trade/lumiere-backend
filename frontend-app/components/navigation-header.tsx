@@ -82,7 +82,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
               DASHBOARD
             </Button>
           </Link>
-          <Link href="/architect">
+          <Link href="/create">
             <Button
               variant="outline"
               size="lg"
