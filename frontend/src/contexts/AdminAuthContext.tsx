@@ -12,36 +12,25 @@ const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefin
 
 const ADMIN_CREDENTIALS = {
   username: 'admin',
-  passwordHash: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
+  password: 'solana123',
 };
 
 const ADMIN_AUTH_KEY = 'lumiere_admin_auth';
-
-function hashPassword(password: string): string {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(16).padStart(16, '0');
-}
+const ADMIN_AUTH_TOKEN = 'lumiere_admin_token_2024';
 
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem(ADMIN_AUTH_KEY);
-    if (stored === ADMIN_CREDENTIALS.passwordHash) {
+    if (stored === ADMIN_AUTH_TOKEN) {
       setIsAdminAuthenticated(true);
     }
   }, []);
 
   const adminLogin = (username: string, password: string): boolean => {
-    const hash = hashPassword(password);
-    
-    if (username === ADMIN_CREDENTIALS.username && hash === ADMIN_CREDENTIALS.passwordHash) {
-      localStorage.setItem(ADMIN_AUTH_KEY, hash);
+    if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+      localStorage.setItem(ADMIN_AUTH_KEY, ADMIN_AUTH_TOKEN);
       setIsAdminAuthenticated(true);
       return true;
     }
