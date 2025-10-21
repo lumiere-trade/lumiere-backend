@@ -1,45 +1,28 @@
-import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
-import './globals.css';
-import { Providers } from './providers';
-import { ThemeProvider } from '@/components/theme-provider';
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { Providers } from "@/providers/providers"
+import { AdminAuthProvider } from "@/contexts/AdminAuthContext"
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: 'Lumiere - DeFi Subscription Platform',
-  description: 'Algorithmic trading platform on Solana blockchain',
-};
+  title: "Lumiere - Algorithmic Trading Platform",
+  description: "Blind to emotion, guided by algorithm",
+}
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <Providers>
-            {children}
-          </Providers>
-        </ThemeProvider>
+      <body className={inter.className}>
+        <AdminAuthProvider>
+          <Providers>{children}</Providers>
+        </AdminAuthProvider>
       </body>
     </html>
-  );
+  )
 }

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { AdminLoginWall } from "@/components/AdminLoginWall"
 
 export default function RootPage() {
   const router = useRouter()
@@ -10,5 +11,9 @@ export default function RootPage() {
     router.replace("/dashboard")
   }, [router])
 
-  return null
+  return (
+    <AdminLoginWall>
+      <div className="min-h-screen bg-background" />
+    </AdminLoginWall>
+  )
 }
