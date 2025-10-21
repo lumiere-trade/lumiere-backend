@@ -108,9 +108,7 @@ class Settings(BaseSettings):
         allowed = ["devnet", "testnet", "mainnet-beta"]
         v_lower = v.lower()
         if v_lower not in allowed:
-            raise ValueError(
-                f"Invalid SOLANA_NETWORK. Must be one of: {allowed}"
-            )
+            raise ValueError(f"Invalid SOLANA_NETWORK. Must be one of: {allowed}")
         return v_lower
 
 

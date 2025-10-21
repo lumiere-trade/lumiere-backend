@@ -2,7 +2,6 @@
  * Auth Repository Interface (Port in Hexagonal Architecture).
  * Defines contract for authentication operations.
  */
-
 import type { User } from '../entities/user.entity';
 import type { LegalDocument } from '../entities/legal-document.entity';
 import type { PendingDocument } from '../entities/pending-document.entity';
@@ -50,6 +49,8 @@ export interface IAuthRepository {
     signature: string,
     acceptedDocumentIds: string[]
   ): Promise<CreateAccountResult>;
+
+  getCurrentUser(): Promise<User>;
 
   checkCompliance(): Promise<ComplianceResult>;
 

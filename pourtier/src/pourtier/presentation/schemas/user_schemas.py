@@ -1,6 +1,7 @@
 """
 User API schemas.
 """
+
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
@@ -46,4 +47,3 @@ class UpdateUserRequest(BaseModel):
     """Request to update user profile - minimal fields."""
 
     # Future: Add preferences, settings, etc. (non-identifying data)
-    pass
