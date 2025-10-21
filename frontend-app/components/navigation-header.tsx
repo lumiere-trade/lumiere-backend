@@ -22,7 +22,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
   const [depositAmount, setDepositAmount] = useState("")
 
   const usdcBalance = "993.35"
-  const walletAddress = user?.shortAddress || "Not connected"
+  const walletAddress = user?.walletAddress ? `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}` : "Not connected"
   const walletType = "phantom"
 
   const balances = [
