@@ -4,6 +4,7 @@ Component mapper - maps changed files to components and their tests.
 Discovers components based on directory structure and finds their tests.
 """
 
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
@@ -59,8 +60,6 @@ class ComponentMapper:
                 # File is outside project root
                 continue
 
-        # Component extraction complete (log removed from output)
-
         return components
 
     def has_tests(self, component_name: str) -> bool:
@@ -79,7 +78,10 @@ class ComponentMapper:
         return tests_path.exists() and tests_path.is_dir()
 
     def discover_test_files(
-        self, component_name: str, categories: Optional[List[str]] = None
+        self,
+        component_name: str,
+        categories: Optional[List[str]] = None,
+        file_pattern: Optional[str] = None,
     ) -> Dict[str, List[Path]]:
         """
         Discover test files for a component.
@@ -89,6 +91,8 @@ class ComponentMapper:
             categories: Optional list of categories to include
                        (e.g., ["unit", "integration"])
                        If None, discovers all categories
+            file_pattern: Optional file pattern to filter results
+                         (e.g., "test_escrow*.py")
 
         Returns:
             Dict mapping category to list of test files
@@ -114,9 +118,13 @@ class ComponentMapper:
                 continue
 
             # Find all test_*.py files RECURSIVELY
-            # This handles nested test structures like:
-            # tests/unit/domain/entities/test_user.py
             test_files = sorted(category_path.rglob("test_*.py"))
+
+            # Apply file pattern filter if provided
+            if file_pattern:
+                test_files = [
+                    f for f in test_files if fnmatch(f.name, file_pattern)
+                ]
 
             if test_files:
                 discovered[category] = test_files

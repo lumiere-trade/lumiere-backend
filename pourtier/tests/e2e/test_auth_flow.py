@@ -248,6 +248,10 @@ class TestAuthFlow(LaborantTest):
             data = response.json()
             assert data["wallet_address"] == self.alice_wallet
             assert data["id"] == self.user_id
+            assert "pending_documents" in data
+            assert isinstance(data["pending_documents"], list)
+            # User accepted docs during signup, so should be empty
+            assert len(data["pending_documents"]) == 0
 
             self.reporter.info("Protected endpoint accessed", context="Test")
 

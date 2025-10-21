@@ -177,7 +177,7 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
     async def _cleanup_existing_escrow(self):
         """
         ROBUST cleanup: Always start with clean slate.
-        
+
         Handles all edge cases:
         - Account exists with authority delegated
         - Account exists with funds

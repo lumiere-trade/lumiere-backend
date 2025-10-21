@@ -395,18 +395,19 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  laborant test                     # Auto mode (git diff)
-  laborant test bridge guardian     # Test specific components
-  laborant test --all               # Test all components
-  laborant test --dry-run           # Show what would run
-  laborant test bridge --unit       # Only unit tests for bridge
-  laborant list                     # List available components
-  laborant install-hook             # Install git pre-commit hook
-  laborant lint                     # Check code quality (all)
-  laborant lint pourtier            # Check code quality (component)
-  laborant lint pourtier passeur    # Check multiple components
-  laborant format                   # Format code (all)
-  laborant format passeur           # Format code (component)
+  laborant test                          # Auto mode (git diff)
+  laborant test bridge guardian          # Test specific components
+  laborant test --all                    # Test all components
+  laborant test --dry-run                # Show what would run
+  laborant test bridge --unit            # Only unit tests for bridge
+  laborant test pourtier --file test_*.py  # Run specific test file(s)
+  laborant list                          # List available components
+  laborant install-hook                  # Install git pre-commit hook
+  laborant lint                          # Check code quality (all)
+  laborant lint pourtier                 # Check code quality (component)
+  laborant lint pourtier passeur         # Check multiple components
+  laborant format                        # Format code (all)
+  laborant format passeur                # Format code (component)
         """,
     )
 
@@ -443,6 +444,11 @@ Examples:
         type=int,
         default=300,
         help="Test timeout in seconds (default: 300)",
+    )
+    test_parser.add_argument(
+        "--file",
+        type=str,
+        help="Run specific test file(s) matching pattern (e.g., test_*.py)",
     )
 
     # Lint command
@@ -530,7 +536,10 @@ Examples:
 
             # Run tests
             success = laborant.run(
-                components=components, categories=categories, skip_git=args.all
+                components=components,
+                categories=categories,
+                skip_git=args.all,
+                file_pattern=args.file,
             )
 
             # Exit with appropriate code

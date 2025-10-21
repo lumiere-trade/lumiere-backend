@@ -126,6 +126,7 @@ class Laborant:
         components: Optional[List[str]] = None,
         categories: Optional[List[str]] = None,
         skip_git: bool = False,
+        file_pattern: Optional[str] = None,
     ) -> bool:
         """
         Run Laborant test orchestration.
@@ -134,6 +135,7 @@ class Laborant:
             components: Specific components to test (None = auto-detect)
             categories: Test categories to run (None = all)
             skip_git: Skip git detection, use provided components
+            file_pattern: File pattern to filter test files (e.g., test_*.py)
 
         Returns:
             True if all tests passed, False otherwise
@@ -183,7 +185,9 @@ class Laborant:
         all_passed = True
 
         for component in sorted(target_components):
-            success = self._run_component_tests(component, categories)
+            success = self._run_component_tests(
+                component, categories, file_pattern=file_pattern
+            )
 
             if not success:
                 all_passed = False
@@ -266,7 +270,10 @@ class Laborant:
             return self.docker_executor
 
     def _run_component_tests(
-        self, component_name: str, categories: Optional[List[str]] = None
+        self,
+        component_name: str,
+        categories: Optional[List[str]] = None,
+        file_pattern: Optional[str] = None,
     ) -> bool:
         """
         Run all tests for a component.
@@ -274,6 +281,7 @@ class Laborant:
         Args:
             component_name: Component name
             categories: Test categories to run (None = all)
+            file_pattern: File pattern to filter test files
 
         Returns:
             True if all tests passed
@@ -295,10 +303,9 @@ class Laborant:
 
             return True  # No tests = allow (programmer's responsibility)
 
-        # Discover ALL tests (don't filter by categories yet)
-        # This ensures we always discover in the correct order
+        # Discover ALL tests with optional file pattern filter
         all_test_files = self.component_mapper.discover_test_files(
-            component_name, categories=None  # Always discover all categories!
+            component_name, categories=None, file_pattern=file_pattern
         )
 
         # Build test discovery summary
