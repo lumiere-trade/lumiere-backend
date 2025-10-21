@@ -7,7 +7,7 @@ import { Menu } from "lucide-react"
 
 export function MarketingHeader() {
   const handleLaunchApp = () => {
-    window.location.href = 'http://localhost:3001'
+    window.location.href = 'https://app.lumiere.trade'
   }
 
   return (
