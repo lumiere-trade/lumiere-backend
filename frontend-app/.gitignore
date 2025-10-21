@@ -7,3 +7,4 @@
 *-bak/
 *-backup/
 .env.local
+.vercel
