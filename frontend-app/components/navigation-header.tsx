@@ -18,7 +18,7 @@ interface NavigationHeaderProps {
 
 export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
   const { user, logout } = useAuth()
-  const { publicKey, disconnect } = useWallet()
+  const { disconnect } = useWallet()
   const [depositAmount, setDepositAmount] = useState("")
 
   const usdcBalance = "993.35"
@@ -72,18 +72,26 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
         <nav className="flex items-center gap-3">
           <Link href="/dashboard">
             <Button
-              variant={currentPage === "dashboard" ? "default" : "outline"}
+              variant="outline"
               size="lg"
-              className="rounded-full px-8 font-semibold bg-transparent"
+              className={`rounded-full px-8 font-semibold transition-all ${
+                currentPage === "dashboard" 
+                  ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90" 
+                  : "bg-transparent hover:bg-primary/10"
+              }`}
             >
               DASHBOARD
             </Button>
           </Link>
           <Link href="/architect">
             <Button
-              variant={currentPage === "create" ? "default" : "outline"}
+              variant="outline"
               size="lg"
-              className="rounded-full px-8 font-semibold bg-transparent"
+              className={`rounded-full px-8 font-semibold transition-all ${
+                currentPage === "create" 
+                  ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90" 
+                  : "bg-transparent hover:bg-primary/10"
+              }`}
             >
               CREATE
             </Button>
@@ -153,7 +161,11 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
 
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" size="icon" className="rounded-full bg-transparent">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="rounded-full bg-transparent hover:bg-primary/10"
+              >
                 <Settings className="h-5 w-5" />
               </Button>
             </DialogTrigger>
@@ -187,7 +199,11 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
 
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" size="lg" className="rounded-full bg-transparent font-semibold gap-2">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="rounded-full bg-transparent font-semibold gap-2 hover:bg-primary/10"
+              >
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20">
                   <Wallet className="h-4 w-4 text-primary" />
                 </div>
@@ -209,7 +225,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="rounded-full bg-transparent"
+                    className="rounded-full bg-transparent hover:bg-primary/10"
                     onClick={handleDisconnect}
                   >
                     Disconnect
