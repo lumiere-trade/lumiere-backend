@@ -6,3 +6,4 @@
 # Backup folders
 *-bak/
 *-backup/
+.env.local
