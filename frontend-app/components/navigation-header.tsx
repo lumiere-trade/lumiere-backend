@@ -23,6 +23,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
 
   const usdcBalance = "993.35"
   const walletAddress = user?.walletAddress ? `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}` : "Not connected"
+  const walletType = "phantom"
 
   const balances = [
     { symbol: "USDC", name: "USD Coin", amount: "993.353413", value: "$993.20", icon: "💵" },
@@ -74,8 +75,8 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
               variant="outline"
               size="lg"
               className={`rounded-full px-8 font-semibold transition-all ${
-                currentPage === "dashboard" 
-                  ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90" 
+                currentPage === "dashboard"
+                  ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
                   : "bg-transparent hover:bg-primary/10"
               }`}
             >
@@ -87,8 +88,8 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
               variant="outline"
               size="lg"
               className={`rounded-full px-8 font-semibold transition-all ${
-                currentPage === "create" 
-                  ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90" 
+                currentPage === "create"
+                  ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
                   : "bg-transparent hover:bg-primary/10"
               }`}
             >
@@ -160,9 +161,9 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
 
           <Dialog>
             <DialogTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="icon" 
+              <Button
+                variant="outline"
+                size="icon"
                 className="rounded-full bg-transparent hover:bg-primary/10"
               >
                 <Settings className="h-5 w-5" />
@@ -198,9 +199,9 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
 
           <Sheet>
             <SheetTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="lg" 
+              <Button
+                variant="outline"
+                size="lg"
                 className="rounded-full bg-transparent font-semibold gap-2 hover:bg-primary/10"
               >
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20">
