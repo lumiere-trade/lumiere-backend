@@ -63,10 +63,13 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
   if (!user) return null
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-sm">
-      <div className="container mx-auto flex items-center justify-between px-6 py-4">
-        <Link href="/" className="text-2xl font-bold tracking-wider text-primary hover:opacity-80 transition-opacity">
-          LUMIERE
+    <header className="sticky top-0 z-50 border-b border-border/50 bg-background shrink-0">
+      <div className="container mx-auto flex items-center justify-between px-4 md:px-6 py-3 md:py-4">
+        <Link href="/" className="flex flex-col transition-all hover:brightness-110">
+          <div className="text-xl md:text-2xl font-bold tracking-wider text-primary">LUMIERE</div>
+          <p className="text-[11px] md:text-[13px] text-muted-foreground tracking-wide hidden sm:block">
+            Blind to emotion, guided by algorithm
+          </p>
         </Link>
 
         <nav className="flex items-center gap-3">
@@ -74,11 +77,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
             <Button
               variant="outline"
               size="lg"
-              className={`rounded-full px-8 font-semibold transition-all ${
-                currentPage === "dashboard"
-                  ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
-                  : "bg-transparent hover:bg-primary/10"
-              }`}
+              className="rounded-full px-6 md:px-8 font-semibold bg-transparent"
             >
               DASHBOARD
             </Button>
@@ -87,11 +86,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
             <Button
               variant="outline"
               size="lg"
-              className={`rounded-full px-8 font-semibold transition-all ${
-                currentPage === "create"
-                  ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
-                  : "bg-transparent hover:bg-primary/10"
-              }`}
+              className="rounded-full px-6 md:px-8 font-semibold bg-transparent"
             >
               CREATE
             </Button>
@@ -99,7 +94,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
 
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="default" size="lg" className="rounded-full px-6 font-semibold gap-2">
+              <Button variant="default" size="lg" className="rounded-full px-4 md:px-6 font-semibold gap-2">
                 <ArrowDownToLine className="h-4 w-4" />
                 DEPOSIT
               </Button>
@@ -164,7 +159,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
               <Button
                 variant="outline"
                 size="icon"
-                className="rounded-full bg-transparent hover:bg-primary/10"
+                className="rounded-full bg-transparent"
               >
                 <Settings className="h-5 w-5" />
               </Button>
@@ -202,7 +197,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
               <Button
                 variant="outline"
                 size="lg"
-                className="rounded-full bg-transparent font-semibold gap-2 hover:bg-primary/10"
+                className="rounded-full bg-transparent font-semibold gap-2"
               >
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20">
                   <Wallet className="h-4 w-4 text-primary" />
@@ -225,7 +220,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="rounded-full bg-transparent hover:bg-primary/10"
+                    className="rounded-full bg-transparent"
                     onClick={handleDisconnect}
                   >
                     Disconnect
