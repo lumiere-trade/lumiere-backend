@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { NavigationHeader } from "@/components/navigation-header"
 import { WalletConnectionModal } from "@/components/wallet/WalletConnectionModal"
+import { AdminLoginWall } from "@/components/AdminLoginWall"
 import { useAuth } from "@/hooks/use-auth"
 import { TrendingUp, TrendingDown, Activity, DollarSign, Zap, Bell, Pause, Sparkles, Send } from "lucide-react"
 import {
@@ -118,7 +119,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationHeader currentPage="dashboard" />
-
+    <AdminLoginWall>
       {!user && (
         <>
           <div className="fixed inset-0 z-40 backdrop-blur-sm bg-background/30 pointer-events-none" />
