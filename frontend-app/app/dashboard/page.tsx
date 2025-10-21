@@ -129,8 +129,8 @@ export default function DashboardPage() {
         </>
       )}
 
-      <div className="flex h-[calc(100vh-80px)] pt-0">
-        <div className="flex w-80 flex-col border-r border-border">
+      <div className="flex min-h-[calc(100vh-64px)]">
+        <div className="flex w-80 flex-col border-r border-border h-[calc(100vh-64px)] sticky top-[64px]">
           <div className="flex flex-1 flex-col">
             <div className="border-b border-border p-4">
               <div className="mb-1 flex items-center gap-2">
@@ -194,7 +194,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1">
           <div className="container mx-auto px-6 py-6">
             <div className="mb-8 flex items-center justify-between">
               <div>
