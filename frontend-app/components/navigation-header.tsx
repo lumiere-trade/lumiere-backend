@@ -23,7 +23,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
 
   const usdcBalance = "993.35"
   const walletAddress = user?.walletAddress ? `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}` : "Not connected"
-  const walletType = "phantom"
+  const walletAddress = user?.walletAddress ? `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}` : "Not connected"
 
   const balances = [
     { symbol: "USDC", name: "USD Coin", amount: "993.353413", value: "$993.20", icon: "💵" },
