@@ -317,7 +317,7 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
           </DialogHeader>
 
           <ScrollArea className="h-[400px] rounded-md border border-primary/20 bg-card/30 p-6">
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
+            <pre className="whitespace-pre-wrap font-sans text-sm leading-loose text-foreground">
               {formattedContent}
             </pre>
           </ScrollArea>
