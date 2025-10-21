@@ -23,7 +23,7 @@ services:
   # -------------------------------------------
   postgres:
     image: postgres:15-alpine
-    container_name: lumiere-postgres
+    container_name: lumiere-dev-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -47,7 +47,7 @@ services:
   # -------------------------------------------
   pourtier:
     image: pourtier:development
-    container_name: lumiere-pourtier
+    container_name: lumiere-dev-pourtier
     restart: unless-stopped
     environment:
       ENV: ${ENV:-development}
@@ -87,7 +87,7 @@ services:
   # -------------------------------------------
   courier:
     image: courier:development
-    container_name: lumiere-courier
+    container_name: lumiere-dev-courier
     restart: unless-stopped
     environment:
       ENV: ${ENV:-development}
@@ -118,7 +118,7 @@ services:
   # -------------------------------------------
   passeur:
     image: passeur:development
-    container_name: lumiere-passeur
+    container_name: lumiere-dev-passeur
     restart: unless-stopped
     environment:
       ENV: ${ENV:-development}

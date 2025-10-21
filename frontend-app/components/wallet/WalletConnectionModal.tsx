@@ -14,9 +14,9 @@ import { ROUTES, AUTH_CONFIG } from "@/config/constants"
 import { container } from "@/lib/infrastructure/di/container"
 import type React from "react"
 import bs58 from "bs58"
-import { marked } from "marked"
 
 type WalletOption = {
+  name: string
   icon: React.ComponentType<{ className?: string }>
   recent?: boolean
   installUrl?: string
@@ -316,27 +316,9 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
           </DialogHeader>
 
           <ScrollArea className="h-[400px] rounded-md border border-primary/20 bg-card/30 p-6">
-            <div className="space-y-6 text-sm prose prose-invert prose-sm max-w-none">
-              {termsDoc ? (
-                <div dangerouslySetInnerHTML={{ __html: marked.parse(termsDoc.content) }} />
-              ) : (
-                <div className="space-y-6">
-                  <section>
-                    <h3 className="mb-2 text-lg font-semibold text-primary">1. Acceptance of Terms</h3>
-                    <p className="text-muted-foreground">
-                      By accessing and using LUMIERE, you accept and agree to be bound by the terms and provision of this
-                      agreement.
-                    </p>
-                  </section>
-                  <section>
-                    <h3 className="mb-2 text-lg font-semibold text-primary">2. Trading Risks</h3>
-                    <p className="text-muted-foreground">
-                      Trading cryptocurrencies involves substantial risk of loss. Past performance does not guarantee future results.
-                    </p>
-                  </section>
-                </div>
-              )}
-            </div>
+            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
+              {termsDoc?.content || "Loading terms..."}
+            </pre>
           </ScrollArea>
 
           <div className="flex items-center space-x-2 rounded-md border border-primary/20 bg-card/30 p-4">
