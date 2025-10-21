@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { NavigationHeader } from "@/components/navigation-header"
+import { WalletConnectionModal } from "@/components/wallet/WalletConnectionModal"
+import { useAuth } from "@/hooks/use-auth"
 import { TrendingUp, TrendingDown, Activity, DollarSign, Zap, Bell, Pause, Sparkles, Send } from "lucide-react"
 import {
   LineChart,
@@ -23,6 +25,9 @@ import {
 } from "recharts"
 
 export default function DashboardPage() {
+  const { user } = useAuth()
+  const [showWalletModal, setShowWalletModal] = useState(!user)
+  
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -102,13 +107,24 @@ export default function DashboardPage() {
   ]
 
   const winLossData = [
-    { name: "Wins", value: 87, color: "#d4a574" }, // Gold color for wins
-    { name: "Losses", value: 40, color: "#78716c" }, // Muted brown for losses
+    { name: "Wins", value: 87, color: "#d4a574" },
+    { name: "Losses", value: 40, color: "#78716c" },
   ]
 
   return (
     <div className="min-h-screen bg-background">
       <NavigationHeader currentPage="dashboard" />
+
+      {/* Blur overlay when not authenticated */}
+      {!user && (
+        <>
+          <div className="fixed inset-0 z-40 backdrop-blur-sm bg-background/30 pointer-events-none" />
+          <WalletConnectionModal
+            isOpen={showWalletModal}
+            onClose={() => setShowWalletModal(false)}
+          />
+        </>
+      )}
 
       <div className="flex h-[calc(100vh-80px)] pt-20">
         {/* Left Sidebar - Chat Interface */}
