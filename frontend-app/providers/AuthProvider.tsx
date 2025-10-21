@@ -35,6 +35,7 @@ interface AuthContextType {
   acceptPendingDocuments: (documentIds: string[]) => Promise<void>;
   checkCompliance: () => Promise<void>;
   loadLegalDocuments: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -72,6 +73,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setPendingDocuments(missing);
     } catch (err) {
       console.error('Failed to check compliance:', err);
+    }
+  }, [authService]);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      if (authService.isAuthenticated()) {
+        const currentUser = await authService.getCurrentUser();
+        setUser(currentUser);
+        setPendingDocuments(
+          currentUser.pendingDocuments.map((doc) =>
+            PendingDocument.fromApi({
+              id: doc.id,
+              document_type: doc.documentType,
+              version: doc.version,
+              title: doc.title,
+              content: doc.content,
+              status: doc.status,
+              effective_date: doc.effectiveDate.toISOString(),
+              created_at: doc.createdAt.toISOString(),
+              updated_at: doc.updatedAt.toISOString(),
+            })
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Failed to refresh user:', err);
     }
   }, [authService]);
 
@@ -177,7 +204,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       try {
         await authService.acceptPendingDocuments(documentIds);
-        
+
         const updatedUser = await authService.getCurrentUser();
         setUser(updatedUser);
         setPendingDocuments(
@@ -226,6 +253,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         acceptPendingDocuments,
         checkCompliance,
         loadLegalDocuments,
+        refreshUser,
         clearError,
       }}
     >
