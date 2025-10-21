@@ -138,7 +138,7 @@ export default function HomePage() {
         <Button
           size="lg"
           className="rounded-full px-12 md:px-16 py-5 md:py-6 text-lg md:text-xl font-bold"
-          onClick={() => window.location.href = 'http://localhost:3001'}
+          onClick={() => window.location.href = 'https://app.lumiere.trade'}
         >
           START TRADING
         </Button>
