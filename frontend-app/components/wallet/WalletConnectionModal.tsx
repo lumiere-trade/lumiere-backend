@@ -39,7 +39,7 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
   const [localError, setError] = useState<string | null>(null)
   const [connectedWalletAddress, setConnectedWalletAddress] = useState<string | null>(null)
 
-  const { login, createAccount, legalDocuments, loadLegalDocuments, error: authError } = useAuth()
+  const { refreshUser, legalDocuments, loadLegalDocuments, error: authError } = useAuth()
   const { error: walletError, disconnect } = useWallet()
   const solanaWallet = useSolanaWallet()
   const router = useRouter()
@@ -234,6 +234,8 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
         console.log('[Auth] Login successful!')
         container.updateAuthToken(loginResult.accessToken)
 
+        await refreshUser()
+
         onClose()
         router.push(ROUTES.DASHBOARD)
 
@@ -286,6 +288,8 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
 
       console.log('[Account] Account created successfully!')
       container.updateAuthToken(result.accessToken)
+
+      await refreshUser()
 
       setShowTermsDialog(false)
       onClose()
