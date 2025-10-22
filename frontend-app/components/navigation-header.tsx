@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useState } from "react"
-import { Settings, Copy, ArrowDownToLine, LogOut } from "lucide-react"
+import { Settings, Copy, Wallet, ArrowDownToLine, LogOut } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { WalletPanel } from "@/components/wallet/WalletPanel"
@@ -21,6 +21,8 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
   const [depositAmount, setDepositAmount] = useState("")
 
   const usdcBalance = "993.35"
+  const walletAddress = user?.walletAddress ? `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}` : "Not connected"
+  const walletType = "phantom"
 
   const handleDisconnect = async () => {
     try {
@@ -163,40 +165,34 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
                     </Button>
                   </div>
                 </div>
-
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-muted-foreground">Email</label>
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-3">
-                    <span className="flex-1 text-sm">{user?.email || "Not set"}</span>
-                  </div>
+                  <label className="text-sm font-semibold text-muted-foreground">Wallet Type</label>
+                  <div className="rounded-lg border border-border bg-card p-3 capitalize">{walletType}</div>
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-muted-foreground">Subscription</label>
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-3">
-                    <span className="flex-1 text-sm capitalize">{user?.subscription || "free"}</span>
-                  </div>
-                </div>
-
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-muted-foreground">Member Since</label>
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-3">
-                    <span className="flex-1 text-sm">
-                      {user?.createdAt 
-                        ? new Date(user.createdAt).toLocaleDateString('en-US', { 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
-                          })
-                        : "Unknown"}
-                    </span>
+                  <div className="rounded-lg border border-border bg-card p-3">
+                    {user?.createdAt ? user.createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : "Not available"}
                   </div>
                 </div>
               </div>
             </DialogContent>
           </Dialog>
 
-          <WalletPanel />
+          <WalletPanel
+            trigger={
+              <Button
+                variant="outline"
+                size="lg"
+                className="rounded-full bg-transparent font-semibold gap-2"
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20">
+                  <Wallet className="h-4 w-4 text-primary" />
+                </div>
+                {walletAddress}
+              </Button>
+            }
+          />
 
           <Button
             variant="outline"
