@@ -187,7 +187,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
                 className="group rounded-full font-semibold gap-2"
               >
                 <span className="isolate">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 transition-colors group-hover:bg-primary/30">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-foreground">
                     <Wallet className="h-4 w-4 text-primary" />
                   </div>
                 </span>
