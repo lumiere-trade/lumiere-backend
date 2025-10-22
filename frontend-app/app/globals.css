@@ -103,8 +103,9 @@
   }
 
   /* Outline buttons hover - same as LAUNCH APP button */
-  button[class*="variant-outline"]:hover,
-  button[class*="bg-transparent"]:hover {
+  /* Exclude outline-preserve-icon variant from global hover styles */
+  button[class*="variant-outline"]:not([class*="outline-preserve-icon"]):hover,
+  button[class*="bg-transparent"]:not([class*="outline-preserve-icon"]):hover {
     background-color: oklch(0.78 0.08 70) !important;
     color: oklch(0.18 0.03 40) !important;
     border-color: oklch(0.78 0.08 70) !important;
@@ -171,7 +172,7 @@
   html {
     font-size: 14px;
   }
-  
+
   /* Adjust container padding for mobile */
   .container {
     padding-left: 1rem;
