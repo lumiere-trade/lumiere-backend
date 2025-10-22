@@ -2,10 +2,13 @@
 JWT token handler for authentication.
 Provides token creation, validation, and user extraction.
 """
+
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional
+from typing import Dict
 from uuid import UUID
+
 from jose import JWTError, jwt
+
 from pourtier.config.settings import get_settings
 from pourtier.domain.exceptions.auth import ExpiredTokenError, InvalidTokenError
 

@@ -1,10 +1,11 @@
 """
 Authentication API schemas.
 """
+
 from typing import List, Optional
 from uuid import UUID
-from pydantic import BaseModel, Field
 
+from pydantic import BaseModel, Field
 
 # ================================================================
 # Verify Wallet Schemas
