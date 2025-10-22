@@ -27,6 +27,10 @@ class UserResponse(BaseModel):
 
     id: str
     wallet_address: str
+    wallet_type: str = Field(
+        default="Unknown",
+        description="Wallet application type (Phantom, Solflare, etc.)",
+    )
     escrow_account: Optional[str] = None
     escrow_balance: Decimal
     escrow_token_mint: Optional[str] = None
