@@ -182,7 +182,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
           <WalletPanel
             trigger={
               <Button
-                variant="outline-icon"
+                variant="outline-preserve-icon"
                 size="lg"
                 className="group rounded-full bg-transparent font-semibold gap-2"
               >
