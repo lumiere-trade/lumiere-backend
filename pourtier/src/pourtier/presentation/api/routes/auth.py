@@ -112,12 +112,11 @@ async def create_account(
     2. Verify user doesn't already exist
     3. Create user in database
     4. Record legal document acceptances
-    5. Generate JWT token
+    5. Generate JWT token with wallet_type
 
     Requires acceptance of all active legal documents.
     """
     try:
-        # 1. Verify signature first
         is_valid = await wallet_authenticator.verify_signature(
             wallet_address=request.wallet_address,
             message=request.message,
@@ -130,11 +129,9 @@ async def create_account(
                 reason="Invalid wallet signature",
             )
 
-        # 2. Extract IP and user agent from request
         ip_address = request.ip_address or req.client.host
         user_agent = request.user_agent or req.headers.get("user-agent")
 
-        # 3. Create user with legal acceptance
         user = await use_case.execute(
             wallet_address=request.wallet_address,
             accepted_document_ids=request.accepted_documents,
@@ -143,10 +140,10 @@ async def create_account(
             user_agent=user_agent,
         )
 
-        # 4. Generate JWT token
         access_token = jwt_handler.create_access_token(
             user_id=user.id,
             wallet_address=user.wallet_address,
+            wallet_type=request.wallet_type,
         )
 
         return CreateAccountResponse(
@@ -191,7 +188,7 @@ async def login(
     1. Verify wallet signature
     2. Get user from database
     3. Check legal compliance
-    4. Generate JWT token if compliant
+    4. Generate JWT token with wallet_type
     5. Return pending documents if not compliant
 
     User can login even if not compliant, but should be prompted
@@ -204,13 +201,12 @@ async def login(
             signature=request.signature,
         )
 
-        # Generate JWT token
         access_token = jwt_handler.create_access_token(
             user_id=result.user.id,
             wallet_address=result.user.wallet_address,
+            wallet_type=request.wallet_type,
         )
 
-        # Convert pending documents to response format
         pending_docs = [
             PendingDocumentInfo(
                 id=str(doc.id),

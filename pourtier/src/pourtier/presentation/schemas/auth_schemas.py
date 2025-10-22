@@ -1,11 +1,10 @@
 """
 Authentication API schemas.
 """
-
 from typing import List, Optional
 from uuid import UUID
-
 from pydantic import BaseModel, Field
+
 
 # ================================================================
 # Verify Wallet Schemas
@@ -50,6 +49,11 @@ class CreateAccountRequest(BaseModel):
     )
     signature: str = Field(..., description="Signed message (base58 encoded)")
     message: str = Field(..., description="Original message that was signed")
+    wallet_type: str = Field(
+        default="Unknown",
+        max_length=50,
+        description="Wallet application type (Phantom, Backpack, etc.)",
+    )
     accepted_documents: List[UUID] = Field(
         ...,
         description="List of document IDs being accepted",
@@ -84,6 +88,11 @@ class LoginRequest(BaseModel):
     )
     signature: str = Field(..., description="Signed message (base58 encoded)")
     message: str = Field(..., description="Original message that was signed")
+    wallet_type: str = Field(
+        default="Unknown",
+        max_length=50,
+        description="Wallet application type (Phantom, Backpack, etc.)",
+    )
 
 
 class PendingDocumentInfo(BaseModel):

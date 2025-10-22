@@ -69,17 +69,13 @@ class TestAuthFlow(LaborantTest):
         self.reporter.info(f"API URL: {self.api_base_url}", context="Setup")
         self.reporter.info(f"Alice wallet: {self.alice_wallet}", context="Setup")
 
-        # Setup database
         TestAuthFlow.db = Database(database_url=settings.DATABASE_URL, echo=False)
         await TestAuthFlow.db.connect()
 
-        # Reset database schema using public method
         await TestAuthFlow.db.reset_schema_for_testing(Base.metadata)
 
-        # Seed legal documents
         await self._seed_legal_documents()
 
-        # Wait for API
         await self._wait_for_api()
 
         self.reporter.info("E2E environment ready", context="Setup")
@@ -216,6 +212,7 @@ class TestAuthFlow(LaborantTest):
                     "wallet_address": self.alice_wallet,
                     "message": AUTH_MESSAGE,
                     "signature": signature,
+                    "wallet_type": "Phantom",
                     "accepted_documents": self.document_ids,
                     "ip_address": "127.0.0.1",
                     "user_agent": "E2E Test Client",
@@ -250,7 +247,6 @@ class TestAuthFlow(LaborantTest):
             assert data["id"] == self.user_id
             assert "pending_documents" in data
             assert isinstance(data["pending_documents"], list)
-            # User accepted docs during signup, so should be empty
             assert len(data["pending_documents"]) == 0
 
             self.reporter.info("Protected endpoint accessed", context="Test")
@@ -268,6 +264,7 @@ class TestAuthFlow(LaborantTest):
                     "wallet_address": self.alice_wallet,
                     "message": AUTH_MESSAGE,
                     "signature": signature,
+                    "wallet_type": "Phantom",
                 },
             )
 

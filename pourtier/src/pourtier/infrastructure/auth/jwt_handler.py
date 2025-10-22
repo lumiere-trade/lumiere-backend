@@ -1,26 +1,25 @@
 """
 JWT token handler for authentication.
-
 Provides token creation, validation, and user extraction.
 """
-
 from datetime import datetime, timedelta, timezone
-from typing import Dict
+from typing import Dict, Optional
 from uuid import UUID
-
 from jose import JWTError, jwt
-
 from pourtier.config.settings import get_settings
 from pourtier.domain.exceptions.auth import ExpiredTokenError, InvalidTokenError
 
 
-def create_access_token(user_id: UUID, wallet_address: str) -> str:
+def create_access_token(
+    user_id: UUID, wallet_address: str, wallet_type: str = "Unknown"
+) -> str:
     """
     Create JWT access token for authenticated user.
 
     Args:
         user_id: User UUID
         wallet_address: Solana wallet address
+        wallet_type: Wallet application type (Phantom, Backpack, etc.)
 
     Returns:
         Encoded JWT token string
@@ -28,24 +27,23 @@ def create_access_token(user_id: UUID, wallet_address: str) -> str:
     Example:
         >>> token = create_access_token(
         ...     user_id=UUID("..."),
-        ...     wallet_address="ABC123..."
+        ...     wallet_address="ABC123...",
+        ...     wallet_type="Phantom"
         ... )
     """
     now = datetime.now(timezone.utc)
     expire = now + timedelta(hours=get_settings().JWT_EXPIRATION_HOURS)
-
     payload = {
-        "sub": str(user_id),  # Subject (standard JWT claim)
+        "sub": str(user_id),
         "wallet": wallet_address,
-        "iat": now,  # Issued at
-        "exp": expire,  # Expiration time
-        "type": "access",  # Token type
+        "wallet_type": wallet_type,
+        "iat": now,
+        "exp": expire,
+        "type": "access",
     }
-
     token = jwt.encode(
         payload, get_settings().JWT_SECRET_KEY, algorithm=get_settings().JWT_ALGORITHM
     )
-
     return token
 
 
@@ -57,7 +55,7 @@ def decode_access_token(token: str) -> Dict[str, str]:
         token: JWT token string
 
     Returns:
-        Dictionary with decoded payload (user_id, wallet_address)
+        Dictionary with decoded payload (user_id, wallet_address, wallet_type)
 
     Raises:
         ExpiredTokenError: If token has expired
@@ -65,8 +63,9 @@ def decode_access_token(token: str) -> Dict[str, str]:
 
     Example:
         >>> payload = decode_access_token("eyJhbG...")
-        >>> payload["user_id"]  # UUID string
-        >>> payload["wallet_address"]  # Wallet string
+        >>> payload["user_id"]
+        >>> payload["wallet_address"]
+        >>> payload["wallet_type"]
     """
     try:
         payload = jwt.decode(
@@ -74,16 +73,15 @@ def decode_access_token(token: str) -> Dict[str, str]:
             get_settings().JWT_SECRET_KEY,
             algorithms=[get_settings().JWT_ALGORITHM],
         )
-
-        # Validate required fields
         user_id = payload.get("sub")
         wallet = payload.get("wallet")
-
         if not user_id or not wallet:
             raise InvalidTokenError()
-
-        return {"user_id": user_id, "wallet_address": wallet}
-
+        return {
+            "user_id": user_id,
+            "wallet_address": wallet,
+            "wallet_type": payload.get("wallet_type", "Unknown"),
+        }
     except jwt.ExpiredSignatureError:
         raise ExpiredTokenError()
     except JWTError:
@@ -149,3 +147,23 @@ def extract_wallet_address(token: str) -> str:
     """
     payload = decode_access_token(token)
     return payload["wallet_address"]
+
+
+def extract_wallet_type(token: str) -> str:
+    """
+    Extract wallet type from token.
+
+    Args:
+        token: JWT token string
+
+    Returns:
+        Wallet type string
+
+    Raises:
+        InvalidTokenError: If token is invalid
+
+    Example:
+        >>> wallet_type = extract_wallet_type(token)
+    """
+    payload = decode_access_token(token)
+    return payload["wallet_type"]

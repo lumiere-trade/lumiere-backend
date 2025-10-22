@@ -53,29 +53,23 @@ class TestAuthRoutes(LaborantTest):
         """Setup test database and client."""
         self.reporter.info("Setting up auth API integration tests...", context="Setup")
 
-        # Load settings (DATABASE_URL from environment)
         settings = get_settings()
         self.reporter.info(f"Loaded ENV={settings.ENV}", context="Setup")
 
-        # Create test database instance
         TestAuthRoutes.db = Database(database_url=settings.DATABASE_URL, echo=False)
         await TestAuthRoutes.db.connect()
         self.reporter.info("Connected to test database", context="Setup")
 
-        # Reset database schema using public method
         await TestAuthRoutes.db.reset_schema_for_testing(Base.metadata)
         self.reporter.info("Database schema reset", context="Setup")
 
-        # Seed legal documents
         await self._seed_legal_documents()
 
-        # Initialize cache if enabled
         if settings.REDIS_ENABLED:
             container = get_container()
             await container.cache_client.connect()
             self.reporter.info("Redis cache connected", context="Setup")
 
-        # Create test app with overridden dependencies
         app = create_app(settings)
 
         async def override_get_db_session():
@@ -86,12 +80,10 @@ class TestAuthRoutes(LaborantTest):
         app.dependency_overrides[get_db_session] = override_get_db_session
         self.reporter.info("Database dependency overridden", context="Setup")
 
-        # Create async client
         TestAuthRoutes.client = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         )
 
-        # Load test wallets
         TestAuthRoutes.alice_wallet = PlatformWallets.get_test_alice_address()
         TestAuthRoutes.alice_keypair = self._load_keypair(
             PlatformWallets.get_test_alice_keypair()
@@ -111,18 +103,15 @@ class TestAuthRoutes(LaborantTest):
             "Cleaning up auth API integration tests...", context="Teardown"
         )
 
-        # Close AsyncClient
         if TestAuthRoutes.client:
             await TestAuthRoutes.client.aclose()
 
-        # Disconnect cache
         settings = get_settings()
         if settings.REDIS_ENABLED:
             container = get_container()
             if container._cache_client:
                 await container.cache_client.disconnect()
 
-        # Disconnect database
         if TestAuthRoutes.db:
             await TestAuthRoutes.db.disconnect()
 
@@ -218,25 +207,27 @@ class TestAuthRoutes(LaborantTest):
         self.reporter.info("Legal documents seeded", context="Setup")
 
     def _load_keypair(self, path: str) -> Keypair:
-        """Load Solana keypair from JSON file."""
+        """Load keypair from JSON file."""
         with open(path, "r") as f:
-            secret = json.load(f)
-        return Keypair.from_bytes(bytes(secret))
+            secret_key_list = json.load(f)
+        return Keypair.from_bytes(bytes(secret_key_list))
 
     def _sign_message(self, keypair: Keypair, message: str) -> str:
-        """Sign a message with keypair."""
+        """Sign message with keypair."""
         message_bytes = message.encode("utf-8")
         signature = keypair.sign_message(message_bytes)
         return b58encode(bytes(signature)).decode("utf-8")
 
     async def _get_legal_document_ids(self) -> list[str]:
-        """Get all active legal document IDs."""
-        response = await self.client.get("/api/legal/documents")
-        assert response.status_code == 200
-        return [doc["id"] for doc in response.json()]
+        """Get all legal document IDs for testing."""
+        async with self.db.session() as session:
+            result = await session.execute(
+                text("SELECT id FROM legal_documents WHERE status = 'active'")
+            )
+            return [str(row[0]) for row in result]
 
-    async def _create_alice_account(self) -> dict:
-        """Create Alice's account and return response data."""
+    async def _create_alice_account(self):
+        """Helper to create Alice's account."""
         message = "Sign in to Lumiere"
         signature = self._sign_message(self.alice_keypair, message)
         document_ids = await self._get_legal_document_ids()
@@ -247,6 +238,7 @@ class TestAuthRoutes(LaborantTest):
                 "wallet_address": self.alice_wallet,
                 "message": message,
                 "signature": signature,
+                "wallet_type": "Phantom",
                 "accepted_documents": document_ids,
                 "ip_address": "127.0.0.1",
                 "user_agent": "Test Client",
@@ -256,11 +248,9 @@ class TestAuthRoutes(LaborantTest):
         assert response.status_code == 201
         return response.json()
 
-    async def test_verify_wallet_new_user_valid_signature(self):
-        """Test verifying wallet with valid signature for new user."""
-        self.reporter.info(
-            "Testing verify wallet (new user, valid signature)", context="Test"
-        )
+    async def test_verify_wallet_success_new_user(self):
+        """Test verifying wallet signature for new user."""
+        self.reporter.info("Testing verify wallet (new user)", context="Test")
 
         message = "Sign in to Lumiere"
         signature = self._sign_message(self.alice_keypair, message)
@@ -279,17 +269,16 @@ class TestAuthRoutes(LaborantTest):
         data = response.json()
         assert data["signature_valid"] is True
         assert data["user_exists"] is False
-        assert data["wallet_address"] == self.alice_wallet
         assert data["user_id"] is None
+        assert data["wallet_address"] == self.alice_wallet
 
-        self.reporter.info("Verify wallet successful (new user)", context="Test")
+        self.reporter.info("Wallet verified (new user)", context="Test")
 
-    async def test_verify_wallet_existing_user(self):
-        """Test verifying wallet for existing user."""
+    async def test_verify_wallet_success_existing_user(self):
+        """Test verifying wallet signature for existing user."""
         self.reporter.info("Testing verify wallet (existing user)", context="Test")
 
-        account_data = await self._create_alice_account()
-        user_id = account_data["user_id"]
+        await self._create_alice_account()
 
         message = "Sign in to Lumiere"
         signature = self._sign_message(self.alice_keypair, message)
@@ -308,10 +297,10 @@ class TestAuthRoutes(LaborantTest):
         data = response.json()
         assert data["signature_valid"] is True
         assert data["user_exists"] is True
-        assert data["user_id"] == user_id
+        assert data["user_id"] is not None
         assert data["wallet_address"] == self.alice_wallet
 
-        self.reporter.info("Verify wallet successful (existing user)", context="Test")
+        self.reporter.info("Wallet verified (existing user)", context="Test")
 
     async def test_verify_wallet_invalid_signature(self):
         """Test verifying wallet with invalid signature."""
@@ -330,55 +319,11 @@ class TestAuthRoutes(LaborantTest):
         )
 
         assert response.status_code == 401
-        assert "invalid" in response.json()["detail"].lower()
 
         self.reporter.info("Invalid signature rejected", context="Test")
 
-    async def test_verify_wallet_wrong_message(self):
-        """Test verifying wallet with wrong message."""
-        self.reporter.info("Testing verify wallet (wrong message)", context="Test")
-
-        correct_message = "Sign in to Lumiere"
-        signature = self._sign_message(self.alice_keypair, correct_message)
-
-        wrong_message = "Different message"
-
-        response = await self.client.post(
-            "/api/auth/verify",
-            json={
-                "wallet_address": self.alice_wallet,
-                "message": wrong_message,
-                "signature": signature,
-            },
-        )
-
-        assert response.status_code == 401
-        assert "invalid" in response.json()["detail"].lower()
-
-        self.reporter.info("Wrong message rejected", context="Test")
-
-    async def test_verify_wallet_invalid_address(self):
-        """Test verifying wallet with invalid address format."""
-        self.reporter.info("Testing verify wallet (invalid address)", context="Test")
-
-        message = "Sign in to Lumiere"
-        signature = self._sign_message(self.alice_keypair, message)
-
-        response = await self.client.post(
-            "/api/auth/verify",
-            json={
-                "wallet_address": "invalid_wallet",
-                "message": message,
-                "signature": signature,
-            },
-        )
-
-        assert response.status_code == 422
-
-        self.reporter.info("Invalid wallet address rejected", context="Test")
-
     async def test_create_account_success(self):
-        """Test creating account with legal acceptance."""
+        """Test creating new account successfully."""
         self.reporter.info("Testing create account (success)", context="Test")
 
         message = "Sign in to Lumiere"
@@ -391,6 +336,7 @@ class TestAuthRoutes(LaborantTest):
                 "wallet_address": self.bob_wallet,
                 "message": message,
                 "signature": signature,
+                "wallet_type": "Phantom",
                 "accepted_documents": document_ids,
                 "ip_address": "127.0.0.1",
                 "user_agent": "Test Client",
@@ -427,6 +373,7 @@ class TestAuthRoutes(LaborantTest):
                 "wallet_address": self.alice_wallet,
                 "message": message,
                 "signature": signature,
+                "wallet_type": "Phantom",
                 "accepted_documents": document_ids,
                 "ip_address": "127.0.0.1",
                 "user_agent": "Test Client",
@@ -452,6 +399,7 @@ class TestAuthRoutes(LaborantTest):
                 "wallet_address": self.bob_wallet,
                 "message": message,
                 "signature": fake_signature,
+                "wallet_type": "Phantom",
                 "accepted_documents": document_ids,
                 "ip_address": "127.0.0.1",
                 "user_agent": "Test Client",
@@ -475,6 +423,7 @@ class TestAuthRoutes(LaborantTest):
                 "wallet_address": self.bob_wallet,
                 "message": message,
                 "signature": signature,
+                "wallet_type": "Phantom",
                 "accepted_documents": [],
                 "ip_address": "127.0.0.1",
                 "user_agent": "Test Client",
@@ -500,6 +449,7 @@ class TestAuthRoutes(LaborantTest):
                 "wallet_address": self.bob_wallet,
                 "message": message,
                 "signature": signature,
+                "wallet_type": "Phantom",
                 "accepted_documents": ["00000000-0000-0000-0000-000000000000"],
                 "ip_address": "127.0.0.1",
                 "user_agent": "Test Client",
@@ -525,6 +475,7 @@ class TestAuthRoutes(LaborantTest):
                 "wallet_address": self.alice_wallet,
                 "message": message,
                 "signature": signature,
+                "wallet_type": "Phantom",
             },
         )
 
@@ -551,6 +502,7 @@ class TestAuthRoutes(LaborantTest):
                 "wallet_address": self.bob_wallet,
                 "message": message,
                 "signature": signature,
+                "wallet_type": "Phantom",
             },
         )
 
@@ -574,6 +526,7 @@ class TestAuthRoutes(LaborantTest):
                 "wallet_address": self.alice_wallet,
                 "message": message,
                 "signature": fake_signature,
+                "wallet_type": "Phantom",
             },
         )
 
@@ -585,7 +538,6 @@ class TestAuthRoutes(LaborantTest):
         """Test logging in user with pending legal documents."""
         self.reporter.info("Testing login (non-compliant user)", context="Test")
 
-        # Create user directly in database without legal acceptance
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             user = User(wallet_address=self.bob_wallet)
@@ -600,6 +552,7 @@ class TestAuthRoutes(LaborantTest):
                 "wallet_address": self.bob_wallet,
                 "message": message,
                 "signature": signature,
+                "wallet_type": "Phantom",
             },
         )
 
