@@ -207,7 +207,9 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
             if "already" in error_msg or "not delegated" in error_msg:
                 self.reporter.info("  - No authority to revoke", context="Setup")
             else:
-                self.reporter.warning(f"  ⚠ Revoke failed: {str(e)[:60]}", context="Setup")
+                self.reporter.warning(
+                    f"  ⚠ Revoke failed: {str(e)[:60]}", context="Setup"
+                )
 
         try:
             sig, _ = self.transaction_signer.prepare_and_sign_withdraw(
@@ -220,7 +222,9 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
             if "empty" in error_msg or "zero" in error_msg:
                 self.reporter.info("  - No funds to withdraw", context="Setup")
             else:
-                self.reporter.warning(f"  ⚠ Withdraw failed: {str(e)[:60]}", context="Setup")
+                self.reporter.warning(
+                    f"  ⚠ Withdraw failed: {str(e)[:60]}", context="Setup"
+                )
 
         max_retries = 3
         base_delay = 2
