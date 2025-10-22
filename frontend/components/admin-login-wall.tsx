@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useAdminAuth } from '@/src/contexts/AdminAuthContext';
+import { Lock, AlertCircle } from 'lucide-react';
 
 export function AdminLoginWall({ children }: { children: React.ReactNode }) {
   const { isAdminAuthenticated, adminLogin } = useAdminAuth();
@@ -18,12 +21,12 @@ export function AdminLoginWall({ children }: { children: React.ReactNode }) {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const success = adminLogin(username, password);
-    
+
     if (!success) {
       setError('Invalid credentials');
       setPassword('');
     }
-    
+
     setIsLoading(false);
   };
 
@@ -34,50 +37,59 @@ export function AdminLoginWall({ children }: { children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md">
       <div className="w-full max-w-md mx-4">
-        <div className="rounded-2xl border-2 border-[#d4a574]/30 bg-[#1a1410]/95 shadow-2xl backdrop-blur-sm p-8">
+        <div className="rounded-2xl border-2 border-primary/30 bg-background/95 shadow-2xl backdrop-blur-sm p-8">
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#d4a574]/20">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-[#d4a574]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/20">
+              <Lock className="h-8 w-8 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold text-[#d4a574]">LUMIERE</h1>
-            <p className="mt-2 text-sm text-[#a0826d]">Site under development</p>
+            <h1 className="text-3xl font-bold text-primary">LUMIERE</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Site under development
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <input
-              type="text"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-full border border-[#d4a574]/30 bg-[#2a2420] px-4 py-3 text-white placeholder-[#a0826d] focus:border-[#d4a574] focus:outline-none"
-              disabled={isLoading}
-              autoComplete="username"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-full border border-[#d4a574]/30 bg-[#2a2420] px-4 py-3 text-white placeholder-[#a0826d] focus:border-[#d4a574] focus:outline-none"
-              disabled={isLoading}
-              autoComplete="current-password"
-            />
+            <div>
+              <Input
+                type="text"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="rounded-full border-primary/30 bg-card"
+                disabled={isLoading}
+                autoComplete="username"
+              />
+            </div>
+
+            <div>
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="rounded-full border-primary/30 bg-card"
+                disabled={isLoading}
+                autoComplete="current-password"
+              />
+            </div>
+
             {error && (
               <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-500">
+                <AlertCircle className="h-4 w-4" />
                 <span>{error}</span>
               </div>
             )}
-            <button
+
+            <Button
               type="submit"
-              className="w-full rounded-full bg-[#d4a574] py-3 text-lg font-bold text-black hover:bg-[#c49564] disabled:opacity-50 transition-colors"
+              className="w-full rounded-full py-6 text-lg font-bold"
               disabled={isLoading || !username || !password}
             >
               {isLoading ? 'Authenticating...' : 'Enter'}
-            </button>
+            </Button>
           </form>
-          <p className="mt-6 text-center text-xs text-[#a0826d]">
+
+          <p className="mt-6 text-center text-xs text-muted-foreground">
             Access restricted to authorized personnel
           </p>
         </div>
