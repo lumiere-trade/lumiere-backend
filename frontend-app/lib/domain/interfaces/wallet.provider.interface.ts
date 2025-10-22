@@ -14,4 +14,5 @@ export interface IWalletProvider {
   signMessage(message: string): Promise<SignatureResult>;
   isConnected(): boolean;
   getAddress(): string | null;
+  getWalletType(): string;
 }

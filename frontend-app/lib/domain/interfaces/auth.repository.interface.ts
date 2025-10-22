@@ -1,22 +1,20 @@
 /**
- * Auth Repository Interface (Port in Hexagonal Architecture).
+ * Auth Repository Interface (Port).
  * Defines contract for authentication operations.
  */
-import type { User } from '../entities/user.entity';
-import type { LegalDocument } from '../entities/legal-document.entity';
-import type { PendingDocument } from '../entities/pending-document.entity';
+
+import { User } from '../entities/user.entity';
+import { PendingDocument } from '../entities/pending-document.entity';
+import { LegalDocument } from '../entities/legal-document.entity';
 
 export interface VerifyWalletResult {
   signatureValid: boolean;
   userExists: boolean;
-  userId: string | null;
-  walletAddress: string;
 }
 
 export interface LoginResult {
   user: User;
   accessToken: string;
-  isCompliant: boolean;
   pendingDocuments: PendingDocument[];
 }
 
@@ -25,8 +23,7 @@ export interface CreateAccountResult {
   accessToken: string;
 }
 
-export interface ComplianceResult {
-  isCompliant: boolean;
+export interface CheckComplianceResult {
   missingDocuments: PendingDocument[];
 }
 
@@ -40,19 +37,21 @@ export interface IAuthRepository {
   login(
     walletAddress: string,
     message: string,
-    signature: string
+    signature: string,
+    walletType: string
   ): Promise<LoginResult>;
 
   createAccount(
     walletAddress: string,
     message: string,
     signature: string,
+    walletType: string,
     acceptedDocumentIds: string[]
   ): Promise<CreateAccountResult>;
 
   getCurrentUser(): Promise<User>;
 
-  checkCompliance(): Promise<ComplianceResult>;
+  checkCompliance(): Promise<CheckComplianceResult>;
 
   acceptDocuments(documentIds: string[]): Promise<void>;
 

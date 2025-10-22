@@ -88,11 +88,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
               document_type: doc.documentType,
               version: doc.version,
               title: doc.title,
-              content: doc.content,
-              status: doc.status,
-              effective_date: doc.effectiveDate.toISOString(),
-              created_at: doc.createdAt.toISOString(),
-              updated_at: doc.updatedAt.toISOString(),
             })
           )
         );
@@ -118,11 +113,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 document_type: doc.documentType,
                 version: doc.version,
                 title: doc.title,
-                content: doc.content,
-                status: doc.status,
-                effective_date: doc.effectiveDate.toISOString(),
-                created_at: doc.createdAt.toISOString(),
-                updated_at: doc.updatedAt.toISOString(),
               })
             )
           );
@@ -214,11 +204,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
               document_type: doc.documentType,
               version: doc.version,
               title: doc.title,
-              content: doc.content,
-              status: doc.status,
-              effective_date: doc.effectiveDate.toISOString(),
-              created_at: doc.createdAt.toISOString(),
-              updated_at: doc.updatedAt.toISOString(),
             })
           )
         );
