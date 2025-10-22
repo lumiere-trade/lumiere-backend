@@ -9,6 +9,7 @@ export class User {
   constructor(
     public readonly id: string,
     public readonly walletAddress: string,
+    public readonly walletType: string,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
     public readonly pendingDocuments: LegalDocument[] = []
@@ -17,6 +18,7 @@ export class User {
   static fromApi(data: {
     id: string;
     wallet_address: string;
+    wallet_type?: string;
     created_at: string;
     updated_at: string;
     pending_documents?: Array<{
@@ -38,6 +40,7 @@ export class User {
     return new User(
       data.id,
       data.wallet_address,
+      data.wallet_type || 'Unknown Wallet',
       new Date(data.created_at),
       new Date(data.updated_at),
       pendingDocuments
