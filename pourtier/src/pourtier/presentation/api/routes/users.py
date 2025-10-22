@@ -11,6 +11,7 @@ Provides endpoints for user management:
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from pourtier.application.use_cases.check_user_legal_compliance import (
     CheckUserLegalCompliance,
@@ -32,6 +33,7 @@ from pourtier.di.dependencies import (
 )
 from pourtier.domain.entities.user import User
 from pourtier.domain.exceptions import EntityNotFoundError, ValidationError
+from pourtier.infrastructure.auth.jwt_handler import extract_wallet_type
 from pourtier.presentation.api.middleware.auth import get_current_user
 from pourtier.presentation.schemas.legal_schemas import LegalDocumentResponse
 from pourtier.presentation.schemas.user_schemas import (
@@ -40,6 +42,7 @@ from pourtier.presentation.schemas.user_schemas import (
 )
 
 router = APIRouter(prefix="/users", tags=["Users"])
+security = HTTPBearer()
 
 
 @router.post(
@@ -75,6 +78,7 @@ async def create_user(
         return UserResponse(
             id=str(user.id),
             wallet_address=user.wallet_address,
+            wallet_type="Unknown",
             escrow_account=user.escrow_account,
             escrow_balance=user.escrow_balance,
             escrow_token_mint=user.escrow_token_mint,
@@ -104,6 +108,7 @@ async def create_user(
 )
 async def get_current_user_profile(
     current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     compliance_use_case: CheckUserLegalCompliance = Depends(
         get_check_user_legal_compliance
     ),
@@ -116,6 +121,7 @@ async def get_current_user_profile(
 
     Args:
         current_user: User from JWT token (injected by dependency)
+        credentials: JWT token credentials
         compliance_use_case: Legal compliance use case (injected)
 
     Returns:
@@ -124,6 +130,10 @@ async def get_current_user_profile(
     Raises:
         HTTPException: 403 if authentication fails
     """
+    # Extract wallet_type from JWT token
+    token = credentials.credentials
+    wallet_type = extract_wallet_type(token)
+
     # Check legal compliance
     _, pending_documents = await compliance_use_case.execute(current_user.id)
 
@@ -146,6 +156,7 @@ async def get_current_user_profile(
     return UserResponse(
         id=str(current_user.id),
         wallet_address=current_user.wallet_address,
+        wallet_type=wallet_type,
         escrow_account=current_user.escrow_account,
         escrow_balance=current_user.escrow_balance,
         escrow_token_mint=current_user.escrow_token_mint,
@@ -188,6 +199,7 @@ async def get_user_profile(
         return UserResponse(
             id=str(user.id),
             wallet_address=user.wallet_address,
+            wallet_type="Unknown",
             escrow_account=user.escrow_account,
             escrow_balance=user.escrow_balance,
             escrow_token_mint=user.escrow_token_mint,
@@ -241,6 +253,7 @@ async def get_user_by_wallet(
         return UserResponse(
             id=str(user.id),
             wallet_address=user.wallet_address,
+            wallet_type="Unknown",
             escrow_account=user.escrow_account,
             escrow_balance=user.escrow_balance,
             escrow_token_mint=user.escrow_token_mint,

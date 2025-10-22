@@ -134,13 +134,14 @@ class TestUserRoutes(LaborantTest):
 
             return await user_repo.create(user)
 
-    def _generate_test_token(self, user: User) -> str:
+    def _generate_test_token(self, user: User, wallet_type: str = "Phantom") -> str:
         """Generate test JWT token for user."""
         from pourtier.infrastructure.auth.jwt_handler import create_access_token
 
         return create_access_token(
             user_id=user.id,
             wallet_address=user.wallet_address,
+            wallet_type=wallet_type,
         )
 
     def _auth_headers(self, token: str) -> dict:
@@ -163,6 +164,7 @@ class TestUserRoutes(LaborantTest):
         data = response.json()
         assert "id" in data
         assert data["wallet_address"] == wallet
+        assert data["wallet_type"] == "Unknown"
         assert data["escrow_account"] is None
         assert Decimal(data["escrow_balance"]) == Decimal("0")
         assert "created_at" in data
@@ -215,7 +217,7 @@ class TestUserRoutes(LaborantTest):
         self.reporter.info("Testing get current user (success)", context="Test")
 
         user = await self._create_test_user(with_escrow=True)
-        token = self._generate_test_token(user)
+        token = self._generate_test_token(user, wallet_type="Phantom")
 
         response = await self.client.get(
             "/api/users/me",
@@ -227,6 +229,7 @@ class TestUserRoutes(LaborantTest):
         data = response.json()
         assert data["id"] == str(user.id)
         assert data["wallet_address"] == user.wallet_address
+        assert data["wallet_type"] == "Phantom"
         assert data["escrow_account"] == user.escrow_account
         assert Decimal(data["escrow_balance"]) == Decimal("100.0")
         assert "pending_documents" in data
@@ -272,6 +275,7 @@ class TestUserRoutes(LaborantTest):
         data = response.json()
         assert data["id"] == str(user.id)
         assert data["wallet_address"] == user.wallet_address
+        assert data["wallet_type"] == "Unknown"
         assert data["escrow_account"] == user.escrow_account
         assert "pending_documents" in data
 
@@ -313,6 +317,7 @@ class TestUserRoutes(LaborantTest):
         data = response.json()
         assert data["id"] == str(user.id)
         assert data["wallet_address"] == user.wallet_address
+        assert data["wallet_type"] == "Unknown"
         assert data["escrow_account"] == user.escrow_account
         assert "pending_documents" in data
 
