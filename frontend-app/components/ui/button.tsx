@@ -13,7 +13,7 @@ const buttonVariants = cva(
         outline:
           'border bg-background shadow-xs hover:bg-primary hover:text-primary-foreground hover:border-primary dark:bg-input/30 dark:border-input',
         'outline-preserve-icon':
-          'border bg-background shadow-xs hover:bg-primary hover:text-primary-foreground hover:border-primary dark:bg-input/30 dark:border-input [&_svg]:!text-primary [&_div]:!bg-primary/20',
+          'border bg-background shadow-xs hover:bg-primary hover:border-primary dark:bg-input/30 dark:border-input [&>*:not(div):not(svg)]:hover:text-primary-foreground',
         secondary:
           'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost:
