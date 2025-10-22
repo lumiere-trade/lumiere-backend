@@ -102,15 +102,6 @@
     cursor: pointer;
   }
 
-  /* Outline buttons hover - same as LAUNCH APP button */
-  /* Exclude outline-preserve-icon variant from global hover styles */
-  button[class*="variant-outline"]:not([class*="outline-preserve-icon"]):hover,
-  button[class*="bg-transparent"]:not([class*="outline-preserve-icon"]):hover {
-    background-color: oklch(0.78 0.08 70) !important;
-    color: oklch(0.18 0.03 40) !important;
-    border-color: oklch(0.78 0.08 70) !important;
-  }
-
   ::-webkit-scrollbar {
     width: 12px;
     height: 12px;
@@ -139,41 +130,34 @@
 
 /* Responsive scaling for different screen sizes */
 @media (max-width: 1920px) and (min-width: 1440px) {
-  /* Standard laptops - scale down slightly */
   html {
     font-size: 14px;
   }
 }
 
 @media (max-width: 1439px) {
-  /* Smaller laptops - scale down more */
   html {
     font-size: 12px;
   }
 }
 
 @media (min-width: 1921px) {
-  /* Large monitors - keep normal or slightly larger */
   html {
     font-size: 16px;
   }
 }
 
 @media (min-width: 2560px) {
-  /* 4K monitors - scale up */
   html {
     font-size: 18px;
   }
 }
 
-/* Mobile responsive design */
 @media (max-width: 768px) {
-  /* Mobile phones - smaller base font */
   html {
     font-size: 14px;
   }
 
-  /* Adjust container padding for mobile */
   .container {
     padding-left: 1rem;
     padding-right: 1rem;
@@ -181,7 +165,6 @@
 }
 
 @media (max-width: 640px) {
-  /* Small mobile phones */
   html {
     font-size: 13px;
   }
