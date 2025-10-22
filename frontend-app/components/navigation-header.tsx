@@ -184,9 +184,9 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
               <Button
                 variant="outline"
                 size="lg"
-                className="rounded-full bg-transparent font-semibold gap-2"
+                className="group rounded-full bg-transparent font-semibold gap-2"
               >
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 transition-colors group-hover:bg-primary/30">
                   <Wallet className="h-4 w-4 text-primary" />
                 </div>
                 {walletAddress}
