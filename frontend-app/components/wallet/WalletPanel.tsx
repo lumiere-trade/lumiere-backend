@@ -13,10 +13,10 @@ interface WalletPanelProps {
 
 export function WalletPanel({ trigger }: WalletPanelProps) {
   const { user } = useAuth()
-  const { disconnect, wallet } = useWallet()
+  const { disconnect } = useWallet()
 
   const walletAddress = user?.walletAddress ? `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}` : "Not connected"
-  const walletType = wallet?.adapter.name || "Unknown"
+  const walletType = user?.walletType || "Unknown Wallet"
 
   const mockData = {
     totalBalance: 1193.83,
@@ -60,7 +60,7 @@ export function WalletPanel({ trigger }: WalletPanelProps) {
           </Button>
         )}
       </SheetTrigger>
-      <SheetContent className="w-[400px] sm:w-[540px] bg-background border-l border-primary/20">
+      <SheetContent className="w-[400px] sm:w-[540px] bg-background border-l border-primary/20 [&>button]:hidden">
         <SheetHeader className="border-b border-border pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -69,7 +69,7 @@ export function WalletPanel({ trigger }: WalletPanelProps) {
               </div>
               <div>
                 <SheetTitle className="text-xl font-bold">{walletAddress}</SheetTitle>
-                <p className="text-sm text-muted-foreground capitalize">{walletType} Wallet</p>
+                <p className="text-sm text-muted-foreground">{walletType}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
