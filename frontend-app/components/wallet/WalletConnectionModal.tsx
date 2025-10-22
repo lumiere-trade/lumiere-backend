@@ -94,7 +94,7 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
             solanaWallet.select(walletAdapter.adapter.name)
           }
 
-          await authenticateWithBackend(walletAddress)
+          await authenticateWithBackend(walletAddress, wallet.name)
           return
         }
 
@@ -121,7 +121,7 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
             }
           }
 
-          await authenticateWithBackend(walletAddress)
+          await authenticateWithBackend(walletAddress, wallet.name)
 
         } catch (connectError: any) {
           console.error('[Wallet] Phantom connection failed:', connectError)
@@ -170,11 +170,14 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
         await new Promise(resolve => setTimeout(resolve, 500))
 
         const walletAddress = solanaWallet.publicKey?.toString()
-        if (walletAddress) {
-          setConnectedWalletAddress(walletAddress)
-          await authenticateWithBackend(walletAddress)
+        if (!walletAddress) {
+          throw new Error('Failed to get wallet address')
         }
+
+        setConnectedWalletAddress(walletAddress)
+        await authenticateWithBackend(walletAddress, wallet.name)
       }
+
     } catch (error: any) {
       console.error('[Wallet] Connection error:', error)
 
@@ -188,8 +191,8 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
     }
   }
 
-  const authenticateWithBackend = async (walletAddress: string) => {
-    console.log('[Auth] Authenticating with backend, wallet:', walletAddress)
+  const authenticateWithBackend = async (walletAddress: string, walletType: string) => {
+    console.log('[Auth] Authenticating with backend, wallet:', walletAddress, 'type:', walletType)
 
     try {
       const provider = (window as any).phantom?.solana
@@ -228,7 +231,8 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
         const loginResult = await authRepository.login(
           walletAddress,
           message,
-          signature
+          signature,
+          walletType
         )
 
         console.log('[Auth] Login successful!')
@@ -257,7 +261,7 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
   }
 
   const handleConfirmTerms = async () => {
-    if (!agreedToTerms || !connectedWalletAddress) return
+    if (!agreedToTerms || !connectedWalletAddress || !selectedWallet) return
 
     setIsProcessing(true)
     setError(null)
@@ -283,6 +287,7 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
         connectedWalletAddress,
         message,
         signature,
+        selectedWallet,
         documentIds
       )
 
@@ -305,59 +310,66 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
   const handleCancelTerms = () => {
     setShowTermsDialog(false)
     setAgreedToTerms(false)
-    setConnectedWalletAddress(null)
     disconnect()
+    setIsProcessing(false)
   }
-
-  const termsDoc = legalDocuments.find(doc => doc.documentType === 'terms_of_service')
-  const formattedContent = termsDoc?.content.split('\\n').join('\n') || "Loading terms..."
 
   if (showTermsDialog) {
     return (
-      <Dialog open={showTermsDialog} onOpenChange={handleCancelTerms}>
-        <DialogContent className="max-w-2xl bg-background border-2 border-primary/30 rounded-2xl shadow-2xl">
+      <Dialog open={showTermsDialog} onOpenChange={setShowTermsDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-primary">Terms of Use & Legal Agreements</DialogTitle>
+            <DialogTitle className="text-2xl font-bold">Terms & Conditions</DialogTitle>
           </DialogHeader>
 
-          <ScrollArea className="h-[400px] rounded-md border border-primary/20 bg-card/30 p-6">
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
-              {formattedContent}
-            </pre>
-          </ScrollArea>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Please review and accept the following legal documents to continue:
+            </p>
 
-          <div className="flex items-center space-x-2 rounded-md border border-primary/20 bg-card/30 p-4">
-            <Checkbox
-              id="terms"
-              checked={agreedToTerms}
-              onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
-              disabled={isProcessing}
-            />
-            <label htmlFor="terms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              I have read and agree to the Terms of Use and Legal Agreements
-            </label>
-          </div>
+            <ScrollArea className="h-[300px] rounded-lg border p-4">
+              <div className="space-y-4">
+                {legalDocuments.map((doc) => (
+                  <div key={doc.id} className="space-y-2">
+                    <h3 className="font-semibold">{doc.title}</h3>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{doc.content}</p>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
 
-          {(authError || localError) && (
-            <div className="text-sm text-red-500 text-center p-2 bg-red-500/10 rounded-lg border border-red-500/20">
-              {localError || authError}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="terms"
+                checked={agreedToTerms}
+                onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+              />
+              <label htmlFor="terms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                I have read and agree to the Terms of Use and Legal Agreements
+              </label>
             </div>
-          )}
 
-          <div className="flex gap-3 justify-end">
-            <Button variant="outline" onClick={handleCancelTerms} className="rounded-full" disabled={isProcessing}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmTerms} disabled={!agreedToTerms || isProcessing} className="rounded-full">
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Account...
-                </>
-              ) : (
-                'Confirm & Continue'
-              )}
-            </Button>
+            {(authError || localError) && (
+              <div className="text-sm text-red-500 text-center p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+                {localError || authError}
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={handleCancelTerms} className="rounded-full" disabled={isProcessing}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmTerms} disabled={!agreedToTerms || isProcessing} className="rounded-full">
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Account...
+                  </>
+                ) : (
+                  'Confirm & Continue'
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

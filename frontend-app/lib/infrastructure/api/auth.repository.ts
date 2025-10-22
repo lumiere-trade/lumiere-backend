@@ -67,12 +67,14 @@ export class AuthRepository implements IAuthRepository {
   async login(
     walletAddress: string,
     message: string,
-    signature: string
+    signature: string,
+    walletType: string
   ): Promise<LoginResult> {
     const request: LoginRequest = {
       wallet_address: walletAddress,
       message,
       signature,
+      wallet_type: walletType,
     };
 
     const response = await this.httpClient.post<LoginResponse>(
@@ -80,17 +82,28 @@ export class AuthRepository implements IAuthRepository {
       request
     );
 
-    const user = User.fromApi({
-      id: response.user_id,
-      wallet_address: response.wallet_address,
-      created_at: response.created_at,
-      updated_at: response.updated_at,
-      pending_documents: response.pending_documents,
-    });
-
     const pendingDocuments = (response.pending_documents || []).map((doc) =>
       PendingDocument.fromApi(doc)
     );
+
+    const user = User.fromApi({
+      id: response.user_id,
+      wallet_address: response.wallet_address,
+      wallet_type: walletType,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      pending_documents: pendingDocuments.map(doc => ({
+        id: doc.id,
+        document_type: doc.documentType,
+        version: doc.version,
+        title: doc.title,
+        content: '',
+        status: 'active',
+        effective_date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })),
+    });
 
     return {
       user,
@@ -103,12 +116,14 @@ export class AuthRepository implements IAuthRepository {
     walletAddress: string,
     message: string,
     signature: string,
+    walletType: string,
     acceptedDocumentIds: string[]
   ): Promise<CreateAccountResult> {
     const request: CreateAccountRequest = {
       wallet_address: walletAddress,
       message,
       signature,
+      wallet_type: walletType,
       accepted_documents: acceptedDocumentIds,
       ip_address: '127.0.0.1',
       user_agent: navigator.userAgent,
@@ -122,6 +137,7 @@ export class AuthRepository implements IAuthRepository {
     const user = User.fromApi({
       id: response.user_id,
       wallet_address: response.wallet_address,
+      wallet_type: walletType,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       pending_documents: [],
@@ -139,6 +155,7 @@ export class AuthRepository implements IAuthRepository {
     return User.fromApi({
       id: response.id,
       wallet_address: response.wallet_address,
+      wallet_type: response.wallet_type || 'Unknown',
       created_at: response.created_at,
       updated_at: response.updated_at,
       pending_documents: response.pending_documents || [],

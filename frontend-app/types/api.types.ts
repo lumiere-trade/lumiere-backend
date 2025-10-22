@@ -46,6 +46,7 @@ export interface CreateAccountRequest {
   wallet_address: string;
   message: string;
   signature: string;
+  wallet_type: string;
   accepted_documents: string[];
   ip_address?: string;
   user_agent?: string;
@@ -62,6 +63,7 @@ export interface LoginRequest {
   wallet_address: string;
   message: string;
   signature: string;
+  wallet_type: string;
 }
 
 export interface LoginResponse {
@@ -85,4 +87,9 @@ export interface AcceptDocumentsRequest {
 export interface HealthResponse {
   status: string;
   timestamp: string;
+}
+
+export interface CheckComplianceResponse {
+  is_compliant: boolean;
+  pending_documents: PendingDocumentDto[];
 }

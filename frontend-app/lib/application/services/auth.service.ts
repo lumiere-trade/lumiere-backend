@@ -2,6 +2,7 @@
  * Auth Service (Application Layer).
  * Orchestrates authentication business logic.
  */
+
 import type { IAuthRepository } from '@/lib/domain/interfaces/auth.repository.interface';
 import type { IWalletProvider } from '@/lib/domain/interfaces/wallet.provider.interface';
 import type { IStorage } from '@/lib/domain/interfaces/storage.interface';
@@ -53,10 +54,13 @@ export class AuthService {
       throw new UserNotFoundError('Please create an account first');
     }
 
+    const walletType = this.walletProvider.getWalletType();
+
     const loginResult = await this.authRepository.login(
       address,
       message,
-      signature
+      signature,
+      walletType
     );
 
     this.storage.setToken(loginResult.accessToken);
@@ -76,11 +80,13 @@ export class AuthService {
 
     const message = AUTH_CONFIG.MESSAGE;
     const { signature } = await this.walletProvider.signMessage(message);
+    const walletType = this.walletProvider.getWalletType();
 
     const result = await this.authRepository.createAccount(
       address,
       message,
       signature,
+      walletType,
       acceptedDocumentIds
     );
 

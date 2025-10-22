@@ -20,6 +20,7 @@ export interface SolanaWalletAdapter {
   connected: boolean;
   connect(): Promise<void>;
   disconnect(): Promise<void>;
+  name?: string;
 }
 
 export class SolanaWalletProvider implements IWalletProvider {
@@ -36,7 +37,7 @@ export class SolanaWalletProvider implements IWalletProvider {
 
     try {
       await this.wallet.connect();
-      
+
       if (!this.wallet.publicKey) {
         throw new WalletConnectionError('Failed to get public key');
       }
@@ -84,5 +85,9 @@ export class SolanaWalletProvider implements IWalletProvider {
 
   getAddress(): string | null {
     return this.wallet?.publicKey?.toString() ?? null;
+  }
+
+  getWalletType(): string {
+    return this.wallet?.name ?? 'Unknown';
   }
 }

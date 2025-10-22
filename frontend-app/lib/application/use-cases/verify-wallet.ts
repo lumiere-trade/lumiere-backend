@@ -21,7 +21,6 @@ export class VerifyWallet {
 
   async execute(): Promise<VerifyWalletResult> {
     const address = this.walletProvider.getAddress();
-    
     if (!address) {
       throw new Error('Wallet not connected');
     }
@@ -38,7 +37,7 @@ export class VerifyWallet {
     return {
       isValid: result.signatureValid,
       userExists: result.userExists,
-      walletAddress: result.walletAddress,
+      walletAddress: address,
     };
   }
 }
