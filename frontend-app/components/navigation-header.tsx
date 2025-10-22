@@ -22,7 +22,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
 
   const usdcBalance = "993.35"
   const walletAddress = user?.walletAddress ? `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}` : "Not connected"
-  const walletType = "phantom"
+  const walletType = user?.walletType || "Unknown"
 
   const handleDisconnect = async () => {
     try {
