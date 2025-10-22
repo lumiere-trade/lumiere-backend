@@ -196,7 +196,6 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
             f"Cleanup needed: Escrow {expected_escrow[:8]}...", context="Setup"
         )
 
-        # Step 1: Revoke authority (best effort, may not exist)
         try:
             sig, _ = self.transaction_signer.prepare_and_sign_revoke_platform(
                 escrow_account=expected_escrow
@@ -208,11 +207,8 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
             if "already" in error_msg or "not delegated" in error_msg:
                 self.reporter.info("  - No authority to revoke", context="Setup")
             else:
-                self.reporter.warning(
-                    f"  ⚠ Revoke failed (continuing): {str(e)[:60]}", context="Setup"
-                )
+                self.reporter.warning(f"  ⚠ Revoke failed: {str(e)[:60]}", context="Setup")
 
-        # Step 2: Withdraw all funds (best effort, account may be empty)
         try:
             sig, _ = self.transaction_signer.prepare_and_sign_withdraw(
                 escrow_account=expected_escrow
@@ -221,20 +217,13 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
             self.reporter.info("  ✓ Funds withdrawn", context="Setup")
         except Exception as e:
             error_msg = str(e).lower()
-            if (
-                "invalidamount" in error_msg
-                or "insufficient" in error_msg
-                or "empty" in error_msg
-            ):
+            if "empty" in error_msg or "zero" in error_msg:
                 self.reporter.info("  - No funds to withdraw", context="Setup")
             else:
-                self.reporter.warning(
-                    f"  ⚠ Withdraw failed (continuing): {str(e)[:60]}", context="Setup"
-                )
+                self.reporter.warning(f"  ⚠ Withdraw failed: {str(e)[:60]}", context="Setup")
 
-        # Step 3: Close account - CRITICAL, retry with exponential backoff
-        max_retries = 5
-        base_delay = 3
+        max_retries = 3
+        base_delay = 2
 
         for attempt in range(max_retries):
             try:
@@ -242,13 +231,14 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
                     escrow_account=expected_escrow
                 )
                 await self._wait_for_transaction(sig, max_wait=30)
-                self.reporter.info(
-                    f"  ✓ Escrow closed (attempt {attempt + 1})", context="Setup"
-                )
+                self.reporter.info("  ✓ Escrow closed", context="Setup")
                 return
-
             except Exception as e:
-                error_msg = str(e)
+                error_msg = str(e).lower()
+
+                if "doesn't exist" in error_msg or "not found" in error_msg:
+                    self.reporter.info("  ✓ Account already closed", context="Setup")
+                    return
 
                 if attempt < max_retries - 1:
                     delay = base_delay * (2**attempt)
@@ -264,7 +254,6 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
                         context="Setup",
                     )
 
-                    # Check if account still exists
                     still_exists = await self._check_escrow_exists(expected_escrow)
 
                     if still_exists:
@@ -295,6 +284,7 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
                 "wallet_address": self.alice_address,
                 "message": AUTH_MESSAGE,
                 "signature": signature,
+                "wallet_type": "Phantom",
                 "accepted_documents": document_ids,
                 "ip_address": "127.0.0.1",
                 "user_agent": "E2E Test Client",
@@ -382,7 +372,6 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
         if deposit_amount < Decimal("0.01"):
             deposit_amount = Decimal("0.01")
 
-        # Initialize escrow
         escrow_account, signature, _ = (
             self.transaction_signer.prepare_and_sign_initialize()
         )
@@ -398,7 +387,6 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
         assert response.status_code == 201
         TestUserOnboardingEscrowFlow.escrow_account = escrow_account
 
-        # Deposit funds
         signature, _ = self.transaction_signer.prepare_and_sign_deposit(
             escrow_account=escrow_account, amount=float(deposit_amount)
         )
@@ -413,7 +401,6 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
 
         assert response.status_code == 201
 
-        # Delegate platform authority
         platform_authority = PlatformWallets.get_test_authority_address()
 
         signature, _ = self.transaction_signer.prepare_and_sign_delegate_platform(
@@ -422,7 +409,6 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
 
         await self._wait_for_transaction(signature, max_wait=30)
 
-        # Verify balance
         response = await self.http_client.get(
             "/api/escrow/balance?sync=true", headers=self._auth_headers()
         )
@@ -431,14 +417,12 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
         balance_data = response.json()
         assert Decimal(balance_data["balance"]) == deposit_amount
 
-        # Revoke platform authority
         signature, _ = self.transaction_signer.prepare_and_sign_revoke_platform(
             escrow_account=escrow_account
         )
 
         await self._wait_for_transaction(signature, max_wait=30)
 
-        # Withdraw partial
         withdraw_amount = (deposit_amount * Decimal("0.5")).quantize(Decimal("0.01"))
 
         signature, _ = self.transaction_signer.prepare_and_sign_withdraw(
@@ -447,7 +431,6 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
 
         await self._wait_for_transaction(signature, max_wait=30)
 
-        # Close escrow
         signature, _ = self.transaction_signer.prepare_and_sign_withdraw(
             escrow_account=escrow_account
         )
