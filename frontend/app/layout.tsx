@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { MarketingHeader } from '@/components/marketing-header';
 import { Footer } from '@/components/footer';
+import { AdminAuthProvider } from '@/src/contexts/AdminAuthContext';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -28,20 +29,22 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="h-full">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <div className="h-full flex flex-col overflow-hidden">
-            <MarketingHeader />
-            <main className="flex-1 overflow-y-auto">
-              {children}
-            </main>
-            <Footer />
-          </div>
-        </ThemeProvider>
+        <AdminAuthProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <div className="h-full flex flex-col overflow-hidden">
+              <MarketingHeader />
+              <main className="flex-1 overflow-y-auto">
+                {children}
+              </main>
+              <Footer />
+            </div>
+          </ThemeProvider>
+        </AdminAuthProvider>
       </body>
     </html>
   );
