@@ -165,11 +165,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
                 </DialogContent>
               </Dialog>
 
-              <WalletPanel
-                walletAddress={walletAddress}
-                walletType={walletType}
-                onDisconnect={handleDisconnect}
-              />
+              <WalletPanel />
             </>
           )}
         </nav>
