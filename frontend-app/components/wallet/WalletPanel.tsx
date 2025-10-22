@@ -13,12 +13,9 @@ interface WalletPanelProps {
 export function WalletPanel({ trigger }: WalletPanelProps) {
   const { publicKey, disconnect, wallet } = useWallet()
 
-  if (!publicKey) return null
-
-  const walletAddress = `${publicKey.toString().slice(0, 4)}...${publicKey.toString().slice(-4)}`
+  const walletAddress = publicKey ? `${publicKey.toString().slice(0, 4)}...${publicKey.toString().slice(-4)}` : "Not connected"
   const walletType = wallet?.adapter.name || "Unknown"
 
-  // Mock data - will replace with real data later
   const mockData = {
     totalBalance: 1193.83,
     depositedFunds: {
@@ -43,7 +40,6 @@ export function WalletPanel({ trigger }: WalletPanelProps) {
 
   const handleDeposit = () => {
     console.log('Deposit USDC')
-    // TODO: Implement deposit logic
   }
 
   const handleDisconnect = () => {
@@ -94,13 +90,11 @@ export function WalletPanel({ trigger }: WalletPanelProps) {
             </TabsList>
 
             <TabsContent value="balances" className="mt-6 space-y-6">
-              {/* Total Balance */}
               <div className="rounded-lg border border-primary/20 bg-card p-6">
                 <div className="mb-2 text-sm text-muted-foreground">Total Balance</div>
                 <div className="text-4xl font-bold text-primary">${mockData.totalBalance.toFixed(2)}</div>
               </div>
 
-              {/* Deposited Funds */}
               <div>
                 <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   Deposited Funds
@@ -126,7 +120,6 @@ export function WalletPanel({ trigger }: WalletPanelProps) {
                 </div>
               </div>
 
-              {/* Wallet Funds */}
               <div>
                 <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   Wallet Funds
