@@ -5,15 +5,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Wallet, Copy, DollarSign } from "lucide-react"
 import { useWallet } from "@solana/wallet-adapter-react"
+import { useAuth } from "@/hooks/use-auth"
 
 interface WalletPanelProps {
   trigger?: React.ReactNode
 }
 
 export function WalletPanel({ trigger }: WalletPanelProps) {
-  const { publicKey, disconnect, wallet } = useWallet()
+  const { user } = useAuth()
+  const { disconnect, wallet } = useWallet()
 
-  const walletAddress = publicKey ? `${publicKey.toString().slice(0, 4)}...${publicKey.toString().slice(-4)}` : "Not connected"
+  const walletAddress = user?.walletAddress ? `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}` : "Not connected"
   const walletType = wallet?.adapter.name || "Unknown"
 
   const mockData = {
@@ -33,8 +35,8 @@ export function WalletPanel({ trigger }: WalletPanelProps) {
   }
 
   const handleCopyAddress = () => {
-    if (publicKey) {
-      navigator.clipboard.writeText(publicKey.toString())
+    if (user?.walletAddress) {
+      navigator.clipboard.writeText(user.walletAddress)
     }
   }
 
@@ -81,7 +83,7 @@ export function WalletPanel({ trigger }: WalletPanelProps) {
           </div>
         </SheetHeader>
 
-        <div className="mt-6">
+        <div className="mt-6 px-2">
           <Tabs defaultValue="balances" className="w-full">
             <TabsList className="grid w-full grid-cols-3 bg-muted/30">
               <TabsTrigger value="balances">Balances</TabsTrigger>
@@ -89,7 +91,7 @@ export function WalletPanel({ trigger }: WalletPanelProps) {
               <TabsTrigger value="activity">Activity</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="balances" className="mt-6 space-y-6">
+            <TabsContent value="balances" className="mt-6 space-y-6 px-1">
               <div className="rounded-lg border border-primary/20 bg-card p-6">
                 <div className="mb-2 text-sm text-muted-foreground">Total Balance</div>
                 <div className="text-4xl font-bold text-primary">${mockData.totalBalance.toFixed(2)}</div>
@@ -151,13 +153,13 @@ export function WalletPanel({ trigger }: WalletPanelProps) {
               </div>
             </TabsContent>
 
-            <TabsContent value="positions" className="mt-6">
+            <TabsContent value="positions" className="mt-6 px-1">
               <div className="text-center py-12 text-muted-foreground">
                 No active positions
               </div>
             </TabsContent>
 
-            <TabsContent value="activity" className="mt-6">
+            <TabsContent value="activity" className="mt-6 px-1">
               <div className="text-center py-12 text-muted-foreground">
                 No recent activity
               </div>
