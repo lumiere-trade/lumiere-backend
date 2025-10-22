@@ -182,13 +182,15 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
           <WalletPanel
             trigger={
               <Button
-                variant="outline-preserve-icon"
+                variant="outline"
                 size="lg"
                 className="group rounded-full font-semibold gap-2"
               >
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 transition-colors group-hover:bg-primary/30">
-                  <Wallet className="h-4 w-4 text-primary" />
-                </div>
+                <span className="isolate">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 transition-colors group-hover:bg-primary/30">
+                    <Wallet className="h-4 w-4 text-primary" />
+                  </div>
+                </span>
                 {walletAddress}
               </Button>
             }
