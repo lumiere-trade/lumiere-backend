@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Bot, TrendingUp, Zap } from "lucide-react"
 import { useState } from "react"
+import { AdminLoginWall } from "@/components/admin-login-wall"
 
 type FeatureType = "ai-designer" | "market-analysis" | "automated-execution" | null
 
@@ -80,99 +81,101 @@ export default function HomePage() {
   }
 
   return (
-    <div className="h-full flex items-center justify-center px-4 md:px-6 -mt-4 md:-mt-8">
-      <div className="flex flex-col items-center text-center max-w-6xl w-full">
-        <div className="mb-6 md:mb-8 flex flex-col items-center w-full">
-          <div className="w-full max-w-xs md:max-w-xl h-px bg-foreground/20 mb-3 md:mb-4" />
-          <h1 className="text-5xl md:text-7xl font-bold tracking-wider text-primary mb-3 md:mb-4">LUMIERE</h1>
-          <div className="w-full max-w-xs md:max-w-xl h-px bg-foreground/20" />
-        </div>
+    <AdminLoginWall>
+      <div className="h-full flex items-center justify-center px-4 md:px-6 -mt-4 md:-mt-8">
+        <div className="flex flex-col items-center text-center max-w-6xl w-full">
+          <div className="mb-6 md:mb-8 flex flex-col items-center w-full">
+            <div className="w-full max-w-xs md:max-w-xl h-px bg-foreground/20 mb-3 md:mb-4" />
+            <h1 className="text-5xl md:text-7xl font-bold tracking-wider text-primary mb-3 md:mb-4">LUMIERE</h1>
+            <div className="w-full max-w-xs md:max-w-xl h-px bg-foreground/20" />
+          </div>
 
-        <div className="mb-8 md:mb-10 space-y-2 md:space-y-3 px-4">
-          <p className="text-xl md:text-2xl font-semibold text-foreground">AI-Powered Trading Strategy Platform</p>
-          <p className="max-w-2xl text-sm md:text-base leading-relaxed text-muted-foreground">
-            Transform raw market data into winning strategies with the power of AI. Lumiere combines advanced market
-            analysis, intelligent backtesting, and automated deployment to help you trade smarter, not harder.
-          </p>
-        </div>
-
-        <div className="mb-8 md:mb-10 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 w-full max-w-4xl">
-          <div
-            onClick={() => setOpenFeature("ai-designer")}
-            className="flex flex-col items-center gap-2 md:gap-3 cursor-pointer transition-colors p-4 md:p-0"
-          >
-            <div className="rounded-full bg-primary/10 p-4 md:p-5 transition-colors hover:bg-primary/20">
-              <Bot className="w-8 h-8 md:w-10 md:h-10 text-primary" />
-            </div>
-            <h3 className="text-base md:text-lg font-bold text-primary">AI Strategy Designer</h3>
-            <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-              Chat with Prophet AI to create custom trading strategies tailored to your goals
+          <div className="mb-8 md:mb-10 space-y-2 md:space-y-3 px-4">
+            <p className="text-xl md:text-2xl font-semibold text-foreground">AI-Powered Trading Strategy Platform</p>
+            <p className="max-w-2xl text-sm md:text-base leading-relaxed text-muted-foreground">
+              Transform raw market data into winning strategies with the power of AI. Lumiere combines advanced market
+              analysis, intelligent backtesting, and automated deployment to help you trade smarter, not harder.
             </p>
           </div>
-          <div
-            onClick={() => setOpenFeature("market-analysis")}
-            className="flex flex-col items-center gap-2 md:gap-3 cursor-pointer transition-colors p-4 md:p-0"
-          >
-            <div className="rounded-full bg-primary/10 p-4 md:p-5 transition-colors hover:bg-primary/20">
-              <TrendingUp className="w-8 h-8 md:w-10 md:h-10 text-primary" />
-            </div>
-            <h3 className="text-base md:text-lg font-bold text-primary">Deep Market Analysis</h3>
-            <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-              Analyze years of historical data with advanced technical indicators
-            </p>
-          </div>
-          <div
-            onClick={() => setOpenFeature("automated-execution")}
-            className="flex flex-col items-center gap-2 md:gap-3 cursor-pointer transition-colors p-4 md:p-0"
-          >
-            <div className="rounded-full bg-primary/10 p-4 md:p-5 transition-colors hover:bg-primary/20">
-              <Zap className="w-8 h-8 md:w-10 md:h-10 text-primary" />
-            </div>
-            <h3 className="text-base md:text-lg font-bold text-primary">Automated Execution</h3>
-            <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-              Deploy strategies instantly with real-time monitoring and alerts
-            </p>
-          </div>
-        </div>
 
-        <Button
-          size="lg"
-          className="rounded-full px-12 md:px-16 py-5 md:py-6 text-lg md:text-xl font-bold"
-          onClick={() => window.location.href = 'https://app.lumiere.trade'}
-        >
-          START TRADING
-        </Button>
-      </div>
-
-      {openFeature && (
-        <Dialog open={!!openFeature} onOpenChange={() => setOpenFeature(null)}>
-          <DialogContent className="max-w-[95vw] md:max-w-7xl max-h-[85vh] overflow-y-auto bg-background border-2 border-primary/30 rounded-2xl shadow-2xl">
-            <DialogHeader>
-              <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-6">
-                <div className="rounded-full bg-primary/10 p-3 md:p-4">
-                  {openFeature === "ai-designer" && <Bot className="w-8 h-8 md:w-10 md:h-10 text-primary" />}
-                  {openFeature === "market-analysis" && <TrendingUp className="w-8 h-8 md:w-10 md:h-10 text-primary" />}
-                  {openFeature === "automated-execution" && <Zap className="w-8 h-8 md:w-10 md:h-10 text-primary" />}
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl md:text-3xl font-bold text-primary mb-1 md:mb-2">
-                    {featureContent[openFeature].title}
-                  </DialogTitle>
-                  <p className="text-base md:text-lg text-muted-foreground">{featureContent[openFeature].summary}</p>
-                </div>
+          <div className="mb-8 md:mb-10 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 w-full max-w-4xl">
+            <div
+              onClick={() => setOpenFeature("ai-designer")}
+              className="flex flex-col items-center gap-2 md:gap-3 cursor-pointer transition-colors p-4 md:p-0"
+            >
+              <div className="rounded-full bg-primary/10 p-4 md:p-5 transition-colors hover:bg-primary/20">
+                <Bot className="w-8 h-8 md:w-10 md:h-10 text-primary" />
               </div>
-            </DialogHeader>
-            <div className="space-y-4 md:space-y-6 mt-2 md:mt-4">
-              {featureContent[openFeature].sections.map((section, index) => (
-                <div key={index} className="space-y-2 p-4 md:p-6 rounded-lg border border-primary/20 bg-card/50">
-                  <h3 className="text-lg md:text-xl font-semibold text-primary">{section.header}</h3>
-                  <p className="text-sm md:text-base leading-relaxed text-foreground">{section.content}</p>
-                </div>
-              ))}
+              <h3 className="text-base md:text-lg font-bold text-primary">AI Strategy Designer</h3>
+              <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
+                Chat with Prophet AI to create custom trading strategies tailored to your goals
+              </p>
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>
+            <div
+              onClick={() => setOpenFeature("market-analysis")}
+              className="flex flex-col items-center gap-2 md:gap-3 cursor-pointer transition-colors p-4 md:p-0"
+            >
+              <div className="rounded-full bg-primary/10 p-4 md:p-5 transition-colors hover:bg-primary/20">
+                <TrendingUp className="w-8 h-8 md:w-10 md:h-10 text-primary" />
+              </div>
+              <h3 className="text-base md:text-lg font-bold text-primary">Deep Market Analysis</h3>
+              <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
+                Analyze years of historical data with advanced technical indicators
+              </p>
+            </div>
+            <div
+              onClick={() => setOpenFeature("automated-execution")}
+              className="flex flex-col items-center gap-2 md:gap-3 cursor-pointer transition-colors p-4 md:p-0"
+            >
+              <div className="rounded-full bg-primary/10 p-4 md:p-5 transition-colors hover:bg-primary/20">
+                <Zap className="w-8 h-8 md:w-10 md:h-10 text-primary" />
+              </div>
+              <h3 className="text-base md:text-lg font-bold text-primary">Automated Execution</h3>
+              <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
+                Deploy strategies instantly with real-time monitoring and alerts
+              </p>
+            </div>
+          </div>
+
+          <Button
+            size="lg"
+            className="rounded-full px-12 md:px-16 py-5 md:py-6 text-lg md:text-xl font-bold"
+            onClick={() => window.location.href = 'https://app.lumiere.trade'}
+          >
+            START TRADING
+          </Button>
+        </div>
+
+        {openFeature && (
+          <Dialog open={!!openFeature} onOpenChange={() => setOpenFeature(null)}>
+            <DialogContent className="max-w-[95vw] md:max-w-7xl max-h-[85vh] overflow-y-auto bg-background border-2 border-primary/30 rounded-2xl shadow-2xl">
+              <DialogHeader>
+                <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-6">
+                  <div className="rounded-full bg-primary/10 p-3 md:p-4">
+                    {openFeature === "ai-designer" && <Bot className="w-8 h-8 md:w-10 md:h-10 text-primary" />}
+                    {openFeature === "market-analysis" && <TrendingUp className="w-8 h-8 md:w-10 md:h-10 text-primary" />}
+                    {openFeature === "automated-execution" && <Zap className="w-8 h-8 md:w-10 md:h-10 text-primary" />}
+                  </div>
+                  <div>
+                    <DialogTitle className="text-2xl md:text-3xl font-bold text-primary mb-1 md:mb-2">
+                      {featureContent[openFeature].title}
+                    </DialogTitle>
+                    <p className="text-base md:text-lg text-muted-foreground">{featureContent[openFeature].summary}</p>
+                  </div>
+                </div>
+              </DialogHeader>
+              <div className="space-y-4 md:space-y-6 mt-2 md:mt-4">
+                {featureContent[openFeature].sections.map((section, index) => (
+                  <div key={index} className="space-y-2 p-4 md:p-6 rounded-lg border border-primary/20 bg-card/50">
+                    <h3 className="text-lg md:text-xl font-semibold text-primary">{section.header}</h3>
+                    <p className="text-sm md:text-base leading-relaxed text-foreground">{section.content}</p>
+                  </div>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+    </AdminLoginWall>
   )
 }
