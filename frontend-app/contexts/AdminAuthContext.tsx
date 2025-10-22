@@ -10,11 +10,6 @@ interface AdminAuthContextType {
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
-const ADMIN_CREDENTIALS = {
-  username: 'admin',
-  password: 'solana123',
-};
-
 const ADMIN_AUTH_KEY = 'lumiere_admin_auth';
 const ADMIN_AUTH_TOKEN = 'lumiere_admin_token_2024';
 
@@ -29,7 +24,10 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const adminLogin = (username: string, password: string): boolean => {
-    if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+    const validUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME;
+    const validPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    
+    if (username === validUsername && password === validPassword) {
       localStorage.setItem(ADMIN_AUTH_KEY, ADMIN_AUTH_TOKEN);
       setIsAdminAuthenticated(true);
       return true;
