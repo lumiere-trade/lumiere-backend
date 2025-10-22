@@ -58,7 +58,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
             <Button
               variant="outline"
               size="lg"
-              className="rounded-full px-6 md:px-8 font-semibold bg-transparent"
+              className="rounded-full px-6 md:px-8 font-semibold"
             >
               DASHBOARD
             </Button>
@@ -67,7 +67,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
             <Button
               variant="outline"
               size="lg"
-              className="rounded-full px-6 md:px-8 font-semibold bg-transparent"
+              className="rounded-full px-6 md:px-8 font-semibold"
             >
               CREATE
             </Button>
@@ -140,7 +140,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
               <Button
                 variant="outline"
                 size="icon"
-                className="rounded-full bg-transparent"
+                className="rounded-full"
               >
                 <Settings className="h-5 w-5" />
               </Button>
@@ -184,7 +184,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
               <Button
                 variant="outline-preserve-icon"
                 size="lg"
-                className="group rounded-full bg-transparent font-semibold gap-2"
+                className="group rounded-full font-semibold gap-2"
               >
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 transition-colors group-hover:bg-primary/30">
                   <Wallet className="h-4 w-4 text-primary" />
@@ -197,7 +197,7 @@ export function NavigationHeader({ currentPage }: NavigationHeaderProps) {
           <Button
             variant="outline"
             size="icon"
-            className="rounded-full bg-transparent"
+            className="rounded-full"
             onClick={handleDisconnect}
             title="Disconnect Wallet"
           >
