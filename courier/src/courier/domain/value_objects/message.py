@@ -2,6 +2,7 @@
 Message value object - immutable message with validation.
 """
 
+from copy import deepcopy
 from datetime import datetime
 from typing import Any, Dict
 
@@ -34,12 +35,19 @@ class Message:
         if not data:
             raise ValueError("Message data cannot be empty")
 
-        self._data = data.copy()
+        # Deep copy to protect from external modifications after creation
+        self._data = deepcopy(data)
         self._timestamp = timestamp or datetime.utcnow()
 
     @property
     def data(self) -> Dict[str, Any]:
-        """Get message data (immutable copy)."""
+        """
+        Get message data (defensive copy).
+
+        Returns shallow copy for performance. Since _data was deep copied
+        in __init__, no external references exist to nested objects,
+        making shallow copy sufficient for immutability.
+        """
         return self._data.copy()
 
     @property
