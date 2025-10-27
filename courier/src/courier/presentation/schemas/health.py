@@ -26,14 +26,8 @@ class StatsResponse(BaseModel):
     """
 
     uptime_seconds: float = Field(..., description="Server uptime")
-    total_connections: int = Field(
-        ..., description="Total connections since start"
-    )
+    total_connections: int = Field(..., description="Total connections since start")
     total_messages_sent: int = Field(..., description="Total messages sent")
-    total_messages_received: int = Field(
-        ..., description="Total messages received"
-    )
+    total_messages_received: int = Field(..., description="Total messages received")
     active_clients: int = Field(..., description="Currently active clients")
-    channels: Dict[str, Dict[str, Any]] = Field(
-        ..., description="Channel details"
-    )
+    channels: Dict[str, Dict[str, Any]] = Field(..., description="Channel details")

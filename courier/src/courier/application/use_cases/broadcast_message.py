@@ -37,7 +37,7 @@ class BroadcastMessageUseCase:
             ValueError: If channel name or message data is invalid
         """
         # Validate channel name
-        channel = ChannelName(channel_name)
+        ChannelName(channel_name)
 
         # Validate and create message
         message = Message(message_data)

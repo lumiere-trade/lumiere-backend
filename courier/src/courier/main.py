@@ -201,8 +201,7 @@ class CourierApp:
         interval = self.settings.heartbeat_interval
 
         self.reporter.info(
-            f"{Emoji.SYSTEM.HEARTBEAT} Heartbeat started "
-            f"(interval: {interval}s)",
+            f"{Emoji.SYSTEM.HEARTBEAT} Heartbeat started " f"(interval: {interval}s)",
             context="Courier",
             verbose_level=1,
         )

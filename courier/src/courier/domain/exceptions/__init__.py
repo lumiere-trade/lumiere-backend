@@ -1,6 +1,7 @@
 """
 Domain exceptions for Courier.
 """
+
 from courier.domain.exceptions.auth_exceptions import (
     AuthenticationError,
     AuthorizationError,

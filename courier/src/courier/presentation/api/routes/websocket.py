@@ -3,10 +3,8 @@ WebSocket endpoint with Clean Architecture.
 """
 
 import asyncio
-from typing import Optional
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
-from shared.reporter.emojis import Emoji
 
 from courier.di import Container
 from courier.presentation.api.dependencies import (
@@ -51,9 +49,7 @@ async def websocket_endpoint(
 
     # Extract user info from auth payload
     user_id = auth_payload.user_id if auth_payload else None
-    wallet_address = (
-        auth_payload.wallet_address if auth_payload else None
-    )
+    wallet_address = auth_payload.wallet_address if auth_payload else None
 
     # Add client to channel
     client = conn_manager.add_client(
@@ -74,10 +70,7 @@ async def websocket_endpoint(
         while True:
             try:
                 # Wait for message with timeout
-                data = await asyncio.wait_for(
-                    websocket.receive_text(),
-                    timeout=30.0
-                )
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
 
                 # Increment message counter
                 container.increment_stat("total_messages_received")

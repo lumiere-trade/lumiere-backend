@@ -6,8 +6,6 @@ Channel-related exceptions.
 class ChannelError(Exception):
     """Base exception for channel errors."""
 
-    pass
-
 
 class ChannelNotFoundError(ChannelError):
     """Raised when channel does not exist."""

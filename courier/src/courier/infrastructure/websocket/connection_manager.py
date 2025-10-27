@@ -3,7 +3,6 @@ WebSocket connection manager infrastructure.
 """
 
 from typing import Dict, List, Optional
-from uuid import UUID
 
 from fastapi import WebSocket
 
@@ -140,8 +139,7 @@ class ConnectionManager:
             Dictionary mapping channel names to subscriber counts
         """
         return {
-            channel: len(subscribers)
-            for channel, subscribers in self.channels.items()
+            channel: len(subscribers) for channel, subscribers in self.channels.items()
         }
 
     def channel_exists(self, channel_name: str) -> bool:

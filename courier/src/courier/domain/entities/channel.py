@@ -3,7 +3,6 @@ Channel entity - represents a message channel.
 """
 
 from datetime import datetime
-from typing import List
 from uuid import UUID, uuid4
 
 

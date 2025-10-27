@@ -1,6 +1,7 @@
 """
 Use cases for Courier application layer.
 """
+
 from courier.application.use_cases.authenticate_websocket import (
     AuthenticateWebSocketUseCase,
 )

@@ -27,6 +27,4 @@ class PublishResponse(BaseModel):
     status: str = Field(default="published")
     channel: str = Field(..., description="Channel name")
     clients_reached: int = Field(..., description="Number of clients reached")
-    timestamp: str = Field(
-        default_factory=lambda: datetime.utcnow().isoformat()
-    )
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
