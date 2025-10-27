@@ -33,9 +33,6 @@ from pourtier.domain.exceptions import (
 from pourtier.infrastructure.persistence.repositories.escrow_transaction_repository import (
     EscrowTransactionRepository,
 )
-from pourtier.infrastructure.persistence.repositories.user_repository import (
-    UserRepository,
-)
 from pourtier.presentation.api.middleware.auth import get_current_user
 from pourtier.presentation.schemas.escrow_schemas import (
     BalanceResponse,

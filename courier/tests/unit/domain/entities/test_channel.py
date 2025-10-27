@@ -11,8 +11,9 @@ Usage:
 from datetime import datetime
 from uuid import UUID
 
-from courier.domain.entities.channel import Channel
 from shared.tests import LaborantTest
+
+from courier.domain.entities.channel import Channel
 
 
 class TestChannel(LaborantTest):
@@ -71,6 +72,7 @@ class TestChannel(LaborantTest):
         self.reporter.info("Testing channel with custom ID", context="Test")
 
         from uuid import uuid4
+
         custom_id = uuid4()
         channel = Channel(name="test", channel_id=custom_id)
 
@@ -96,6 +98,7 @@ class TestChannel(LaborantTest):
         self.reporter.info("Testing channel equality", context="Test")
 
         from uuid import uuid4
+
         channel_id = uuid4()
         channel1 = Channel(name="user.123", channel_id=channel_id)
         channel2 = Channel(name="user.456", channel_id=channel_id)
@@ -121,7 +124,7 @@ class TestChannel(LaborantTest):
 
         assert channel != "global"
         assert channel != 123
-        assert channel != None
+        assert channel is not None
         self.reporter.info("Channel not equal to non-Channel", context="Test")
 
     # ================================================================
@@ -182,7 +185,7 @@ class TestChannel(LaborantTest):
         self.reporter.info("Testing channel mutability", context="Test")
 
         channel = Channel(name="user.123")
-        
+
         # Name is mutable
         channel.name = "user.456"
         assert channel.name == "user.456"

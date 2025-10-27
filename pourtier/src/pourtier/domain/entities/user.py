@@ -1,6 +1,7 @@
 """
 User entity - Domain model for platform users.
 """
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal

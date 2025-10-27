@@ -2,6 +2,7 @@
 Get Escrow Balance use case.
 Retrieves user's escrow balance with optional blockchain sync.
 """
+
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -95,10 +96,8 @@ class GetEscrowBalance:
 
         # 3. Optionally sync from blockchain if initialized
         if is_initialized and sync_from_blockchain:
-            blockchain_balance = (
-                await self.escrow_query_service.get_escrow_balance(
-                    user.escrow_account
-                )
+            blockchain_balance = await self.escrow_query_service.get_escrow_balance(
+                user.escrow_account
             )
 
             # Update if different
@@ -111,15 +110,9 @@ class GetEscrowBalance:
         # 4. Return structured result
         return EscrowBalanceResult(
             escrow_account=user.escrow_account,
-            balance=(
-                user.escrow_balance if is_initialized else Decimal("0.00")
-            ),
-            token_mint=(
-                user.escrow_token_mint if user.escrow_token_mint else "USDC"
-            ),
+            balance=(user.escrow_balance if is_initialized else Decimal("0.00")),
+            token_mint=(user.escrow_token_mint if user.escrow_token_mint else "USDC"),
             is_initialized=is_initialized,
-            initialized_at=(
-                user.escrow_initialized_at if is_initialized else None
-            ),
+            initialized_at=(user.escrow_initialized_at if is_initialized else None),
             last_synced_at=last_synced,
         )

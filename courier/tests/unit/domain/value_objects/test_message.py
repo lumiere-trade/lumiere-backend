@@ -10,8 +10,9 @@ Usage:
 
 from datetime import datetime
 
-from courier.domain.value_objects.message import Message
 from shared.tests import LaborantTest
+
+from courier.domain.value_objects.message import Message
 
 
 class TestMessage(LaborantTest):
@@ -76,8 +77,7 @@ class TestMessage(LaborantTest):
             except ValueError as e:
                 assert "must be a dictionary" in str(e)
                 self.reporter.info(
-                    f"Non-dict data rejected: {type(invalid)}",
-                    context="Test"
+                    f"Non-dict data rejected: {type(invalid)}", context="Test"
                 )
 
     def test_reject_empty_data(self):
@@ -179,11 +179,8 @@ class TestMessage(LaborantTest):
                 "symbol": "SOL/USDT",
                 "side": "long",
                 "size": 100,
-                "metadata": {
-                    "strategy_id": "abc123",
-                    "risk_level": "medium"
-                }
-            }
+                "metadata": {"strategy_id": "abc123", "risk_level": "medium"},
+            },
         }
 
         message = Message(data=data)
@@ -200,7 +197,7 @@ class TestMessage(LaborantTest):
         data = {
             "type": "batch.update",
             "items": [1, 2, 3, 4, 5],
-            "symbols": ["SOL", "BTC", "ETH"]
+            "symbols": ["SOL", "BTC", "ETH"],
         }
 
         message = Message(data=data)
@@ -213,10 +210,7 @@ class TestMessage(LaborantTest):
         """Test Message data is deep copied."""
         self.reporter.info("Testing data deep copy", context="Test")
 
-        original_data = {
-            "type": "test",
-            "nested": {"value": 123}
-        }
+        original_data = {"type": "test", "nested": {"value": 123}}
 
         message = Message(data=original_data)
 
@@ -239,7 +233,7 @@ class TestMessage(LaborantTest):
             "type": "subscription.created",
             "user_id": "user-123",
             "plan": "pro",
-            "expires_at": "2025-12-31T23:59:59Z"
+            "expires_at": "2025-12-31T23:59:59Z",
         }
 
         message = Message(data=data)
@@ -257,7 +251,7 @@ class TestMessage(LaborantTest):
             "symbol": "SOL/USDT",
             "side": "buy",
             "amount": 100.5,
-            "price": 45.25
+            "price": 45.25,
         }
 
         message = Message(data=data)
@@ -273,10 +267,7 @@ class TestMessage(LaborantTest):
         data = {
             "type": "forge.job.completed",
             "job_id": "job-xyz-789",
-            "result": {
-                "extrema_found": 15,
-                "duration_ms": 2500
-            }
+            "result": {"extrema_found": 15, "duration_ms": 2500},
         }
 
         message = Message(data=data)
