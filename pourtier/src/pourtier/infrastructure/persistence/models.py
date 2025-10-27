@@ -34,6 +34,7 @@ class UserModel(Base):
         DECIMAL(precision=18, scale=6), default=Decimal("0")
     )
     escrow_token_mint: Mapped[str | None] = mapped_column(String(44))
+    escrow_initialized_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, onupdate=datetime.now

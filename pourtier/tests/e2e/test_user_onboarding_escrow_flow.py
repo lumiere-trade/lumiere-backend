@@ -420,6 +420,9 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
         assert response.status_code == 200
         balance_data = response.json()
         assert Decimal(balance_data["balance"]) == deposit_amount
+        assert balance_data["is_initialized"] is True
+        assert balance_data["escrow_account"] == escrow_account
+        assert balance_data["synced_from_blockchain"] is True
 
         signature, _ = self.transaction_signer.prepare_and_sign_revoke_platform(
             escrow_account=escrow_account

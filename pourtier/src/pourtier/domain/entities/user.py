@@ -1,7 +1,6 @@
 """
 User entity - Domain model for platform users.
 """
-
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
@@ -26,6 +25,7 @@ class User:
     escrow_account: Optional[str] = field(default=None)
     escrow_balance: Decimal = field(default=Decimal("0"))
     escrow_token_mint: Optional[str] = field(default=None)
+    escrow_initialized_at: Optional[datetime] = field(default=None)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -61,6 +61,7 @@ class User:
         self.escrow_account = escrow_account
         self.escrow_token_mint = token_mint
         self.escrow_balance = Decimal("0")
+        self.escrow_initialized_at = datetime.now()
         self.updated_at = datetime.now()
 
     def update_escrow_balance(self, new_balance: Decimal) -> None:
@@ -91,6 +92,11 @@ class User:
             "escrow_account": self.escrow_account,
             "escrow_balance": str(self.escrow_balance),
             "escrow_token_mint": self.escrow_token_mint,
+            "escrow_initialized_at": (
+                self.escrow_initialized_at.isoformat()
+                if self.escrow_initialized_at
+                else None
+            ),
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
