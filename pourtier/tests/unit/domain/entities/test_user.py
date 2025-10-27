@@ -119,10 +119,11 @@ class TestUser(LaborantTest):
         assert user.escrow_account is None
         assert user.escrow_balance == Decimal("0")
         assert user.escrow_token_mint is None
+        assert user.escrow_initialized_at is None
         self.reporter.info("Default escrow fields correct", context="Test")
 
     def test_initialize_escrow(self):
-        """Test initialize_escrow() sets escrow account."""
+        """Test initialize_escrow() sets escrow account and timestamp."""
         self.reporter.info("Testing initialize_escrow()", context="Test")
 
         user = User(wallet_address="A" * 44)
@@ -132,6 +133,8 @@ class TestUser(LaborantTest):
 
         assert user.escrow_account == escrow_pda
         assert user.escrow_token_mint == "USDC"
+        assert user.escrow_initialized_at is not None
+        assert isinstance(user.escrow_initialized_at, datetime)
         self.reporter.info("Escrow initialized successfully", context="Test")
 
     def test_initialize_escrow_with_custom_token(self):
@@ -147,6 +150,7 @@ class TestUser(LaborantTest):
 
         assert user.escrow_account == escrow_pda
         assert user.escrow_token_mint == "SOL"
+        assert user.escrow_initialized_at is not None
         self.reporter.info("Escrow initialized with custom token", context="Test")
 
     def test_reject_reinitialize_escrow(self):
@@ -221,7 +225,8 @@ class TestUser(LaborantTest):
         assert result["escrow_account"] is None
         assert result["escrow_balance"] == "0"
         assert result["escrow_token_mint"] is None
-        assert len(result) == 7
+        assert result["escrow_initialized_at"] is None
+        assert len(result) == 8
         self.reporter.info("to_dict() serialization correct", context="Test")
 
     def test_to_dict_timestamps_iso_format(self):
@@ -254,6 +259,9 @@ class TestUser(LaborantTest):
         assert result["escrow_account"] == "EscrowPDA123456789012345678901234"
         assert result["escrow_balance"] == "250.75"
         assert result["escrow_token_mint"] == "SOL"
+        assert result["escrow_initialized_at"] is not None
+        assert isinstance(result["escrow_initialized_at"], str)
+        assert "T" in result["escrow_initialized_at"]
         self.reporter.info("to_dict() includes escrow data", context="Test")
 
     # ================================================================

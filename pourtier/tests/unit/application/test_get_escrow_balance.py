@@ -13,10 +13,11 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 from pourtier.application.use_cases.get_escrow_balance import (
+    EscrowBalanceResult,
     GetEscrowBalance,
 )
 from pourtier.domain.entities.user import User
-from pourtier.domain.exceptions import EntityNotFoundError, ValidationError
+from pourtier.domain.exceptions import EntityNotFoundError
 from shared.tests import LaborantTest
 
 
@@ -78,7 +79,13 @@ class TestGetEscrowBalance(LaborantTest):
         )
 
         # Verify
-        assert result == expected_balance
+        assert isinstance(result, EscrowBalanceResult)
+        assert result.balance == expected_balance
+        assert result.escrow_account == escrow_account
+        assert result.is_initialized is True
+        assert result.initialized_at is not None
+        assert result.token_mint == "USDC"
+        assert result.last_synced_at is None
         user_repo.get_by_id.assert_called_once_with(user_id)
         query_service.get_escrow_balance.assert_not_called()
 
@@ -123,9 +130,14 @@ class TestGetEscrowBalance(LaborantTest):
         )
 
         # Verify
-        assert result == blockchain_balance
+        assert isinstance(result, EscrowBalanceResult)
+        assert result.balance == blockchain_balance
+        assert result.is_initialized is True
+        assert result.last_synced_at is not None
         user_repo.get_by_id.assert_called_once_with(user_id)
-        query_service.get_escrow_balance.assert_called_once_with(escrow_account)
+        query_service.get_escrow_balance.assert_called_once_with(
+            escrow_account
+        )
         user_repo.update.assert_called_once()
         assert user.escrow_balance == blockchain_balance
 
@@ -168,8 +180,12 @@ class TestGetEscrowBalance(LaborantTest):
         )
 
         # Verify - no update needed
-        assert result == current_balance
-        query_service.get_escrow_balance.assert_called_once_with(escrow_account)
+        assert isinstance(result, EscrowBalanceResult)
+        assert result.balance == current_balance
+        assert result.is_initialized is True
+        query_service.get_escrow_balance.assert_called_once_with(
+            escrow_account
+        )
         user_repo.update.assert_not_called()
 
         self.reporter.info(
@@ -205,9 +221,9 @@ class TestGetEscrowBalance(LaborantTest):
             )
 
     async def test_get_balance_escrow_not_initialized(self):
-        """Test balance retrieval fails if escrow not initialized."""
+        """Test balance retrieval returns status when escrow not initialized."""
         self.reporter.info(
-            "Testing escrow not initialized error",
+            "Testing escrow not initialized status",
             context="Test",
         )
 
@@ -227,15 +243,18 @@ class TestGetEscrowBalance(LaborantTest):
             escrow_query_service=query_service,
         )
 
-        try:
-            await use_case.execute(user_id=user_id)
-            assert False, "Should raise ValidationError"
-        except ValidationError as e:
-            assert "Escrow not initialized" in str(e)
-            self.reporter.info(
-                "Escrow not initialized error raised correctly",
-                context="Test",
-            )
+        result = await use_case.execute(user_id=user_id)
+
+        # Verify - returns status, not error
+        assert isinstance(result, EscrowBalanceResult)
+        assert result.balance == Decimal("0.00")
+        assert result.is_initialized is False
+        assert result.escrow_account is None
+        assert result.initialized_at is None
+        self.reporter.info(
+            "Escrow not initialized status returned correctly",
+            context="Test",
+        )
 
     async def test_get_balance_zero_balance(self):
         """Test retrieving zero balance."""
@@ -265,7 +284,9 @@ class TestGetEscrowBalance(LaborantTest):
         result = await use_case.execute(user_id=user_id)
 
         # Verify zero balance
-        assert result == Decimal("0")
+        assert isinstance(result, EscrowBalanceResult)
+        assert result.balance == Decimal("0")
+        assert result.is_initialized is True
         self.reporter.info("Zero balance retrieved correctly", context="Test")
 
     async def test_get_balance_large_amount(self):
@@ -300,7 +321,9 @@ class TestGetEscrowBalance(LaborantTest):
         result = await use_case.execute(user_id=user_id)
 
         # Verify large balance
-        assert result == large_balance
+        assert isinstance(result, EscrowBalanceResult)
+        assert result.balance == large_balance
+        assert result.is_initialized is True
         self.reporter.info("Large balance retrieved correctly", context="Test")
 
 

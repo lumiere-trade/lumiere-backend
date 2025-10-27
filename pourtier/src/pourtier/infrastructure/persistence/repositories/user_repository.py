@@ -56,6 +56,7 @@ class UserRepository(IUserRepository):
             escrow_account=user.escrow_account,
             escrow_balance=user.escrow_balance,
             escrow_token_mint=user.escrow_token_mint,
+            escrow_initialized_at=user.escrow_initialized_at,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
@@ -215,6 +216,7 @@ class UserRepository(IUserRepository):
         model.escrow_account = user.escrow_account
         model.escrow_balance = user.escrow_balance
         model.escrow_token_mint = user.escrow_token_mint
+        model.escrow_initialized_at = user.escrow_initialized_at
         model.updated_at = user.updated_at
 
         await self.session.flush()
@@ -285,6 +287,7 @@ class UserRepository(IUserRepository):
             escrow_account=model.escrow_account,
             escrow_balance=model.escrow_balance,
             escrow_token_mint=model.escrow_token_mint,
+            escrow_initialized_at=model.escrow_initialized_at,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )

@@ -374,7 +374,12 @@ class TestEscrowRoutes(LaborantTest):
         data = response.json()
         assert "balance" in data
         assert "token_mint" in data
+        assert "is_initialized" in data
+        assert "escrow_account" in data
+        assert "initialized_at" in data
         assert data["synced_from_blockchain"] is False
+        assert data["is_initialized"] is True
+        assert data["escrow_account"] is not None
 
         self.reporter.info("Balance retrieved successfully", context="Test")
 
@@ -397,6 +402,8 @@ class TestEscrowRoutes(LaborantTest):
         assert response.status_code == 200
         data = response.json()
         assert data["synced_from_blockchain"] is True
+        assert "last_synced_at" in data
+        assert data["last_synced_at"] is not None
 
         self.reporter.info("Balance synced from blockchain", context="Test")
 

@@ -222,39 +222,35 @@ async def withdraw_from_escrow(
 async def get_escrow_balance(
     sync: bool = False,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db_session),
     use_case: GetEscrowBalance = Depends(get_get_escrow_balance),
 ):
     """
     Get current escrow balance.
 
+    Returns balance and initialization status - never errors if not initialized.
+
     Query params:
     - sync: If true, sync balance from blockchain before returning
     """
     try:
-        balance = await use_case.execute(
+        result = await use_case.execute(
             user_id=current_user.id,
             sync_from_blockchain=sync,
         )
 
-        # Get user to fetch token_mint
-        user_repo = UserRepository(session)
-        user = await user_repo.get_by_id(current_user.id)
-
         return BalanceResponse(
-            balance=balance,
-            token_mint=user.escrow_token_mint if user else "USDC",
+            escrow_account=result.escrow_account,
+            balance=result.balance,
+            token_mint=result.token_mint,
+            is_initialized=result.is_initialized,
+            initialized_at=result.initialized_at,
             synced_from_blockchain=sync,
+            last_synced_at=result.last_synced_at,
         )
 
     except EntityNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
-        )
-    except ValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
     except BlockchainError as e:

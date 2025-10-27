@@ -146,19 +146,42 @@ class TransactionResponse(BaseModel):
 
 
 class BalanceResponse(BaseModel):
-    """Response schema for escrow balance."""
+    """
+    Response schema for escrow balance.
 
+    Returns balance and initialization status - never errors if not initialized.
+    """
+
+    escrow_account: Optional[str] = Field(
+        None,
+        description="Escrow PDA address (null if not initialized)",
+    )
     balance: Decimal = Field(..., description="Current escrow balance")
     token_mint: str = Field(..., description="Token mint address")
+    is_initialized: bool = Field(
+        ...,
+        description="Whether escrow account is initialized",
+    )
+    initialized_at: Optional[datetime] = Field(
+        None,
+        description="When escrow was initialized",
+    )
     synced_from_blockchain: bool = Field(
         ...,
         description="Whether balance was synced from blockchain",
+    )
+    last_synced_at: Optional[datetime] = Field(
+        None,
+        description="When balance was last synced from blockchain",
     )
 
     class Config:
         """Pydantic config."""
 
-        json_encoders = {Decimal: str}
+        json_encoders = {
+            Decimal: str,
+            datetime: lambda v: v.isoformat(),
+        }
 
 
 class TransactionListResponse(BaseModel):
