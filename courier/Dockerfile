@@ -1,6 +1,7 @@
 # ============================================
 # Multi-stage Dockerfile for Courier
 # Uses Private PyPI Registry for shared package
+# Clean Architecture Implementation
 # ============================================
 
 # ============================================
@@ -68,8 +69,8 @@ EXPOSE 8766
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8766/health || exit 1
 
-# Run development
-CMD ["python", "-m", "courier.broker"]
+# Run development (using main.py)
+CMD ["python", "-m", "courier.main"]
 
 # ============================================
 # Stage 3: Production
@@ -113,5 +114,5 @@ EXPOSE 8765
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8765/health || exit 1
 
-# Run production server
-CMD ["python", "-m", "courier.broker"]
+# Run production server (using main.py)
+CMD ["python", "-m", "courier.main"]

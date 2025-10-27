@@ -1,30 +1,10 @@
 """
-Broker - Standalone WebSocket hub for real-time event broadcasting.
+Courier - WebSocket Event Broadcasting Hub
 
-The Broker component decouples WebSocket communication from business logic.
-It receives events via HTTP POST from multiple systems (Rebalancer, Forger)
-and broadcasts them to connected UI clients via WebSocket channels.
-
-Architecture:
-    Systems → HTTP POST → Broker → WebSocket → UI Clients
-
-Channels:
-    - trade: Trading events (open, close)
-    - candle: Candle updates (aggregated)
-    - system: System logs and status
-    - extrema: Extrema detection events (Forger)
-    - analysis: Analysis results (Forger)
-
-Usage:
-    from broker import Broker, BrokerConfig
-
-    config = BrokerConfig(host="0.0.0.0", port=8765)
-    broker = Broker(config)
-    broker.start()
+Clean Architecture implementation for real-time event distribution.
 """
 
-from courier.broker import Broker
-from courier.config.settings import BrokerConfig
+from courier.main import CourierApp, main
 
-__version__ = "1.0.0"
-__all__ = ["Broker", "BrokerConfig"]
+__version__ = "0.1.0"
+__all__ = ["CourierApp", "main"]
