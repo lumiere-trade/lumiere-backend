@@ -11,8 +11,9 @@ Usage:
 from datetime import datetime
 from uuid import UUID
 
-from courier.domain.entities.client import Client
 from shared.tests import LaborantTest
+
+from courier.domain.entities.client import Client
 
 
 class TestClient(LaborantTest):
@@ -46,7 +47,7 @@ class TestClient(LaborantTest):
         client = Client(
             channel_name="user.123",
             user_id="user-abc",
-            wallet_address="DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK"
+            wallet_address="DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK",
         )
 
         assert client.channel_name == "user.123"
@@ -79,6 +80,7 @@ class TestClient(LaborantTest):
         self.reporter.info("Testing client with custom ID", context="Test")
 
         from uuid import uuid4
+
         custom_id = uuid4()
         client = Client(channel_name="test", client_id=custom_id)
 
@@ -101,25 +103,16 @@ class TestClient(LaborantTest):
 
     def test_is_authenticated_true_with_user_id(self):
         """Test is_authenticated() returns True when user_id present."""
-        self.reporter.info(
-            "Testing is_authenticated() with user_id",
-            context="Test"
-        )
+        self.reporter.info("Testing is_authenticated() with user_id", context="Test")
 
-        client = Client(
-            channel_name="user.123",
-            user_id="user-abc"
-        )
+        client = Client(channel_name="user.123", user_id="user-abc")
 
         assert client.is_authenticated() is True
         self.reporter.info("Client is authenticated", context="Test")
 
     def test_is_authenticated_false_without_user_id(self):
         """Test is_authenticated() returns False when user_id absent."""
-        self.reporter.info(
-            "Testing is_authenticated() without user_id",
-            context="Test"
-        )
+        self.reporter.info("Testing is_authenticated() without user_id", context="Test")
 
         client = Client(channel_name="global")
 
@@ -129,13 +122,12 @@ class TestClient(LaborantTest):
     def test_is_authenticated_with_wallet_but_no_user_id(self):
         """Test is_authenticated() False with wallet but no user_id."""
         self.reporter.info(
-            "Testing is_authenticated() with wallet only",
-            context="Test"
+            "Testing is_authenticated() with wallet only", context="Test"
         )
 
         client = Client(
             channel_name="global",
-            wallet_address="DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK"
+            wallet_address="DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK",
         )
 
         assert client.is_authenticated() is False
@@ -150,6 +142,7 @@ class TestClient(LaborantTest):
         self.reporter.info("Testing client equality", context="Test")
 
         from uuid import uuid4
+
         client_id = uuid4()
         client1 = Client(channel_name="user.123", client_id=client_id)
         client2 = Client(channel_name="user.456", client_id=client_id)
@@ -175,7 +168,7 @@ class TestClient(LaborantTest):
 
         assert client != "client"
         assert client != 123
-        assert client != None
+        assert client is not None
         self.reporter.info("Client not equal to non-Client", context="Test")
 
     # ================================================================
@@ -221,10 +214,7 @@ class TestClient(LaborantTest):
         """Test Client repr for authenticated client."""
         self.reporter.info("Testing authenticated client repr", context="Test")
 
-        client = Client(
-            channel_name="user.123",
-            user_id="user-abc"
-        )
+        client = Client(channel_name="user.123", user_id="user-abc")
         repr_str = repr(client)
 
         assert "Client" in repr_str
@@ -249,7 +239,9 @@ class TestClient(LaborantTest):
 
     def test_multiple_clients_different_channels(self):
         """Test multiple clients can be on different channels."""
-        self.reporter.info("Testing multiple clients on different channels", context="Test")
+        self.reporter.info(
+            "Testing multiple clients on different channels", context="Test"
+        )
 
         client1 = Client(channel_name="user.123")
         client2 = Client(channel_name="user.456")
@@ -279,7 +271,7 @@ class TestClient(LaborantTest):
         self.reporter.info("Testing client mutability", context="Test")
 
         client = Client(channel_name="user.123")
-        
+
         # Attributes are mutable
         client.user_id = "user-abc"
         assert client.user_id == "user-abc"
@@ -304,7 +296,7 @@ class TestClient(LaborantTest):
         # Only wallet_address
         client2 = Client(
             channel_name="user.456",
-            wallet_address="DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK"
+            wallet_address="DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK",
         )
         assert client2.is_authenticated() is False
         assert client2.user_id is None

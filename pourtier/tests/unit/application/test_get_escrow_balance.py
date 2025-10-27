@@ -135,9 +135,7 @@ class TestGetEscrowBalance(LaborantTest):
         assert result.is_initialized is True
         assert result.last_synced_at is not None
         user_repo.get_by_id.assert_called_once_with(user_id)
-        query_service.get_escrow_balance.assert_called_once_with(
-            escrow_account
-        )
+        query_service.get_escrow_balance.assert_called_once_with(escrow_account)
         user_repo.update.assert_called_once()
         assert user.escrow_balance == blockchain_balance
 
@@ -183,9 +181,7 @@ class TestGetEscrowBalance(LaborantTest):
         assert isinstance(result, EscrowBalanceResult)
         assert result.balance == current_balance
         assert result.is_initialized is True
-        query_service.get_escrow_balance.assert_called_once_with(
-            escrow_account
-        )
+        query_service.get_escrow_balance.assert_called_once_with(escrow_account)
         user_repo.update.assert_not_called()
 
         self.reporter.info(

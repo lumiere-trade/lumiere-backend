@@ -8,8 +8,9 @@ Usage:
     laborant courier --unit
 """
 
-from courier.domain.value_objects.channel_name import ChannelName
 from shared.tests import LaborantTest
+
+from courier.domain.value_objects.channel_name import ChannelName
 
 
 class TestChannelName(LaborantTest):
@@ -123,7 +124,7 @@ class TestChannelName(LaborantTest):
         try:
             ChannelName("user 123")
             assert False, "Should have raised ValueError"
-        except ValueError as e:
+        except ValueError:
             self.reporter.info("Spaces correctly rejected", context="Test")
 
     def test_reject_special_characters(self):
@@ -146,10 +147,7 @@ class TestChannelName(LaborantTest):
                 ChannelName(invalid)
                 assert False, f"Should have rejected: {invalid}"
             except ValueError:
-                self.reporter.info(
-                    f"Special char rejected: {invalid}",
-                    context="Test"
-                )
+                self.reporter.info(f"Special char rejected: {invalid}", context="Test")
 
     def test_accept_dots_and_hyphens(self):
         """Test ChannelName accepts dots and hyphens."""
@@ -246,8 +244,7 @@ class TestChannelName(LaborantTest):
     def test_extract_user_id_from_non_user_channel_raises(self):
         """Test extract_user_id() raises for non-user channel."""
         self.reporter.info(
-            "Testing extract_user_id() on non-user channel",
-            context="Test"
+            "Testing extract_user_id() on non-user channel", context="Test"
         )
 
         name = ChannelName("strategy.abc")

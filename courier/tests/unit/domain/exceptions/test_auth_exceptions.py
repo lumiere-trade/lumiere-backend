@@ -8,13 +8,14 @@ Usage:
     laborant courier --unit
 """
 
+from shared.tests import LaborantTest
+
 from courier.domain.exceptions.auth_exceptions import (
     AuthenticationError,
+    AuthorizationError,
     TokenExpiredError,
     TokenInvalidError,
-    AuthorizationError,
 )
-from shared.tests import LaborantTest
 
 
 class TestAuthenticationExceptions(LaborantTest):
@@ -105,9 +106,7 @@ class TestAuthenticationExceptions(LaborantTest):
         self.reporter.info("Testing AuthorizationError creation", context="Test")
 
         error = AuthorizationError(
-            message="Access denied",
-            user_id="user-123",
-            resource="channel.private"
+            message="Access denied", user_id="user-123", resource="channel.private"
         )
 
         assert isinstance(error, Exception)
@@ -119,8 +118,7 @@ class TestAuthenticationExceptions(LaborantTest):
     def test_authorization_error_without_optional_fields(self):
         """Test AuthorizationError without user_id and resource."""
         self.reporter.info(
-            "Testing AuthorizationError without optional fields",
-            context="Test"
+            "Testing AuthorizationError without optional fields", context="Test"
         )
 
         error = AuthorizationError(message="Forbidden")
@@ -137,9 +135,7 @@ class TestAuthenticationExceptions(LaborantTest):
         user_id = "user-abc-123"
         resource = "strategy.xyz-789"
         error = AuthorizationError(
-            message="Not authorized",
-            user_id=user_id,
-            resource=resource
+            message="Not authorized", user_id=user_id, resource=resource
         )
 
         assert error.user_id == user_id
@@ -177,10 +173,7 @@ class TestAuthenticationExceptions(LaborantTest):
 
     def test_catch_token_expired_as_authentication_error(self):
         """Test catching TokenExpiredError as AuthenticationError."""
-        self.reporter.info(
-            "Testing catching TokenExpiredError as base",
-            context="Test"
-        )
+        self.reporter.info("Testing catching TokenExpiredError as base", context="Test")
 
         try:
             raise TokenExpiredError("Token expired")
@@ -191,10 +184,7 @@ class TestAuthenticationExceptions(LaborantTest):
 
     def test_catch_token_invalid_as_authentication_error(self):
         """Test catching TokenInvalidError as AuthenticationError."""
-        self.reporter.info(
-            "Testing catching TokenInvalidError as base",
-            context="Test"
-        )
+        self.reporter.info("Testing catching TokenInvalidError as base", context="Test")
 
         try:
             raise TokenInvalidError("Invalid signature")
@@ -205,10 +195,7 @@ class TestAuthenticationExceptions(LaborantTest):
 
     def test_catch_all_authentication_errors(self):
         """Test catching all authentication errors with base class."""
-        self.reporter.info(
-            "Testing catching all authentication errors",
-            context="Test"
-        )
+        self.reporter.info("Testing catching all authentication errors", context="Test")
 
         errors = [
             AuthenticationError("Generic auth error"),
@@ -221,10 +208,7 @@ class TestAuthenticationExceptions(LaborantTest):
                 raise error
             except AuthenticationError as e:
                 assert isinstance(e, AuthenticationError)
-                self.reporter.info(
-                    f"Caught {type(e).__name__}",
-                    context="Test"
-                )
+                self.reporter.info(f"Caught {type(e).__name__}", context="Test")
 
     # ================================================================
     # Various error scenarios tests
@@ -263,16 +247,13 @@ class TestAuthenticationExceptions(LaborantTest):
 
     def test_authorization_error_various_scenarios(self):
         """Test AuthorizationError in various scenarios."""
-        self.reporter.info(
-            "Testing AuthorizationError scenarios",
-            context="Test"
-        )
+        self.reporter.info("Testing AuthorizationError scenarios", context="Test")
 
         # User not allowed to access channel
         error1 = AuthorizationError(
             message="User not allowed to access private channel",
             user_id="user-123",
-            resource="channel.private-vip"
+            resource="channel.private-vip",
         )
         assert "private channel" in str(error1)
         assert error1.user_id == "user-123"
@@ -281,7 +262,7 @@ class TestAuthenticationExceptions(LaborantTest):
         error2 = AuthorizationError(
             message="Strategy not owned by user",
             user_id="user-456",
-            resource="strategy.abc-123"
+            resource="strategy.abc-123",
         )
         assert "not owned" in str(error2)
         assert error2.resource == "strategy.abc-123"
