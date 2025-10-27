@@ -5,7 +5,6 @@ Handles JWT token validation and channel access authorization.
 """
 
 import jwt
-from typing import Optional
 
 from courier.domain.auth import TokenPayload
 
@@ -47,9 +46,7 @@ class JWTVerifier:
             ValueError: If token is expired or invalid
         """
         try:
-            payload = jwt.decode(
-                token, self.secret, algorithms=[self.algorithm]
-            )
+            payload = jwt.decode(token, self.secret, algorithms=[self.algorithm])
             return TokenPayload(**payload)
         except jwt.ExpiredSignatureError:
             raise ValueError("Token expired")

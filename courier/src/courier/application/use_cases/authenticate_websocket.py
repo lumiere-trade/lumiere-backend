@@ -62,14 +62,12 @@ class AuthenticateWebSocketUseCase:
 
         # Validate channel name
         try:
-            channel = ChannelName(channel_name)
+            ChannelName(channel_name)
         except ValueError as e:
             raise AuthenticationError(f"Invalid channel name: {e}")
 
         # Check authorization
-        if not self.jwt_verifier.verify_channel_access(
-            payload.user_id, channel_name
-        ):
+        if not self.jwt_verifier.verify_channel_access(payload.user_id, channel_name):
             raise AuthorizationError(
                 f"User not authorized for channel: {channel_name}",
                 user_id=payload.user_id,

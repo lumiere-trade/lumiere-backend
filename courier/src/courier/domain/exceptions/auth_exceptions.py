@@ -6,19 +6,13 @@ Authentication and authorization exceptions.
 class AuthenticationError(Exception):
     """Base exception for authentication errors."""
 
-    pass
-
 
 class TokenExpiredError(AuthenticationError):
     """Raised when JWT token has expired."""
 
-    pass
-
 
 class TokenInvalidError(AuthenticationError):
     """Raised when JWT token is invalid."""
-
-    pass
 
 
 class AuthorizationError(Exception):

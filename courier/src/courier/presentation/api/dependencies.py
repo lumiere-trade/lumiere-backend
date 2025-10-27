@@ -4,8 +4,9 @@ FastAPI dependencies for Courier API.
 Provides dependency injection for routes.
 """
 
-from fastapi import Depends, HTTPException, Query, WebSocket, status
 from typing import Optional
+
+from fastapi import Depends, HTTPException, Query, WebSocket, status
 
 from courier.di import Container
 from courier.domain.exceptions import (
@@ -83,37 +84,20 @@ async def authenticate_websocket(
         return auth_use_case.execute(token, channel)
     except TokenExpiredError as e:
         await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION,
-            reason="Token expired"
+            code=status.WS_1008_POLICY_VIOLATION, reason="Token expired"
         )
-        raise HTTPException(
-            status_code=status.WS_1008_POLICY_VIOLATION,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.WS_1008_POLICY_VIOLATION, detail=str(e))
     except TokenInvalidError as e:
         await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION,
-            reason="Invalid token"
+            code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token"
         )
-        raise HTTPException(
-            status_code=status.WS_1008_POLICY_VIOLATION,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.WS_1008_POLICY_VIOLATION, detail=str(e))
     except AuthorizationError as e:
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION,
-            reason=f"Unauthorized access to channel: {channel}"
+            reason=f"Unauthorized access to channel: {channel}",
         )
-        raise HTTPException(
-            status_code=status.WS_1008_POLICY_VIOLATION,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.WS_1008_POLICY_VIOLATION, detail=str(e))
     except AuthenticationError as e:
-        await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION,
-            reason=str(e)
-        )
-        raise HTTPException(
-            status_code=status.WS_1008_POLICY_VIOLATION,
-            detail=str(e)
-        )
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason=str(e))
+        raise HTTPException(status_code=status.WS_1008_POLICY_VIOLATION, detail=str(e))

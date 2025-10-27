@@ -5,7 +5,7 @@ Manages lifecycle and dependencies of all application components.
 """
 
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Optional
 
 from courier.application.use_cases import (
     AuthenticateWebSocketUseCase,
@@ -110,9 +110,7 @@ class Container:
         Returns:
             Use case instance
         """
-        return ManageChannelUseCase(
-            self.connection_manager.channels
-        )
+        return ManageChannelUseCase(self.connection_manager.channels)
 
     def increment_stat(self, stat_name: str, amount: int = 1) -> None:
         """

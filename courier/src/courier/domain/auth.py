@@ -5,7 +5,6 @@ Defines JWT token payload and authenticated client structures.
 """
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 

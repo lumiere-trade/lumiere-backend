@@ -34,9 +34,7 @@ class PublishEventResponse(BaseModel):
 
     status: str = Field(default="published", description="Publication status")
     channel: str = Field(..., description="Channel name")
-    clients_reached: int = Field(
-        ..., description="Number of clients reached"
-    )
+    clients_reached: int = Field(..., description="Number of clients reached")
     timestamp: str = Field(
         default_factory=lambda: datetime.utcnow().isoformat(),
         description="Publication timestamp (ISO format)",

@@ -39,15 +39,10 @@ async def publish_event(
     try:
         manage_uc.create_or_get_channel(request.channel)
     except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid channel name: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid channel name: {str(e)}")
 
     # Get channel subscribers
-    subscribers = container.connection_manager.get_channel_subscribers(
-        request.channel
-    )
+    subscribers = container.connection_manager.get_channel_subscribers(request.channel)
 
     # Broadcast message to all subscribers
     try:
@@ -57,10 +52,7 @@ async def publish_event(
             subscribers,
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid message data: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid message data: {str(e)}")
 
     # Update statistics
     container.increment_stat("total_messages_sent", sent_count)
