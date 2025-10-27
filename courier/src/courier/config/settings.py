@@ -1,11 +1,8 @@
 """
-Application settings with environment-based configuration.
+Configuration management for Courier.
 
-Priority (highest to lowest):
-1. Environment variables (from .env or system)
-2. Environment-specific YAML config file (development.yaml, production.yaml)
-3. Default YAML config file (default.yaml)
-4. Pydantic defaults
+Hybrid configuration system using YAML files and environment variables.
+Priority: Environment variables > YAML config > Pydantic defaults
 """
 
 import os
@@ -20,10 +17,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """
-    Courier application settings with environment variable support.
+    Courier configuration schema.
 
-    All sensitive values should come from environment variables,
-    not from YAML files.
+    Loads configuration from:
+    1. Environment variables (highest priority)
+    2. YAML configuration files
+    3. Pydantic defaults (lowest priority)
+
+    Configuration files:
+        - config/default.yaml: Base defaults
+        - config/production.yaml: Production overrides
+        - config/development.yaml: Development overrides
+        - config/test.yaml: Test overrides
     """
 
     model_config = SettingsConfigDict(
@@ -46,11 +51,11 @@ class Settings(BaseSettings):
     # Service Discovery (Docker DNS)
     pourtier_url: str = Field(
         default="http://pourtier:8000",
-        description="Pourtier service URL (Docker DNS)"
+        description="Pourtier service URL (Docker DNS)",
     )
     passeur_url: str = Field(
         default="http://passeur:8766",
-        description="Passeur service URL (Docker DNS)"
+        description="Passeur service URL (Docker DNS)",
     )
 
     # Channels (mapped from YAML 'channels')
@@ -72,6 +77,16 @@ class Settings(BaseSettings):
     # Connection settings (mapped from YAML lowercase keys)
     heartbeat_interval: int = Field(default=30, ge=5, le=300)
     max_clients_per_channel: int = Field(default=0, ge=0)
+
+    # JWT Authentication (NEW)
+    jwt_secret: Optional[str] = Field(
+        default=None, description="JWT secret key (from environment)"
+    )
+    jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
+    require_auth: bool = Field(
+        default=False,
+        description="Require authentication for WebSocket connections",
+    )
 
     # Logging (mapped from YAML 'log_level')
     log_level: str = Field(default="info")
@@ -105,7 +120,7 @@ def load_config(
     Args:
         config_file: Optional YAML config filename override
         env_file: Optional .env filename (e.g., ".env.development")
-        env: Optional environment name override (e.g., "development", "test")
+        env: Optional environment name override
 
     Returns:
         Settings instance
@@ -152,14 +167,13 @@ def load_config(
                 merged_config = loaded
 
     # Load environment-specific config (overrides defaults)
-    # IMPORTANT: explicit None values from YAML must override defaults
     if config_file:
         env_config_path = config_dir / config_file
         if env_config_path.exists():
             with open(env_config_path, "r") as f:
                 loaded = yaml.safe_load(f)
                 if loaded:
-                    # Merge, including None values (for explicit null in YAML)
+                    # Merge, including None values
                     for key, value in loaded.items():
                         merged_config[key] = value
 
@@ -174,8 +188,6 @@ _settings: Optional[Settings] = None
 def get_settings() -> Settings:
     """
     Get or initialize global settings singleton.
-
-    Lazy initialization ensures settings are only loaded when needed.
 
     Returns:
         Settings instance
