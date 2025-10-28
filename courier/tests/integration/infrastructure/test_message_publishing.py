@@ -8,8 +8,10 @@ Usage:
     laborant courier --integration
 """
 
-from fastapi import WebSocket
 from unittest.mock import AsyncMock, MagicMock
+
+from fastapi import WebSocket
+from shared.tests import LaborantTest
 
 from courier.application.use_cases.broadcast_message import (
     BroadcastMessageUseCase,
@@ -17,7 +19,6 @@ from courier.application.use_cases.broadcast_message import (
 from courier.infrastructure.websocket.connection_manager import (
     ConnectionManager,
 )
-from shared.tests import LaborantTest
 
 
 class TestMessagePublishing(LaborantTest):
@@ -38,7 +39,7 @@ class TestMessagePublishing(LaborantTest):
         self.reporter.info(
             "Cleaning up message publishing tests...", context="Teardown"
         )
-        if hasattr(self, 'manager'):
+        if hasattr(self, "manager"):
             self.manager.channels = {}
             self.manager.client_registry = {}
         self.reporter.info("Cleanup complete", context="Teardown")
@@ -54,9 +55,7 @@ class TestMessagePublishing(LaborantTest):
 
     async def test_broadcast_to_single_subscriber(self):
         """Test broadcasting message to single subscriber."""
-        self.reporter.info(
-            "Testing broadcast to single subscriber", context="Test"
-        )
+        self.reporter.info("Testing broadcast to single subscriber", context="Test")
 
         ws = self._create_mock_websocket()
         channel = "test.single"
@@ -77,9 +76,7 @@ class TestMessagePublishing(LaborantTest):
 
     async def test_broadcast_to_multiple_subscribers(self):
         """Test broadcasting message to multiple subscribers."""
-        self.reporter.info(
-            "Testing broadcast to multiple subscribers", context="Test"
-        )
+        self.reporter.info("Testing broadcast to multiple subscribers", context="Test")
 
         ws1 = self._create_mock_websocket()
         ws2 = self._create_mock_websocket()
@@ -178,26 +175,22 @@ class TestMessagePublishing(LaborantTest):
         subscribers = self.manager.get_channel_subscribers(channel)
 
         price_msg = {"type": "price", "token": "SOL", "value": 123.45}
-        sent = await self.broadcast_use_case.execute(
-            channel, price_msg, subscribers
-        )
+        sent = await self.broadcast_use_case.execute(channel, price_msg, subscribers)
         assert sent == 1
 
         trade_msg = {"type": "trade", "size": 1000, "status": "executed"}
-        sent = await self.broadcast_use_case.execute(
-            channel, trade_msg, subscribers
-        )
+        sent = await self.broadcast_use_case.execute(channel, trade_msg, subscribers)
         assert sent == 1
 
         notif_msg = {"type": "notification", "text": "System maintenance"}
-        sent = await self.broadcast_use_case.execute(
-            channel, notif_msg, subscribers
-        )
+        sent = await self.broadcast_use_case.execute(channel, notif_msg, subscribers)
         assert sent == 1
 
         assert ws.send_json.call_count == 3
 
-        self.reporter.info("Different message types broadcast successfully", context="Test")
+        self.reporter.info(
+            "Different message types broadcast successfully", context="Test"
+        )
 
     async def test_broadcast_to_specific_user_channel(self):
         """Test broadcasting to user-specific channel."""

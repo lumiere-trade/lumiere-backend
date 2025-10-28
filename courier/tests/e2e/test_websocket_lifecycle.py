@@ -146,9 +146,10 @@ class TestWebSocketLifecycle(LaborantTest):
 
         channel = "multi.client"
 
-        async with websockets.connect(
-            f"{self.ws_base_url}/ws/{channel}"
-        ) as ws1, websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws2:
+        async with (
+            websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws1,
+            websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws2,
+        ):
             assert ws1.close_code is None
             assert ws2.close_code is None
 
@@ -158,9 +159,10 @@ class TestWebSocketLifecycle(LaborantTest):
         """Test clients can connect to different channels."""
         self.reporter.info("Testing different channels", context="Test")
 
-        async with websockets.connect(
-            f"{self.ws_base_url}/ws/channel.one"
-        ) as ws1, websockets.connect(f"{self.ws_base_url}/ws/channel.two") as ws2:
+        async with (
+            websockets.connect(f"{self.ws_base_url}/ws/channel.one") as ws1,
+            websockets.connect(f"{self.ws_base_url}/ws/channel.two") as ws2,
+        ):
             assert ws1.close_code is None
             assert ws2.close_code is None
 

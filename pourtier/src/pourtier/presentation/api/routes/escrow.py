@@ -12,7 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pourtier.application.use_cases.deposit_to_escrow import DepositToEscrow
 from pourtier.application.use_cases.get_escrow_balance import GetEscrowBalance
 from pourtier.application.use_cases.initialize_escrow import InitializeEscrow
-from pourtier.application.use_cases.prepare_deposit_to_escrow import PrepareDepositToEscrow
+from pourtier.application.use_cases.prepare_deposit_to_escrow import (
+    PrepareDepositToEscrow,
+)
 from pourtier.application.use_cases.withdraw_from_escrow import WithdrawFromEscrow
 from pourtier.di.dependencies import (
     get_db_session,
