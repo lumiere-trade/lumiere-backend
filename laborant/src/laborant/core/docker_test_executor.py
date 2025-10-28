@@ -238,15 +238,8 @@ class DockerTestExecutor:
 
         try:
             subprocess.run(
-                [
-                    "docker",
-                    "compose",
-                    "-f",
-                    "docker-compose-test.yaml",
-                    "down",
-                    "-v",
-                ],
-                cwd=str(compose_file.parent),  # Run from component directory
+                ["docker", "compose", "-f", "docker-compose-test.yaml", "down"],
+                cwd=str(compose_file.parent),
                 capture_output=True,
                 text=True,
                 check=True,
@@ -261,7 +254,7 @@ class DockerTestExecutor:
 
         except subprocess.CalledProcessError as e:
             self.reporter.error(
-                f"Failed to stop infrastructure: {e.stderr}",
+                f"Failed to stop infrastructure for {component}: {e.stderr}",
                 context="DockerTestExecutor",
             )
 
@@ -269,48 +262,97 @@ class DockerTestExecutor:
         self, test_file: Path, component: str, category: str
     ) -> TestFileResult:
         """
-        Execute a single test file in Docker container.
+        Execute a single test file.
 
         Args:
             test_file: Path to test file
             component: Component name
-            category: Test category (unit/integration/e2e)
+            category: Test category (unit, integration, e2e)
 
         Returns:
-            TestFileResult with execution results
+            TestFileResult with test outcomes
         """
         if not self.can_execute(test_file):
             return self._create_error_result(
                 test_file=test_file,
                 component=component,
                 category=category,
-                error="Test file cannot be executed",
+                error="Test file validation failed",
                 stderr="",
                 duration=0.0,
             )
 
-        # Ensure infrastructure is running for this component
-        if not self.ensure_infrastructure(component):
-            return self._create_error_result(
-                test_file=test_file,
-                component=component,
-                category=category,
-                error="Failed to start test infrastructure",
-                stderr="",
-                duration=0.0,
-            )
-
-        # Check if component has docker-compose (if not, shouldn't be here)
+        # Check if component has docker-compose
         compose_file = self._get_compose_file_path(component)
+
         if not compose_file:
-            return self._create_error_result(
-                test_file=test_file,
-                component=component,
-                category=category,
-                error=f"Component {component} has no docker-compose-test.yaml - should run on host",
-                stderr="",
-                duration=0.0,
+            # No Docker infrastructure - run test directly on host
+            self.reporter.debug(
+                f"Running {test_file.name} on host (no docker-compose-test.yaml)",
+                context="DockerTestExecutor",
             )
+
+            start_time = time.time()
+
+            try:
+                # Execute test file directly on host
+                result = subprocess.run(
+                    ["python", str(test_file)],
+                    cwd=str(self.project_root / component),
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout,
+                )
+
+                duration = time.time() - start_time
+
+                # Parse JSON output
+                test_data = parse_test_output(result.stdout)
+
+                if test_data is None:
+                    return self._create_error_result(
+                        test_file=test_file,
+                        component=component,
+                        category=category,
+                        error="Failed to parse test output",
+                        stderr=result.stderr,
+                        duration=duration,
+                    )
+
+                is_valid, error_msg = validate_test_output(test_data)
+
+                if not is_valid:
+                    return self._create_error_result(
+                        test_file=test_file,
+                        component=component,
+                        category=category,
+                        error=f"Invalid test output: {error_msg}",
+                        stderr=result.stderr,
+                        duration=duration,
+                    )
+
+                return TestFileResult(**test_data)
+
+            except subprocess.TimeoutExpired:
+                duration = time.time() - start_time
+                return self._create_error_result(
+                    test_file=test_file,
+                    component=component,
+                    category=category,
+                    error=f"Test timeout after {self.timeout}s",
+                    stderr="",
+                    duration=duration,
+                )
+            except Exception as e:
+                duration = time.time() - start_time
+                return self._create_error_result(
+                    test_file=test_file,
+                    component=component,
+                    category=category,
+                    error=f"Execution error: {str(e)}",
+                    stderr="",
+                    duration=duration,
+                )
 
         container_name = self._get_container_name(component)
 

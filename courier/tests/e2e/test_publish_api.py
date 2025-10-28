@@ -194,9 +194,7 @@ class TestPublishAPI(LaborantTest):
 
         channel = "url.channel"
 
-        response = await self.client.post(
-            f"/publish/{channel}", json={"data": "test"}
-        )
+        response = await self.client.post(f"/publish/{channel}", json={"data": "test"})
 
         assert response.status_code == 200
 
