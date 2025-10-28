@@ -168,9 +168,10 @@ class TestFullFlow(LaborantTest):
             except Exception:
                 pass
 
-        async with websockets.connect(
-            f"{self.ws_base_url}/ws/{channel}"
-        ) as ws1, websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws2:
+        async with (
+            websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws1,
+            websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws2,
+        ):
             task1 = asyncio.create_task(receive_c1(ws1))
             task2 = asyncio.create_task(receive_c2(ws2))
 
@@ -213,9 +214,10 @@ class TestFullFlow(LaborantTest):
             except Exception:
                 pass
 
-        async with websockets.connect(
-            f"{self.ws_base_url}/ws/channel.one"
-        ) as ws1, websockets.connect(f"{self.ws_base_url}/ws/channel.two") as ws2:
+        async with (
+            websockets.connect(f"{self.ws_base_url}/ws/channel.one") as ws1,
+            websockets.connect(f"{self.ws_base_url}/ws/channel.two") as ws2,
+        ):
             task1 = asyncio.create_task(receive_ch1(ws1))
             task2 = asyncio.create_task(receive_ch2(ws2))
 
@@ -243,9 +245,10 @@ class TestFullFlow(LaborantTest):
 
         channel = "count.accuracy"
 
-        async with websockets.connect(
-            f"{self.ws_base_url}/ws/{channel}"
-        ) as ws1, websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws2:
+        async with (
+            websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws1,
+            websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws2,
+        ):
             await asyncio.sleep(0.5)
 
             async with httpx.AsyncClient() as client:
@@ -343,9 +346,10 @@ class TestFullFlow(LaborantTest):
             before = await client.get(f"{self.http_base_url}/health")
             count_before = before.json()["total_clients"]
 
-            async with websockets.connect(
-                f"{self.ws_base_url}/ws/{channel}"
-            ) as ws1, websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws2:
+            async with (
+                websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws1,
+                websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws2,
+            ):
                 await asyncio.sleep(0.5)
 
                 during = await client.get(f"{self.http_base_url}/health")

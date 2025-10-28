@@ -8,13 +8,14 @@ Usage:
     laborant courier --integration
 """
 
-from fastapi import WebSocket
 from unittest.mock import AsyncMock, MagicMock
+
+from fastapi import WebSocket
+from shared.tests import LaborantTest
 
 from courier.infrastructure.websocket.connection_manager import (
     ConnectionManager,
 )
-from shared.tests import LaborantTest
 
 
 class TestChannelManagement(LaborantTest):
