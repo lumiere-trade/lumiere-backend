@@ -1,0 +1,108 @@
+# =============================================
+# POURTIER TEST INFRASTRUCTURE
+# Uses: config/test.yaml + .env.development (test uses dev secrets)
+# Port: 7000 (from config/test.yaml)
+# =============================================
+
+networks:
+  pourtier-test-net:
+    driver: bridge
+    name: pourtier-test-network
+
+volumes:
+  pourtier-postgres-test-data:
+    name: pourtier-postgres-test-data
+
+services:
+  # -------------------------------------------
+  # PostgreSQL Database (Test)
+  # External: 5433 → Internal: 5432 (for host access)
+  # -------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: pourtier-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lumiere}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-test_password}
+      POSTGRES_DB: lumiere_test
+    volumes:
+      - pourtier-postgres-test-data:/var/lib/postgresql/data
+      - ../postgres/init-scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - pourtier-test-net
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lumiere}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------------------------------------------
+  # Courier Event Bus (Test)
+  # External: 7765 → Internal: 7765
+  # No persistence needed for test environment
+  # -------------------------------------------
+  courier:
+    image: courier:development
+    container_name: courier-test
+    restart: unless-stopped
+    environment:
+      ENV: test
+      LOG_LEVEL: INFO
+    ports:
+      - "7765:7765"
+    networks:
+      - pourtier-test-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7765/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------------------------------------------
+  # Pourtier API (Test)
+  # External: 7000 → Internal: 7000
+  # -------------------------------------------
+  pourtier:
+    image: pourtier:development
+    container_name: pourtier-test
+    restart: unless-stopped
+    env_file:
+      - .env.development
+    environment:
+      ENV: test
+    ports:
+      - "7000:7000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      courier:
+        condition: service_healthy
+    networks:
+      - pourtier-test-net
+    volumes:
+      - ./config:/app/config:ro
+      - ./tests:/app/tests:ro
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

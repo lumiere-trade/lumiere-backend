@@ -179,7 +179,9 @@ class TestConnectionManager(LaborantTest):
 
     def test_get_subscribers_nonexistent_channel(self):
         """Test getting subscribers for nonexistent channel."""
-        self.reporter.info("Testing get nonexistent channel subscribers", context="Test")
+        self.reporter.info(
+            "Testing get nonexistent channel subscribers", context="Test"
+        )
 
         manager = ConnectionManager()
 
@@ -334,7 +336,7 @@ class TestConnectionManager(LaborantTest):
         ws = self._create_mock_websocket()
 
         # Connect
-        client = manager.add_client(ws, "user.123", "123", "wallet")
+        manager.add_client(ws, "user.123", "123", "wallet")
         assert manager.get_total_connections() == 1
 
         # Verify

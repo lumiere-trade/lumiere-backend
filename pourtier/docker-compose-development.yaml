@@ -1,0 +1,76 @@
+# =============================================
+# POURTIER DEVELOPMENT INFRASTRUCTURE
+# Uses: config/development.yaml + .env.development
+# Port: 9000 (from config/development.yaml)
+# =============================================
+
+networks:
+  pourtier-dev-net:
+    driver: bridge
+    name: pourtier-dev-network
+
+volumes:
+  pourtier-postgres-dev-data:
+    name: pourtier-postgres-dev-data
+
+services:
+  # -------------------------------------------
+  # PostgreSQL Database (Development)
+  # Internal only - no external port
+  # -------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: pourtier-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lumiere}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      POSTGRES_DB: lumiere
+    volumes:
+      - pourtier-postgres-dev-data:/var/lib/postgresql/data
+      - ../postgres/init-scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - pourtier-dev-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lumiere}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------------------------------------------
+  # Pourtier API (Development)
+  # External: 9000 → Internal: 9000
+  # -------------------------------------------
+  pourtier:
+    image: pourtier:development
+    container_name: pourtier-dev
+    restart: unless-stopped
+    env_file:
+      - .env.development
+    environment:
+      ENV: development
+    ports:
+      - "9000:9000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pourtier-dev-net
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

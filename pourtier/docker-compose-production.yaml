@@ -1,0 +1,76 @@
+# =============================================
+# POURTIER PRODUCTION INFRASTRUCTURE
+# Uses: config/production.yaml + .env.production
+# Port: 8000 (from config/production.yaml)
+# =============================================
+
+networks:
+  pourtier-prod-net:
+    driver: bridge
+    name: pourtier-prod-network
+
+volumes:
+  pourtier-postgres-prod-data:
+    name: pourtier-postgres-prod-data
+
+services:
+  # -------------------------------------------
+  # PostgreSQL Database (Production)
+  # Internal only - no external port
+  # -------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: pourtier-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lumiere}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: lumiere
+    volumes:
+      - pourtier-postgres-prod-data:/var/lib/postgresql/data
+      - ../postgres/init-scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - pourtier-prod-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lumiere}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------------------------------------------
+  # Pourtier API (Production)
+  # External: 8000 → Internal: 8000
+  # -------------------------------------------
+  pourtier:
+    image: pourtier:production
+    container_name: pourtier-prod
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      ENV: production
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pourtier-prod-net
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
