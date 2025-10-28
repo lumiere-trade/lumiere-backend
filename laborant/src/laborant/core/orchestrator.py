@@ -70,8 +70,8 @@ class Laborant:
     execute tests, and report results.
 
     Uses:
-    - TestExecutor for unit tests (fast, local execution)
-    - DockerTestExecutor for integration/e2e tests (Docker environment)
+    - TestExecutor for unit tests and lightweight integration tests
+    - DockerTestExecutor for integration/e2e tests requiring infrastructure
     """
 
     def __init__(
@@ -220,54 +220,106 @@ class Laborant:
             context="Laborant",
         )
 
-        # Check if git repository
-        if not self.change_detector.is_git_repository():
-            self.reporter.warning(
-                f"{LaborantEmoji.WARNING} Not a git repository - "
-                f"running all components",
-                context="Laborant",
-            )
-            return set(self.component_mapper.discover_all_components())
+        # Get changed files
+        changed_files = self.change_detector.get_changed_files()
 
-        # Get staged files
-        staged_files = self.change_detector.get_staged_files()
-
-        if not staged_files:
+        if not changed_files:
             self.reporter.info(
-                f"{LaborantEmoji.INFO} No staged files detected", context="Laborant"
+                f"{LaborantEmoji.INFO} No file changes detected", context="Laborant"
             )
             return set()
 
-        # Filter relevant files
-        relevant_files = self.change_detector.filter_relevant_files(staged_files)
+        self.reporter.debug(
+            f"Detected {len(changed_files)} changed file(s)", context="Laborant"
+        )
 
-        if not relevant_files:
+        # Map changed files to components
+        affected_components = self.component_mapper.map_files_to_components(
+            changed_files
+        )
+
+        if not affected_components:
             self.reporter.info(
-                f"{LaborantEmoji.INFO} No relevant code changes detected",
+                f"{LaborantEmoji.INFO} No affected components detected",
                 context="Laborant",
             )
             return set()
 
-        # Extract component names
-        components = self.component_mapper.extract_component_names(relevant_files)
+        self.reporter.info(
+            f"{LaborantEmoji.SUCCESS} Detected {len(affected_components)} "
+            f"affected component(s)",
+            context="Laborant",
+        )
 
-        return components
+        return affected_components
 
-    def _get_executor_for_category(self, category: str):
+    def _component_needs_docker(self, component_name: str, category: str) -> bool:
         """
-        Get appropriate executor for test category.
+        Check if component needs Docker for given test category.
+        
+        Components need Docker if they have docker-compose-test.yaml file.
+        
+        Args:
+            component_name: Component name (e.g., 'courier', 'pourtier')
+            category: Test category (unit, integration, e2e)
+        
+        Returns:
+            True if Docker is needed, False otherwise
+        """
+        component_path = self.project_root / component_name
+        
+        # E2E tests always need Docker (full stack)
+        if category == "e2e":
+            return True
+        
+        # Check for docker-compose-test.yaml (indicates infrastructure needed)
+        if (component_path / "docker-compose-test.yaml").exists():
+            return True
+        
+        # No Docker infrastructure found - can run on host
+        return False
+
+    def _get_executor_for_category(
+        self, category: str, component_name: Optional[str] = None
+    ):
+        """
+        Get appropriate executor for test category and component.
+
+        Smart selection based on infrastructure needs:
+        - Unit tests → Host (fast, isolated)
+        - Integration tests → Host (if no Docker) or Docker (if DB/services)
+        - E2E tests → Docker (full stack)
 
         Args:
             category: Test category (unit, integration, e2e)
+            component_name: Component name (optional, for smart detection)
 
         Returns:
-            TestExecutor for unit tests, DockerTestExecutor for others
+            TestExecutor or DockerTestExecutor
         """
+        # Unit tests always run on host (fast, isolated)
         if category == "unit":
             return self.test_executor
-        else:
-            # integration and e2e tests run in Docker
-            return self.docker_executor
+
+        # Integration tests - smart detection
+        if category == "integration":
+            # Smart detection for integration tests
+            if component_name and not self._component_needs_docker(
+                component_name, category
+            ):
+                # No Docker infrastructure → run on host
+                self.reporter.debug(
+                    f"Running {component_name} integration tests on host "
+                    f"(no Docker needed)",
+                    context="Laborant",
+                )
+                return self.test_executor
+            else:
+                # Has Docker infrastructure → run in Docker
+                return self.docker_executor
+
+        # E2E tests always need Docker
+        return self.docker_executor
 
     def _run_component_tests(
         self,
@@ -339,8 +391,8 @@ class Laborant:
             if categories and category not in categories:
                 continue
 
-            # Get appropriate executor for this category
-            executor = self._get_executor_for_category(category)
+            # Get appropriate executor for this category (SMART SELECTION)
+            executor = self._get_executor_for_category(category, component_name)
 
             # Get file count for category
             file_count = len(all_test_files[category])
@@ -354,7 +406,9 @@ class Laborant:
             # Run each test file in category
             for test_file in all_test_files[category]:
                 # Execute test with appropriate executor
-                result = executor.execute_test_file(test_file, component_name, category)
+                result = executor.execute_test_file(
+                    test_file, component_name, category
+                )
 
                 # Add to component results
                 component_result.add_result(category, result)
@@ -385,7 +439,8 @@ class Laborant:
                 # Fail-fast check
                 if not result.success and self.fail_fast:
                     self.reporter.error(
-                        f"{LaborantEmoji.TEST_FAIL} Test failed: " f"{test_file.name}",
+                        f"{LaborantEmoji.TEST_FAIL} Test failed: "
+                        f"{test_file.name}",
                         context="Laborant",
                     )
                     self.component_results[component_name] = component_result

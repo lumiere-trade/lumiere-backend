@@ -3,6 +3,8 @@ Docker test executor - runs tests inside Docker containers.
 
 Manages test infrastructure lifecycle and executes tests in component-specific
 test containers. Provides clean separation between orchestration and execution.
+
+Uses component-level docker-compose-test.yaml files.
 """
 
 import subprocess
@@ -24,6 +26,8 @@ class DockerTestExecutor:
     - Manage test infrastructure lifecycle (start/stop containers)
     - Execute tests in isolated Docker environment per component
     - Parse and return test results
+    
+    Uses component-level docker-compose-test.yaml files.
     """
 
     def __init__(
@@ -45,8 +49,26 @@ class DockerTestExecutor:
         self.reporter = reporter or SystemReporter(
             name="docker_test_executor", level=20, verbose=1
         )
-        self.compose_file = project_root / "docker-compose.test.yaml"
         self._infrastructure_started = False
+        self._current_component = None
+
+    def _get_compose_file_path(self, component: str) -> Optional[Path]:
+        """
+        Get component-level docker-compose-test.yaml file path.
+        
+        Args:
+            component: Component name
+            
+        Returns:
+            Path to docker-compose-test.yaml or None if doesn't exist
+        """
+        component_path = self.project_root / component
+        compose_file = component_path / "docker-compose-test.yaml"
+        
+        if compose_file.exists():
+            return compose_file
+        
+        return None
 
     def _get_container_name(self, component: str) -> str:
         """
@@ -56,9 +78,9 @@ class DockerTestExecutor:
             component: Component name (e.g., 'pourtier', 'passeur')
 
         Returns:
-            Container name (e.g., 'lumiere-test-pourtier')
+            Container name (e.g., 'pourtier-test')
         """
-        return f"lumiere-test-{component}"
+        return f"{component}-test"
 
     def _container_exists(self, container_name: str) -> bool:
         """
@@ -90,92 +112,104 @@ class DockerTestExecutor:
             return False
 
     def ensure_infrastructure(
-        self, component: Optional[str] = None, profile: str = "test-pourtier"
+        self, component: Optional[str] = None
     ) -> bool:
         """
-        Ensure test infrastructure is running.
+        Ensure test infrastructure is running for component.
 
-        Uses smart detection - only starts if not already running.
+        Uses component-level docker-compose-test.yaml if it exists.
+        If component has no docker-compose file, returns True (no infrastructure needed).
 
         Args:
-            component: Component name (for container verification)
-            profile: Docker compose profile (default: test-pourtier)
+            component: Component name (required)
 
         Returns:
-            True if infrastructure is ready
+            True if infrastructure is ready or not needed
         """
-        if self._infrastructure_started:
+        if not component:
+            self.reporter.error(
+                "Component name required for Docker infrastructure",
+                context="DockerTestExecutor"
+            )
+            return False
+
+        # If infrastructure already started for this component, reuse it
+        if self._infrastructure_started and self._current_component == component:
             self.reporter.debug(
-                "Infrastructure already started", context="DockerTestExecutor"
+                f"Infrastructure already started for {component}",
+                context="DockerTestExecutor"
             )
             return True
 
+        # Get component-level compose file
+        compose_file = self._get_compose_file_path(component)
+        
+        if not compose_file:
+            self.reporter.info(
+                f"No docker-compose-test.yaml found for {component} - will run tests on host",
+                context="DockerTestExecutor"
+            )
+            # No infrastructure needed - component runs on host
+            return True
+
         self.reporter.info(
-            "Starting test infrastructure...", context="DockerTestExecutor"
+            f"Starting test infrastructure for {component}...",
+            context="DockerTestExecutor"
         )
 
         try:
-            # Check if any test container is running
-            result = subprocess.run(
-                [
-                    "docker",
-                    "ps",
-                    "--filter",
-                    "name=lumiere-test-",
-                    "--format",
-                    "{{.Names}}",
-                ],
-                cwd=str(self.project_root),
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-
-            if "lumiere-test-" in result.stdout:
+            # Check if container already running
+            container_name = self._get_container_name(component)
+            if self._container_exists(container_name):
                 self.reporter.info(
-                    "Test infrastructure already running", context="DockerTestExecutor"
+                    f"Test infrastructure for {component} already running",
+                    context="DockerTestExecutor"
                 )
                 self._infrastructure_started = True
+                self._current_component = component
                 return True
 
+            # Start infrastructure from component directory
             result = subprocess.run(
                 [
                     "docker",
                     "compose",
                     "-f",
-                    str(self.compose_file),
-                    "--profile",
-                    profile,
+                    "docker-compose-test.yaml",
                     "up",
                     "-d",
                 ],
-                cwd=str(self.project_root),
+                cwd=str(compose_file.parent),  # Run from component directory
                 capture_output=True,
                 text=True,
                 check=True,
             )
 
             self.reporter.info(
-                "Test infrastructure started successfully", context="DockerTestExecutor"
+                f"Test infrastructure for {component} started successfully",
+                context="DockerTestExecutor"
             )
             self._infrastructure_started = True
+            self._current_component = component
 
+            # Wait for services to be ready
             time.sleep(5)
 
             return True
 
         except subprocess.CalledProcessError as e:
             self.reporter.error(
-                f"Failed to start infrastructure: {e.stderr}",
+                f"Failed to start infrastructure for {component}: {e.stderr}",
                 context="DockerTestExecutor",
             )
             return False
 
-    def cleanup_infrastructure(self, force: bool = False) -> None:
+    def cleanup_infrastructure(self, component: Optional[str] = None, force: bool = False) -> None:
         """
-        Stop test infrastructure.
+        Stop test infrastructure for component.
 
         Args:
+            component: Component name (if None, uses current component)
             force: If True, always stop. If False, only stop if we started it.
         """
         if not force and not self._infrastructure_started:
@@ -185,8 +219,22 @@ class DockerTestExecutor:
             )
             return
 
+        component = component or self._current_component
+        if not component:
+            self.reporter.warning(
+                "No component specified for cleanup",
+                context="DockerTestExecutor"
+            )
+            return
+
+        compose_file = self._get_compose_file_path(component)
+        if not compose_file:
+            # No infrastructure to clean up
+            return
+
         self.reporter.info(
-            "Stopping test infrastructure...", context="DockerTestExecutor"
+            f"Stopping test infrastructure for {component}...",
+            context="DockerTestExecutor"
         )
 
         try:
@@ -195,20 +243,22 @@ class DockerTestExecutor:
                     "docker",
                     "compose",
                     "-f",
-                    str(self.compose_file),
+                    "docker-compose-test.yaml",
                     "down",
                     "-v",
                 ],
-                cwd=str(self.project_root),
+                cwd=str(compose_file.parent),  # Run from component directory
                 capture_output=True,
                 text=True,
                 check=True,
             )
 
             self.reporter.info(
-                "Test infrastructure stopped", context="DockerTestExecutor"
+                f"Test infrastructure for {component} stopped",
+                context="DockerTestExecutor"
             )
             self._infrastructure_started = False
+            self._current_component = None
 
         except subprocess.CalledProcessError as e:
             self.reporter.error(
@@ -220,26 +270,28 @@ class DockerTestExecutor:
         self, test_file: Path, component: str, category: str
     ) -> TestFileResult:
         """
-        Execute a single test file in component-specific Docker container.
+        Execute a single test file in Docker container.
 
         Args:
-            test_file: Path to test file (relative to project root)
-            component: Component name (pourtier, passeur, courier)
-            category: Test category (unit, integration, e2e)
+            test_file: Path to test file
+            component: Component name
+            category: Test category (unit/integration/e2e)
 
         Returns:
-            TestFileResult with execution details
+            TestFileResult with execution results
         """
-        relative_path = test_file.relative_to(self.project_root)
+        if not self.can_execute(test_file):
+            return self._create_error_result(
+                test_file=test_file,
+                component=component,
+                category=category,
+                error="Test file cannot be executed",
+                stderr="",
+                duration=0.0,
+            )
 
-        self.reporter.debug(
-            f"Executing in container: {relative_path}", context="DockerTestExecutor"
-        )
-
-        # Determine container name from component
-        container_name = self._get_container_name(component)
-
-        if not self.ensure_infrastructure(component=component):
+        # Ensure infrastructure is running for this component
+        if not self.ensure_infrastructure(component):
             return self._create_error_result(
                 test_file=test_file,
                 component=component,
@@ -249,39 +301,53 @@ class DockerTestExecutor:
                 duration=0.0,
             )
 
-        # Verify container exists
+        # Check if component has docker-compose (if not, shouldn't be here)
+        compose_file = self._get_compose_file_path(component)
+        if not compose_file:
+            return self._create_error_result(
+                test_file=test_file,
+                component=component,
+                category=category,
+                error=f"Component {component} has no docker-compose-test.yaml - should run on host",
+                stderr="",
+                duration=0.0,
+            )
+
+        container_name = self._get_container_name(component)
+
+        # Verify container is running
         if not self._container_exists(container_name):
             return self._create_error_result(
                 test_file=test_file,
                 component=component,
                 category=category,
-                error=f"Test container {container_name} not found. "
-                f"Ensure docker-compose profile for {component} is configured.",
+                error=f"Container {container_name} not running",
                 stderr="",
                 duration=0.0,
             )
 
-        # Construct path inside container
-        # Handle both with and without subcategory
-        # E2E: pourtier/tests/e2e/test_file.py -> /app/tests/e2e/test_file.py
-        # Integration: pourtier/tests/integration/api/test_file.py ->
-        # /app/tests/integration/api/test_file.py
-        parts = relative_path.parts
-        if len(parts) == 4:
-            container_path = f"/app/tests/{parts[2]}/{parts[3]}"
-        else:
-            container_path = f"/app/tests/{parts[2]}/{parts[3]}/{parts[4]}"
+        # Get relative path for test file
+        try:
+            relative_path = test_file.relative_to(self.project_root / component)
+        except ValueError:
+            relative_path = test_file
+
+        self.reporter.debug(
+            f"Executing {relative_path} in {container_name}",
+            context="DockerTestExecutor",
+        )
 
         start_time = time.time()
 
         try:
+            # Execute test in container using unittest (not pytest)
             result = subprocess.run(
                 [
                     "docker",
                     "exec",
                     container_name,
                     "python",
-                    container_path,
+                    str(relative_path),
                 ],
                 cwd=str(self.project_root),
                 capture_output=True,
@@ -291,6 +357,7 @@ class DockerTestExecutor:
 
             duration = time.time() - start_time
 
+            # Parse JSON output
             test_data = parse_test_output(result.stdout)
 
             if test_data is None:
@@ -364,7 +431,7 @@ class DockerTestExecutor:
         """
         Execute multiple test files in batch mode.
 
-        Infrastructure is started once and reused for all tests.
+        Infrastructure is started once per component and reused for all tests.
 
         Args:
             test_files: List of (test_file_path, component, category) tuples
@@ -374,16 +441,38 @@ class DockerTestExecutor:
         """
         results = []
 
-        if not self.ensure_infrastructure():
-            self.reporter.error(
-                "Failed to start infrastructure for batch execution",
-                context="DockerTestExecutor",
-            )
-            return results
-
+        # Group tests by component
+        tests_by_component = {}
         for test_file, component, category in test_files:
-            result = self.execute_test_file(test_file, component, category)
-            results.append(result)
+            if component not in tests_by_component:
+                tests_by_component[component] = []
+            tests_by_component[component].append((test_file, component, category))
+
+        # Execute tests component by component
+        for component, component_tests in tests_by_component.items():
+            if not self.ensure_infrastructure(component):
+                self.reporter.error(
+                    f"Failed to start infrastructure for {component}",
+                    context="DockerTestExecutor",
+                )
+                # Create error results for all tests in this component
+                for test_file, comp, category in component_tests:
+                    results.append(
+                        self._create_error_result(
+                            test_file=test_file,
+                            component=comp,
+                            category=category,
+                            error="Failed to start infrastructure",
+                            stderr="",
+                            duration=0.0,
+                        )
+                    )
+                continue
+
+            # Execute all tests for this component
+            for test_file, comp, category in component_tests:
+                result = self.execute_test_file(test_file, comp, category)
+                results.append(result)
 
         return results
 

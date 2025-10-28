@@ -9,7 +9,7 @@ Usage:
 """
 
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import jwt
 from shared.tests import LaborantTest

@@ -61,7 +61,10 @@ class GetWalletBalance:
             BridgeError: If Passeur Bridge call fails
         """
         if not wallet_address or len(wallet_address) < 32:
-            raise ValidationError("Invalid wallet address")
+            raise ValidationError(
+                field="wallet_address",
+                reason="Wallet address must be at least 32 characters",
+            )
 
         balance = await self.passeur_bridge.get_wallet_balance(wallet_address)
 

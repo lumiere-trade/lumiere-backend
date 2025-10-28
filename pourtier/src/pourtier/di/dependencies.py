@@ -200,7 +200,7 @@ def get_get_wallet_balance():
     from pourtier.application.use_cases.get_wallet_balance import GetWalletBalance
 
     container = get_container()
-    passeur_bridge = container.passeur_bridge_client
+    passeur_bridge = container.passeur_bridge
 
     return GetWalletBalance(
         passeur_bridge=passeur_bridge,

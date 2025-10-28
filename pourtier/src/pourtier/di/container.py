@@ -226,7 +226,9 @@ class DIContainer:
         if self._passeur_bridge is None:
             self._passeur_bridge = PasseurBridgeClient(
                 bridge_url=get_settings().PASSEUR_URL,
-                timeout=30,
+                total_timeout=30,
+                connect_timeout=10,
+                max_retries=3,
             )
         return self._passeur_bridge
 
