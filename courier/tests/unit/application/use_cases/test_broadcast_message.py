@@ -125,7 +125,9 @@ class TestBroadcastMessageUseCase(LaborantTest):
 
     async def test_broadcast_all_connections_dead(self):
         """Test broadcasting when all connections are dead."""
-        self.reporter.info("Testing broadcast with all dead connections", context="Test")
+        self.reporter.info(
+            "Testing broadcast with all dead connections", context="Test"
+        )
 
         use_case = BroadcastMessageUseCase()
         mock_ws1 = Mock()
@@ -256,7 +258,9 @@ class TestBroadcastMessageUseCase(LaborantTest):
         mock_ws.send_json = AsyncMock()
         subscribers = [mock_ws]
 
-        sent_count = await use_case.execute("global", {"type": "announcement"}, subscribers)
+        sent_count = await use_case.execute(
+            "global", {"type": "announcement"}, subscribers
+        )
 
         assert sent_count == 1
         self.reporter.info("Broadcast to global channel successful", context="Test")
@@ -270,7 +274,9 @@ class TestBroadcastMessageUseCase(LaborantTest):
         mock_ws.send_json = AsyncMock()
         subscribers = [mock_ws]
 
-        sent_count = await use_case.execute("forge.job.xyz", {"type": "progress"}, subscribers)
+        sent_count = await use_case.execute(
+            "forge.job.xyz", {"type": "progress"}, subscribers
+        )
 
         assert sent_count == 1
         self.reporter.info("Broadcast to ephemeral channel successful", context="Test")
