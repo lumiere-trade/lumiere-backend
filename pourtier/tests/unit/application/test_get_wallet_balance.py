@@ -234,9 +234,7 @@ class TestGetWalletBalance(LaborantTest):
             assert False, "Should raise BridgeError"
         except BridgeError as e:
             assert "Failed to connect to Solana RPC" in str(e)
-            passeur_bridge.get_wallet_balance.assert_called_once_with(
-                wallet_address
-            )
+            passeur_bridge.get_wallet_balance.assert_called_once_with(wallet_address)
             self.reporter.info(
                 "Bridge error propagated correctly",
                 context="Test",

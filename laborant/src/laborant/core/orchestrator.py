@@ -256,26 +256,26 @@ class Laborant:
     def _component_needs_docker(self, component_name: str, category: str) -> bool:
         """
         Check if component needs Docker for given test category.
-        
+
         Components need Docker if they have docker-compose-test.yaml file.
-        
+
         Args:
             component_name: Component name (e.g., 'courier', 'pourtier')
             category: Test category (unit, integration, e2e)
-        
+
         Returns:
             True if Docker is needed, False otherwise
         """
         component_path = self.project_root / component_name
-        
+
         # E2E tests always need Docker (full stack)
         if category == "e2e":
             return True
-        
+
         # Check for docker-compose-test.yaml (indicates infrastructure needed)
         if (component_path / "docker-compose-test.yaml").exists():
             return True
-        
+
         # No Docker infrastructure found - can run on host
         return False
 
@@ -406,9 +406,7 @@ class Laborant:
             # Run each test file in category
             for test_file in all_test_files[category]:
                 # Execute test with appropriate executor
-                result = executor.execute_test_file(
-                    test_file, component_name, category
-                )
+                result = executor.execute_test_file(test_file, component_name, category)
 
                 # Add to component results
                 component_result.add_result(category, result)
@@ -439,8 +437,7 @@ class Laborant:
                 # Fail-fast check
                 if not result.success and self.fail_fast:
                     self.reporter.error(
-                        f"{LaborantEmoji.TEST_FAIL} Test failed: "
-                        f"{test_file.name}",
+                        f"{LaborantEmoji.TEST_FAIL} Test failed: " f"{test_file.name}",
                         context="Laborant",
                     )
                     self.component_results[component_name] = component_result
