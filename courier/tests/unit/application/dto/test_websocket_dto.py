@@ -82,9 +82,7 @@ class TestWebSocketConnectionInfo(LaborantTest):
 
         assert isinstance(info.connected_at, str)
         datetime.fromisoformat(info.connected_at)
-        self.reporter.info(
-            f"Generated timestamp: {info.connected_at}", context="Test"
-        )
+        self.reporter.info(f"Generated timestamp: {info.connected_at}", context="Test")
 
     def test_create_connection_info_with_custom_timestamp(self):
         """Test creating connection info with custom timestamp."""
