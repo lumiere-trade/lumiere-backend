@@ -77,7 +77,9 @@ class TestPublishEventRequest(LaborantTest):
             assert False, "Should have raised ValidationError"
         except ValidationError as e:
             assert "channel" in str(e)
-            self.reporter.info("Validation correctly rejected missing channel", context="Test")
+            self.reporter.info(
+                "Validation correctly rejected missing channel", context="Test"
+            )
 
     def test_request_requires_data(self):
         """Test request validation fails without data."""
@@ -88,7 +90,9 @@ class TestPublishEventRequest(LaborantTest):
             assert False, "Should have raised ValidationError"
         except ValidationError as e:
             assert "data" in str(e)
-            self.reporter.info("Validation correctly rejected missing data", context="Test")
+            self.reporter.info(
+                "Validation correctly rejected missing data", context="Test"
+            )
 
     def test_request_rejects_invalid_data_type(self):
         """Test request validation fails with non-dict data."""
@@ -98,7 +102,9 @@ class TestPublishEventRequest(LaborantTest):
             PublishEventRequest(channel="test", data="invalid")
             assert False, "Should have raised ValidationError"
         except ValidationError:
-            self.reporter.info("Validation correctly rejected non-dict data", context="Test")
+            self.reporter.info(
+                "Validation correctly rejected non-dict data", context="Test"
+            )
 
     def test_request_rejects_empty_channel(self):
         """Test request validation fails with empty channel."""
@@ -108,7 +114,9 @@ class TestPublishEventRequest(LaborantTest):
             PublishEventRequest(channel="", data={"type": "test"})
             assert False, "Should have raised ValidationError"
         except ValidationError:
-            self.reporter.info("Validation correctly rejected empty channel", context="Test")
+            self.reporter.info(
+                "Validation correctly rejected empty channel", context="Test"
+            )
 
     # ================================================================
     # Serialization tests
@@ -118,9 +126,7 @@ class TestPublishEventRequest(LaborantTest):
         """Test request serialization to dict."""
         self.reporter.info("Testing request serialization", context="Test")
 
-        request = PublishEventRequest(
-            channel="user.123", data={"type": "notification"}
-        )
+        request = PublishEventRequest(channel="user.123", data={"type": "notification"})
         request_dict = request.model_dump()
 
         assert request_dict["channel"] == "user.123"
@@ -161,7 +167,9 @@ class TestPublishEventRequest(LaborantTest):
         original_data["value"] = 999
 
         assert request.data["value"] == 1
-        self.reporter.info("Request data protected from external changes", context="Test")
+        self.reporter.info(
+            "Request data protected from external changes", context="Test"
+        )
 
 
 class TestPublishEventResponse(LaborantTest):
@@ -241,7 +249,9 @@ class TestPublishEventResponse(LaborantTest):
             assert False, "Should have raised ValidationError"
         except ValidationError as e:
             assert "channel" in str(e)
-            self.reporter.info("Validation correctly rejected missing channel", context="Test")
+            self.reporter.info(
+                "Validation correctly rejected missing channel", context="Test"
+            )
 
     def test_response_requires_clients_reached(self):
         """Test response validation fails without clients_reached."""
@@ -252,7 +262,9 @@ class TestPublishEventResponse(LaborantTest):
             assert False, "Should have raised ValidationError"
         except ValidationError as e:
             assert "clients_reached" in str(e)
-            self.reporter.info("Validation correctly rejected missing clients_reached", context="Test")
+            self.reporter.info(
+                "Validation correctly rejected missing clients_reached", context="Test"
+            )
 
     def test_response_rejects_negative_clients_reached(self):
         """Test response validation fails with negative clients_reached."""
@@ -262,7 +274,9 @@ class TestPublishEventResponse(LaborantTest):
             PublishEventResponse(channel="test", clients_reached=-1)
             assert False, "Should have raised ValidationError"
         except ValidationError:
-            self.reporter.info("Validation correctly rejected negative value", context="Test")
+            self.reporter.info(
+                "Validation correctly rejected negative value", context="Test"
+            )
 
     def test_response_accepts_zero_clients_reached(self):
         """Test response accepts zero clients_reached."""

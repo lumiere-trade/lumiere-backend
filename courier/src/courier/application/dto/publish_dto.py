@@ -1,6 +1,7 @@
 """
 DTOs for event publishing.
 """
+
 from datetime import datetime
 from typing import Any, Dict
 
