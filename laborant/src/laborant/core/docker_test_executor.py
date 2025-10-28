@@ -26,7 +26,7 @@ class DockerTestExecutor:
     - Manage test infrastructure lifecycle (start/stop containers)
     - Execute tests in isolated Docker environment per component
     - Parse and return test results
-    
+
     Uses component-level docker-compose-test.yaml files.
     """
 
@@ -55,19 +55,19 @@ class DockerTestExecutor:
     def _get_compose_file_path(self, component: str) -> Optional[Path]:
         """
         Get component-level docker-compose-test.yaml file path.
-        
+
         Args:
             component: Component name
-            
+
         Returns:
             Path to docker-compose-test.yaml or None if doesn't exist
         """
         component_path = self.project_root / component
         compose_file = component_path / "docker-compose-test.yaml"
-        
+
         if compose_file.exists():
             return compose_file
-        
+
         return None
 
     def _get_container_name(self, component: str) -> str:
@@ -111,9 +111,7 @@ class DockerTestExecutor:
         except subprocess.CalledProcessError:
             return False
 
-    def ensure_infrastructure(
-        self, component: Optional[str] = None
-    ) -> bool:
+    def ensure_infrastructure(self, component: Optional[str] = None) -> bool:
         """
         Ensure test infrastructure is running for component.
 
@@ -129,7 +127,7 @@ class DockerTestExecutor:
         if not component:
             self.reporter.error(
                 "Component name required for Docker infrastructure",
-                context="DockerTestExecutor"
+                context="DockerTestExecutor",
             )
             return False
 
@@ -137,24 +135,24 @@ class DockerTestExecutor:
         if self._infrastructure_started and self._current_component == component:
             self.reporter.debug(
                 f"Infrastructure already started for {component}",
-                context="DockerTestExecutor"
+                context="DockerTestExecutor",
             )
             return True
 
         # Get component-level compose file
         compose_file = self._get_compose_file_path(component)
-        
+
         if not compose_file:
             self.reporter.info(
                 f"No docker-compose-test.yaml found for {component} - will run tests on host",
-                context="DockerTestExecutor"
+                context="DockerTestExecutor",
             )
             # No infrastructure needed - component runs on host
             return True
 
         self.reporter.info(
             f"Starting test infrastructure for {component}...",
-            context="DockerTestExecutor"
+            context="DockerTestExecutor",
         )
 
         try:
@@ -163,7 +161,7 @@ class DockerTestExecutor:
             if self._container_exists(container_name):
                 self.reporter.info(
                     f"Test infrastructure for {component} already running",
-                    context="DockerTestExecutor"
+                    context="DockerTestExecutor",
                 )
                 self._infrastructure_started = True
                 self._current_component = component
@@ -187,7 +185,7 @@ class DockerTestExecutor:
 
             self.reporter.info(
                 f"Test infrastructure for {component} started successfully",
-                context="DockerTestExecutor"
+                context="DockerTestExecutor",
             )
             self._infrastructure_started = True
             self._current_component = component
@@ -204,7 +202,9 @@ class DockerTestExecutor:
             )
             return False
 
-    def cleanup_infrastructure(self, component: Optional[str] = None, force: bool = False) -> None:
+    def cleanup_infrastructure(
+        self, component: Optional[str] = None, force: bool = False
+    ) -> None:
         """
         Stop test infrastructure for component.
 
@@ -222,8 +222,7 @@ class DockerTestExecutor:
         component = component or self._current_component
         if not component:
             self.reporter.warning(
-                "No component specified for cleanup",
-                context="DockerTestExecutor"
+                "No component specified for cleanup", context="DockerTestExecutor"
             )
             return
 
@@ -234,7 +233,7 @@ class DockerTestExecutor:
 
         self.reporter.info(
             f"Stopping test infrastructure for {component}...",
-            context="DockerTestExecutor"
+            context="DockerTestExecutor",
         )
 
         try:
@@ -255,7 +254,7 @@ class DockerTestExecutor:
 
             self.reporter.info(
                 f"Test infrastructure for {component} stopped",
-                context="DockerTestExecutor"
+                context="DockerTestExecutor",
             )
             self._infrastructure_started = False
             self._current_component = None

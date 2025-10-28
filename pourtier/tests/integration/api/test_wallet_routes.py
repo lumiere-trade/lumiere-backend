@@ -47,9 +47,7 @@ class TestWalletRoutes(LaborantTest):
 
     async def async_teardown(self):
         """Cleanup test client."""
-        self.reporter.info(
-            "Cleaning up wallet API tests...", context="Teardown"
-        )
+        self.reporter.info("Cleaning up wallet API tests...", context="Teardown")
 
         if TestWalletRoutes.client:
             await TestWalletRoutes.client.aclose()
@@ -66,17 +64,13 @@ class TestWalletRoutes(LaborantTest):
 
     async def test_get_wallet_balance_success(self):
         """Test successful wallet balance retrieval."""
-        self.reporter.info(
-            "Testing get wallet balance (success)", context="Test"
-        )
+        self.reporter.info("Testing get wallet balance (success)", context="Test")
 
         wallet_address = self._generate_valid_wallet()
         expected_balance = Decimal("125.50")
 
         # Mock Passeur Bridge
-        with patch(
-            "pourtier.di.container.DIContainer.passeur_bridge"
-        ) as mock_bridge:
+        with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
             mock_instance = AsyncMock()
             mock_instance.get_wallet_balance.return_value = expected_balance
             mock_bridge.__get__ = lambda *args: mock_instance
@@ -94,25 +88,19 @@ class TestWalletRoutes(LaborantTest):
         assert Decimal(data["balance"]) == expected_balance
         assert data["token_mint"] == "USDC"
 
-        mock_instance.get_wallet_balance.assert_called_once_with(
-            wallet_address
-        )
+        mock_instance.get_wallet_balance.assert_called_once_with(wallet_address)
 
         self.reporter.info("Wallet balance retrieved successfully", context="Test")
 
     async def test_get_wallet_balance_zero(self):
         """Test wallet balance retrieval with zero balance."""
-        self.reporter.info(
-            "Testing get wallet balance (zero balance)", context="Test"
-        )
+        self.reporter.info("Testing get wallet balance (zero balance)", context="Test")
 
         wallet_address = self._generate_valid_wallet()
         zero_balance = Decimal("0.00")
 
         # Mock Passeur Bridge
-        with patch(
-            "pourtier.di.container.DIContainer.passeur_bridge"
-        ) as mock_bridge:
+        with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
             mock_instance = AsyncMock()
             mock_instance.get_wallet_balance.return_value = zero_balance
             mock_bridge.__get__ = lambda *args: mock_instance
@@ -140,9 +128,7 @@ class TestWalletRoutes(LaborantTest):
         data = response.json()
         assert "detail" in data
 
-        self.reporter.info(
-            "Missing wallet parameter error returned", context="Test"
-        )
+        self.reporter.info("Missing wallet parameter error returned", context="Test")
 
     async def test_get_wallet_balance_invalid_wallet_too_short(self):
         """Test wallet balance fails with invalid short wallet."""
@@ -154,9 +140,7 @@ class TestWalletRoutes(LaborantTest):
         short_wallet = self._generate_short_wallet()
 
         # Mock Passeur Bridge (won't be called due to validation)
-        with patch(
-            "pourtier.di.container.DIContainer.passeur_bridge"
-        ) as mock_bridge:
+        with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
             mock_instance = AsyncMock()
             mock_bridge.__get__ = lambda *args: mock_instance
 
@@ -171,22 +155,16 @@ class TestWalletRoutes(LaborantTest):
 
         mock_instance.get_wallet_balance.assert_not_called()
 
-        self.reporter.info(
-            "Invalid wallet validation error returned", context="Test"
-        )
+        self.reporter.info("Invalid wallet validation error returned", context="Test")
 
     async def test_get_wallet_balance_bridge_error(self):
         """Test wallet balance fails when Passeur Bridge fails."""
-        self.reporter.info(
-            "Testing get wallet balance (bridge error)", context="Test"
-        )
+        self.reporter.info("Testing get wallet balance (bridge error)", context="Test")
 
         wallet_address = self._generate_valid_wallet()
 
         # Mock Passeur Bridge to raise error
-        with patch(
-            "pourtier.di.container.DIContainer.passeur_bridge"
-        ) as mock_bridge:
+        with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
             mock_instance = AsyncMock()
             mock_instance.get_wallet_balance.side_effect = BridgeError(
                 "Failed to connect to Solana RPC"
@@ -214,9 +192,7 @@ class TestWalletRoutes(LaborantTest):
         expected_balance = Decimal("100.00")
 
         # Mock Passeur Bridge
-        with patch(
-            "pourtier.di.container.DIContainer.passeur_bridge"
-        ) as mock_bridge:
+        with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
             mock_instance = AsyncMock()
             mock_instance.get_wallet_balance.return_value = expected_balance
             mock_bridge.__get__ = lambda *args: mock_instance

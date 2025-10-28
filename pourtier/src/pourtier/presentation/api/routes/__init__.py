@@ -1,4 +1,5 @@
 """API routes."""
+
 from pourtier.presentation.api.routes import (
     auth,
     escrow,
