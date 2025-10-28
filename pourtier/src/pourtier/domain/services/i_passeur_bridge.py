@@ -1,7 +1,7 @@
 """
 Passeur Bridge interface.
 
-Defines operations for preparing unsigned blockchain transactions.
+Defines operations for preparing unsigned blockchain transactions and querying blockchain state.
 """
 
 from abc import ABC, abstractmethod
@@ -14,7 +14,8 @@ class IPasseurBridge(ABC):
     Abstract interface for Passeur Bridge communication.
 
     Prepares unsigned transactions for user signing in frontend.
-    Does NOT sign transactions - that's user's responsibility.
+    Queries wallet and escrow balances from blockchain.
+    Does NOT sign transactions - that is user's responsibility.
     """
 
     @abstractmethod
@@ -78,6 +79,24 @@ class IPasseurBridge(ABC):
 
         Returns:
             Unsigned transaction (base64) for user to sign
+
+        Raises:
+            BridgeError: If Bridge API call fails
+        """
+
+    @abstractmethod
+    async def get_wallet_balance(
+        self,
+        wallet_address: str,
+    ) -> Decimal:
+        """
+        Get USDC balance in user's Solana wallet (not escrow).
+
+        Args:
+            wallet_address: Solana wallet address to query
+
+        Returns:
+            USDC balance as Decimal
 
         Raises:
             BridgeError: If Bridge API call fails
