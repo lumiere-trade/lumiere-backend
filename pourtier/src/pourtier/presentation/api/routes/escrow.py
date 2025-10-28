@@ -12,12 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pourtier.application.use_cases.deposit_to_escrow import DepositToEscrow
 from pourtier.application.use_cases.get_escrow_balance import GetEscrowBalance
 from pourtier.application.use_cases.initialize_escrow import InitializeEscrow
+from pourtier.application.use_cases.prepare_deposit_to_escrow import PrepareDepositToEscrow
 from pourtier.application.use_cases.withdraw_from_escrow import WithdrawFromEscrow
 from pourtier.di.dependencies import (
     get_db_session,
     get_deposit_to_escrow,
     get_get_escrow_balance,
     get_initialize_escrow,
+    get_prepare_deposit_to_escrow,
     get_withdraw_from_escrow,
 )
 from pourtier.domain.entities.escrow_transaction import TransactionType
@@ -39,6 +41,8 @@ from pourtier.presentation.schemas.escrow_schemas import (
     DepositRequest,
     EscrowAccountResponse,
     InitializeEscrowRequest,
+    PrepareDepositRequest,
+    PrepareDepositResponse,
     TransactionListResponse,
     TransactionResponse,
     WithdrawRequest,
@@ -101,6 +105,64 @@ async def initialize_escrow(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Blockchain error: {str(e)}",
+        )
+
+
+# ================================================================
+# Prepare Deposit
+# ================================================================
+
+
+@router.post(
+    "/prepare-deposit",
+    response_model=PrepareDepositResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Prepare deposit transaction",
+    description="Generate unsigned deposit transaction for user to sign",
+)
+async def prepare_deposit(
+    request: PrepareDepositRequest,
+    current_user: User = Depends(get_current_user),
+    use_case: PrepareDepositToEscrow = Depends(get_prepare_deposit_to_escrow),
+):
+    """
+    Prepare deposit transaction for user signing.
+
+    Returns unsigned transaction (base64) for user to sign in wallet.
+    After signing, user calls POST /api/escrow/deposit with signature.
+
+    Flow:
+    1. User calls this endpoint with amount
+    2. Backend generates unsigned transaction via Passeur
+    3. User signs transaction in wallet (frontend)
+    4. User calls POST /api/escrow/deposit with signed tx
+    """
+    try:
+        result = await use_case.execute(
+            user_id=current_user.id,
+            amount=request.amount,
+        )
+
+        return PrepareDepositResponse(
+            transaction=result.transaction,
+            escrow_account=result.escrow_account,
+            amount=result.amount,
+        )
+
+    except EntityNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except BlockchainError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to prepare deposit: {str(e)}",
         )
 
 

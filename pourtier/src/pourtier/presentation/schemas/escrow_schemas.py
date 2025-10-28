@@ -32,6 +32,17 @@ class InitializeEscrowRequest(BaseModel):
     )
 
 
+class PrepareDepositRequest(BaseModel):
+    """Request schema for preparing deposit transaction."""
+
+    amount: Decimal = Field(
+        ...,
+        description="Deposit amount in tokens",
+        gt=0,
+        decimal_places=8,
+    )
+
+
 class DepositRequest(BaseModel):
     """Request schema for depositing to escrow."""
 
@@ -69,6 +80,30 @@ class WithdrawRequest(BaseModel):
 # ================================================================
 # Response Schemas
 # ================================================================
+
+
+class PrepareDepositResponse(BaseModel):
+    """Response schema for prepare deposit operation."""
+
+    transaction: str = Field(
+        ...,
+        description="Unsigned transaction (base64) for user to sign",
+    )
+    escrow_account: str = Field(
+        ...,
+        description="Escrow PDA address",
+    )
+    amount: Decimal = Field(
+        ...,
+        description="Deposit amount",
+    )
+
+    class Config:
+        """Pydantic config."""
+
+        json_encoders = {
+            Decimal: str,
+        }
 
 
 class EscrowAccountResponse(BaseModel):
