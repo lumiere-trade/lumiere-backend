@@ -27,7 +27,8 @@ class PasseurBridgeClient(IPasseurBridge):
     Passeur Bridge HTTP client.
 
     Communicates with Passeur Bridge API to prepare unsigned
-    blockchain transactions for user signing.
+    blockchain transactions for user signing and query blockchain state.
+
     Includes retries and optimized timeouts for production reliability.
     """
 
@@ -61,9 +62,9 @@ class PasseurBridgeClient(IPasseurBridge):
             self._session = aiohttp.ClientSession(
                 timeout=self.timeout,
                 connector=aiohttp.TCPConnector(
-                    limit=50,  # Connection pool size
-                    limit_per_host=20,  # Per-host limit
-                    ttl_dns_cache=300,  # DNS cache TTL
+                    limit=50,
+                    limit_per_host=20,
+                    ttl_dns_cache=300,
                 ),
             )
         return self._session
@@ -132,13 +133,11 @@ class PasseurBridgeClient(IPasseurBridge):
             async with session.post(url, json=payload) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    # Don't retry on 4xx client errors
                     if 400 <= response.status < 500:
                         raise BridgeError(
                             f"Failed to {operation}: {error_text}",
                             status_code=response.status,
                         )
-                    # Retry on 5xx server errors
                     raise aiohttp.ClientError(
                         f"Server error {response.status}: {error_text}"
                     )
@@ -147,7 +146,6 @@ class PasseurBridgeClient(IPasseurBridge):
                 return data["transaction"]
 
         except (aiohttp.ClientError, asyncio.TimeoutError):
-            # Let retry logic handle these
             raise
 
     async def prepare_initialize_escrow(
@@ -245,6 +243,62 @@ class PasseurBridgeClient(IPasseurBridge):
             payload=payload,
             operation="withdraw",
         )
+
+    async def get_wallet_balance(
+        self,
+        wallet_address: str,
+    ) -> Decimal:
+        """
+        Get USDC balance in user's Solana wallet (not escrow).
+
+        Args:
+            wallet_address: Solana wallet address to query
+
+        Returns:
+            USDC balance as Decimal
+
+        Raises:
+            BridgeError: If Bridge API call fails
+        """
+        try:
+            async for attempt in AsyncRetrying(
+                stop=stop_after_attempt(self.max_retries),
+                wait=wait_exponential(multiplier=1, min=1, max=4),
+                retry=retry_if_exception_type(
+                    (aiohttp.ClientError, asyncio.TimeoutError)
+                ),
+                reraise=True,
+            ):
+                with attempt:
+                    return await self._get_wallet_balance_once(wallet_address)
+        except RetryError:
+            raise BridgeError(
+                f"Failed to get wallet balance after {self.max_retries} retries"
+            )
+
+    async def _get_wallet_balance_once(self, wallet_address: str) -> Decimal:
+        """Single attempt to get wallet balance (called by retry logic)."""
+        session = await self._get_session()
+        url = f"{self.bridge_url}/wallet/balance"
+
+        try:
+            async with session.get(url, params={"wallet": wallet_address}) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    if 400 <= response.status < 500:
+                        raise BridgeError(
+                            f"Failed to get wallet balance: {error_text}",
+                            status_code=response.status,
+                        )
+                    raise aiohttp.ClientError(
+                        f"Server error {response.status}: {error_text}"
+                    )
+
+                data = await response.json()
+                return Decimal(str(data["balance"]))
+
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            raise
 
     async def close(self) -> None:
         """Close HTTP session and cleanup resources."""

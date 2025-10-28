@@ -195,6 +195,18 @@ def get_get_escrow_balance(
     )
 
 
+def get_get_wallet_balance():
+    """Get GetWalletBalance use case dependency."""
+    from pourtier.application.use_cases.get_wallet_balance import GetWalletBalance
+
+    container = get_container()
+    passeur_bridge = container.passeur_bridge_client
+
+    return GetWalletBalance(
+        passeur_bridge=passeur_bridge,
+    )
+
+
 def get_create_subscription(
     session: AsyncSession = Depends(get_db_session),
 ):
