@@ -1,11 +1,10 @@
 """
 DTOs for WebSocket connections.
 """
-
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class WebSocketConnectionInfo(BaseModel):
@@ -28,3 +27,11 @@ class WebSocketConnectionInfo(BaseModel):
         default_factory=lambda: datetime.utcnow().isoformat(),
         description="Connection timestamp (ISO format)",
     )
+
+    @field_validator("channel")
+    @classmethod
+    def validate_channel_not_empty(cls, v: str) -> str:
+        """Validate channel is not empty."""
+        if not v or not v.strip():
+            raise ValueError("Channel name cannot be empty")
+        return v
