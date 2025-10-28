@@ -200,7 +200,9 @@ class TestManageChannelUseCase(LaborantTest):
 
     def test_should_not_cleanup_ephemeral_channel_with_subscribers(self):
         """Test ephemeral channel with subscribers should not be cleaned up."""
-        self.reporter.info("Testing cleanup of ephemeral with subscribers", context="Test")
+        self.reporter.info(
+            "Testing cleanup of ephemeral with subscribers", context="Test"
+        )
 
         channels = {}
         use_case = ManageChannelUseCase(channels=channels)
@@ -212,11 +214,15 @@ class TestManageChannelUseCase(LaborantTest):
         should_cleanup = use_case.should_cleanup_channel("forge.job.xyz")
 
         assert should_cleanup is False
-        self.reporter.info("Ephemeral with subscribers should not cleanup", context="Test")
+        self.reporter.info(
+            "Ephemeral with subscribers should not cleanup", context="Test"
+        )
 
     def test_should_not_cleanup_persistent_channel_no_subscribers(self):
         """Test persistent channel should never be cleaned up."""
-        self.reporter.info("Testing cleanup of empty persistent channel", context="Test")
+        self.reporter.info(
+            "Testing cleanup of empty persistent channel", context="Test"
+        )
 
         channels = {}
         use_case = ManageChannelUseCase(channels=channels)
@@ -230,7 +236,9 @@ class TestManageChannelUseCase(LaborantTest):
 
     def test_should_not_cleanup_persistent_channel_with_subscribers(self):
         """Test persistent channel with subscribers should not be cleaned up."""
-        self.reporter.info("Testing cleanup of persistent with subscribers", context="Test")
+        self.reporter.info(
+            "Testing cleanup of persistent with subscribers", context="Test"
+        )
 
         channels = {}
         use_case = ManageChannelUseCase(channels=channels)
