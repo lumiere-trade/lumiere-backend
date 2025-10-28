@@ -207,6 +207,24 @@ def get_get_wallet_balance():
     )
 
 
+def get_prepare_deposit_to_escrow(
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Get PrepareDepositToEscrow use case dependency."""
+    from pourtier.application.use_cases.prepare_deposit_to_escrow import (
+        PrepareDepositToEscrow,
+    )
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+    passeur_bridge = container.passeur_bridge
+
+    return PrepareDepositToEscrow(
+        user_repository=user_repo,
+        passeur_bridge=passeur_bridge,
+    )
+
+
 def get_create_subscription(
     session: AsyncSession = Depends(get_db_session),
 ):
