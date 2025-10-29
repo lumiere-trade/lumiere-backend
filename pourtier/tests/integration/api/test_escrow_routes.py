@@ -7,7 +7,6 @@ Usage:
     laborant pourtier --integration
 """
 
-from datetime import datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
@@ -17,9 +16,6 @@ import httpx
 from pourtier.config.settings import get_settings
 from pourtier.di.dependencies import get_db_session
 from pourtier.domain.entities.user import User
-from pourtier.domain.services.i_blockchain_verifier import (
-    VerifiedTransaction,
-)
 from pourtier.infrastructure.persistence.database import Database
 from pourtier.infrastructure.persistence.models import Base
 from pourtier.infrastructure.persistence.repositories.user_repository import (
@@ -54,7 +50,6 @@ class TestEscrowRoutes(LaborantTest):
         self.reporter.info("Connected to test database", context="Setup")
 
         # Drop and recreate tables
-        # Reset database schema using public method
         await TestEscrowRoutes.db.reset_schema_for_testing(Base.metadata)
         self.reporter.info("Database schema reset", context="Setup")
 
@@ -103,10 +98,6 @@ class TestEscrowRoutes(LaborantTest):
         base = prefix + ("A" * 88)
         return base[:88]
 
-    def _generate_mock_block_time(self) -> datetime:
-        """Generate mock blockchain timestamp."""
-        return datetime.utcnow() - timedelta(minutes=5)
-
     async def _create_test_user_with_escrow(self):
         """Create test user with initialized escrow."""
         async with self.db.session() as session:
@@ -150,8 +141,9 @@ class TestEscrowRoutes(LaborantTest):
             wallet_address=created_user.wallet_address,
         )
 
-        # Generate valid signature
+        # Generate valid signature and transaction
         sig = self._generate_valid_signature("init")
+        signed_tx = "base64_signed_transaction_init"
         expected_escrow = "3aV1Pbb5bT4x7dPdKj2fhgrXM2kPGMsTs4zB7CMkKfki"
 
         # Mock _derive_escrow_pda
@@ -159,27 +151,18 @@ class TestEscrowRoutes(LaborantTest):
             "pourtier.application.use_cases.initialize_escrow.InitializeEscrow._derive_escrow_pda",
             return_value=expected_escrow,
         ):
-            # Mock blockchain verifier
+            # Mock passeur bridge
             with patch(
-                "pourtier.di.container.DIContainer.blockchain_verifier"
-            ) as mock_verifier:
+                "pourtier.di.container.DIContainer.passeur_bridge"
+            ) as mock_bridge:
                 mock_instance = AsyncMock()
-                mock_instance.verify_transaction.return_value = VerifiedTransaction(
-                    signature=sig,
-                    is_confirmed=True,
-                    sender=created_user.wallet_address,
-                    recipient=None,
-                    amount=None,
-                    token_mint="USDC",
-                    block_time=int(self._generate_mock_block_time().timestamp()),
-                    slot=12345,
-                )
-                mock_verifier.__get__ = lambda *args: mock_instance
+                mock_instance.submit_signed_transaction.return_value = sig
+                mock_bridge.__get__ = lambda *args: mock_instance
 
                 response = await self.client.post(
                     "/api/escrow/initialize",
                     json={
-                        "tx_signature": sig,
+                        "signed_transaction": signed_tx,
                         "token_mint": "USDC",
                     },
                     headers={"Authorization": f"Bearer {token}"},
@@ -189,6 +172,7 @@ class TestEscrowRoutes(LaborantTest):
         data = response.json()
         assert "escrow_account" in data
         assert data["token_mint"] == "USDC"
+        assert "tx_signature" in data
 
         self.reporter.info("Initialize escrow successful", context="Test")
 
@@ -199,27 +183,19 @@ class TestEscrowRoutes(LaborantTest):
         )
 
         sig = self._generate_valid_signature("reinit")
+        signed_tx = "base64_signed_transaction_reinit"
 
         with patch(
-            "pourtier.di.container.DIContainer.blockchain_verifier"
-        ) as mock_verifier:
+            "pourtier.di.container.DIContainer.passeur_bridge"
+        ) as mock_bridge:
             mock_instance = AsyncMock()
-            mock_instance.verify_transaction.return_value = VerifiedTransaction(
-                signature=sig,
-                is_confirmed=True,
-                sender=self.test_user.wallet_address,
-                recipient="3aV1Pbb5bT4x7dPdKj2fhgrXM2kPGMsTs4zB7CMkKfki",
-                amount=None,
-                token_mint="USDC",
-                block_time=int(self._generate_mock_block_time().timestamp()),
-                slot=12345,
-            )
-            mock_verifier.__get__ = lambda *args: mock_instance
+            mock_instance.submit_signed_transaction.return_value = sig
+            mock_bridge.__get__ = lambda *args: mock_instance
 
             response = await self.client.post(
                 "/api/escrow/initialize",
                 json={
-                    "tx_signature": sig,
+                    "signed_transaction": signed_tx,
                     "token_mint": "USDC",
                 },
                 headers=self._auth_headers(),
@@ -235,28 +211,20 @@ class TestEscrowRoutes(LaborantTest):
         self.reporter.info("Testing deposit (success)", context="Test")
 
         sig = self._generate_valid_signature("deposit")
+        signed_tx = "base64_signed_transaction_deposit"
 
         with patch(
-            "pourtier.di.container.DIContainer.blockchain_verifier"
-        ) as mock_verifier:
+            "pourtier.di.container.DIContainer.passeur_bridge"
+        ) as mock_bridge:
             mock_instance = AsyncMock()
-            mock_instance.verify_transaction.return_value = VerifiedTransaction(
-                signature=sig,
-                is_confirmed=True,
-                sender=self.test_user.wallet_address,
-                recipient=self.test_user.escrow_account,
-                amount=None,
-                token_mint="USDC",
-                block_time=int(self._generate_mock_block_time().timestamp()),
-                slot=12345,
-            )
-            mock_verifier.__get__ = lambda *args: mock_instance
+            mock_instance.submit_signed_transaction.return_value = sig
+            mock_bridge.__get__ = lambda *args: mock_instance
 
             response = await self.client.post(
                 "/api/escrow/deposit",
                 json={
                     "amount": "100.0",
-                    "tx_signature": sig,
+                    "signed_transaction": signed_tx,
                 },
                 headers=self._auth_headers(),
             )
@@ -273,13 +241,13 @@ class TestEscrowRoutes(LaborantTest):
         """Test deposit without authentication."""
         self.reporter.info("Testing deposit (unauthorized)", context="Test")
 
-        sig = self._generate_valid_signature("unauth_deposit")
+        signed_tx = "base64_signed_transaction_unauth"
 
         response = await self.client.post(
             "/api/escrow/deposit",
             json={
                 "amount": "100.0",
-                "tx_signature": sig,
+                "signed_transaction": signed_tx,
             },
         )
 
@@ -292,28 +260,20 @@ class TestEscrowRoutes(LaborantTest):
         self.reporter.info("Testing withdraw (success)", context="Test")
 
         sig = self._generate_valid_signature("withdraw")
+        signed_tx = "base64_signed_transaction_withdraw"
 
         with patch(
-            "pourtier.di.container.DIContainer.blockchain_verifier"
-        ) as mock_verifier:
+            "pourtier.di.container.DIContainer.passeur_bridge"
+        ) as mock_bridge:
             mock_instance = AsyncMock()
-            mock_instance.verify_transaction.return_value = VerifiedTransaction(
-                signature=sig,
-                is_confirmed=True,
-                sender=self.test_user.escrow_account,
-                recipient=self.test_user.wallet_address,
-                amount=Decimal("50.0"),
-                token_mint="USDC",
-                block_time=int(self._generate_mock_block_time().timestamp()),
-                slot=12345,
-            )
-            mock_verifier.__get__ = lambda *args: mock_instance
+            mock_instance.submit_signed_transaction.return_value = sig
+            mock_bridge.__get__ = lambda *args: mock_instance
 
             response = await self.client.post(
                 "/api/escrow/withdraw",
                 json={
                     "amount": "50.0",
-                    "tx_signature": sig,
+                    "signed_transaction": signed_tx,
                 },
                 headers=self._auth_headers(),
             )
@@ -330,28 +290,20 @@ class TestEscrowRoutes(LaborantTest):
         self.reporter.info("Testing withdraw (insufficient balance)", context="Test")
 
         sig = self._generate_valid_signature("withdraw_fail")
+        signed_tx = "base64_signed_transaction_withdraw_fail"
 
         with patch(
-            "pourtier.di.container.DIContainer.blockchain_verifier"
-        ) as mock_verifier:
+            "pourtier.di.container.DIContainer.passeur_bridge"
+        ) as mock_bridge:
             mock_instance = AsyncMock()
-            mock_instance.verify_transaction.return_value = VerifiedTransaction(
-                signature=sig,
-                is_confirmed=True,
-                sender=self.test_user.escrow_account,
-                recipient=self.test_user.wallet_address,
-                amount=Decimal("1000.0"),
-                token_mint="USDC",
-                block_time=int(self._generate_mock_block_time().timestamp()),
-                slot=12345,
-            )
-            mock_verifier.__get__ = lambda *args: mock_instance
+            mock_instance.submit_signed_transaction.return_value = sig
+            mock_bridge.__get__ = lambda *args: mock_instance
 
             response = await self.client.post(
                 "/api/escrow/withdraw",
                 json={
                     "amount": "1000.0",
-                    "tx_signature": sig,
+                    "signed_transaction": signed_tx,
                 },
                 headers=self._auth_headers(),
             )
