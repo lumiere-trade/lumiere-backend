@@ -15,6 +15,9 @@ from pourtier.application.use_cases.initialize_escrow import InitializeEscrow
 from pourtier.application.use_cases.prepare_deposit_to_escrow import (
     PrepareDepositToEscrow,
 )
+from pourtier.application.use_cases.prepare_initialize_escrow import (
+    PrepareInitializeEscrow,
+)
 from pourtier.application.use_cases.withdraw_from_escrow import WithdrawFromEscrow
 from pourtier.di.dependencies import (
     get_db_session,
@@ -22,6 +25,7 @@ from pourtier.di.dependencies import (
     get_get_escrow_balance,
     get_initialize_escrow,
     get_prepare_deposit_to_escrow,
+    get_prepare_initialize_escrow,
     get_withdraw_from_escrow,
 )
 from pourtier.domain.entities.escrow_transaction import TransactionType
@@ -45,12 +49,66 @@ from pourtier.presentation.schemas.escrow_schemas import (
     InitializeEscrowRequest,
     PrepareDepositRequest,
     PrepareDepositResponse,
+    PrepareInitializeResponse,
     TransactionListResponse,
     TransactionResponse,
     WithdrawRequest,
 )
 
 router = APIRouter(prefix="/escrow", tags=["escrow"])
+
+
+# ================================================================
+# Prepare Initialize Escrow
+# ================================================================
+
+
+@router.post(
+    "/prepare-initialize",
+    response_model=PrepareInitializeResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Prepare initialize escrow transaction",
+    description="Generate unsigned initialize transaction for user to sign",
+)
+async def prepare_initialize_escrow(
+    current_user: User = Depends(get_current_user),
+    use_case: PrepareInitializeEscrow = Depends(get_prepare_initialize_escrow),
+):
+    """
+    Prepare initialize escrow transaction for user signing.
+
+    Returns unsigned transaction (base64) for user to sign in wallet.
+    After signing, user calls POST /api/escrow/initialize with signature.
+
+    Flow:
+    1. User calls this endpoint
+    2. Backend generates unsigned transaction via Passeur
+    3. User signs transaction in wallet (frontend)
+    4. User calls POST /api/escrow/initialize with signed tx
+    """
+    try:
+        result = await use_case.execute(user_id=current_user.id)
+
+        return PrepareInitializeResponse(
+            transaction=result.transaction,
+            token_mint=result.token_mint,
+        )
+
+    except EntityNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except EscrowAlreadyInitializedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        )
+    except BlockchainError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to prepare initialize: {str(e)}",
+        )
 
 
 # ================================================================

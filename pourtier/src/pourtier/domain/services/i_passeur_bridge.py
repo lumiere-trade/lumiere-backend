@@ -6,7 +6,6 @@ Defines operations for preparing unsigned blockchain transactions and querying b
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from uuid import UUID
 
 
 class IPasseurBridge(ABC):
@@ -22,16 +21,14 @@ class IPasseurBridge(ABC):
     async def prepare_initialize_escrow(
         self,
         user_wallet: str,
-        token_mint: str,
-        strategy_id: UUID,
+        token_mint: str = "USDC",
     ) -> str:
         """
         Prepare initialize escrow transaction.
 
         Args:
             user_wallet: User's Solana wallet address
-            token_mint: Token mint address (e.g., USDC)
-            strategy_id: Strategy unique identifier
+            token_mint: Token mint address (default: USDC)
 
         Returns:
             Unsigned transaction (base64) for user to sign
