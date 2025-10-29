@@ -6,8 +6,8 @@ Generates unsigned initialize escrow transaction for user to sign in wallet.
 
 from dataclasses import dataclass
 
-from pourtier.domain.exceptions.base import (
-    EntityNotFoundError,
+from pourtier.domain.exceptions.base import EntityNotFoundError
+from pourtier.domain.exceptions.blockchain import (
     EscrowAlreadyInitializedError,
 )
 from pourtier.domain.repositories.i_user_repository import IUserRepository
