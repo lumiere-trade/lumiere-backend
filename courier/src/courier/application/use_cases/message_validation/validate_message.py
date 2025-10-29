@@ -67,25 +67,19 @@ class ValidateMessageUseCase:
                 f"Message too large: {size_bytes} bytes "
                 f"(max: {self.max_message_size})"
             )
-            return ValidationResult(
-                valid=False, errors=errors, size_bytes=size_bytes
-            )
+            return ValidationResult(valid=False, errors=errors, size_bytes=size_bytes)
 
         # Try to parse JSON
         try:
             message = json.loads(raw_message)
         except json.JSONDecodeError as e:
             errors.append(f"Invalid JSON: {str(e)}")
-            return ValidationResult(
-                valid=False, errors=errors, size_bytes=size_bytes
-            )
+            return ValidationResult(valid=False, errors=errors, size_bytes=size_bytes)
 
         # Validate it's a dictionary
         if not isinstance(message, dict):
             errors.append("Message must be a JSON object")
-            return ValidationResult(
-                valid=False, errors=errors, size_bytes=size_bytes
-            )
+            return ValidationResult(valid=False, errors=errors, size_bytes=size_bytes)
 
         # Extract message type (optional)
         message_type = message.get("type")
