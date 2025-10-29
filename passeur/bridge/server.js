@@ -70,27 +70,27 @@ const {
 function loadConfig() {
   // Determine environment
   const env = process.env.ENV || 'production';
-  
+
   // Map environment to config file
   const configMap = {
     'production': 'production.yaml',
     'development': 'development.yaml',
     'test': 'test.yaml',
   };
-  
+
   // Load default config first
   const defaultConfigPath = path.join(__dirname, '../config', 'default.yaml');
   let config = {};
-  
+
   if (fs.existsSync(defaultConfigPath)) {
     config = yaml.load(fs.readFileSync(defaultConfigPath, 'utf8')) || {};
     console.log('[CONFIG] Loaded default.yaml');
   }
-  
+
   // Load environment-specific config (overrides defaults)
   const envConfigFile = configMap[env] || 'production.yaml';
   const envConfigPath = path.join(__dirname, '../config', envConfigFile);
-  
+
   if (fs.existsSync(envConfigPath)) {
     const envConfig = yaml.load(fs.readFileSync(envConfigPath, 'utf8')) || {};
     config = { ...config, ...envConfig };
@@ -843,10 +843,10 @@ app.post('/escrow/prepare-close', async (req, res) => {
 });
 
 // ============================================================
-// SEND TRANSACTION
+// TRANSACTION SUBMISSION (Generic endpoint)
 // ============================================================
 
-app.post('/escrow/send-transaction', async (req, res) => {
+app.post('/transaction/submit', async (req, res) => {
   try {
     const { signedTransaction } = req.body;
 
@@ -865,14 +865,14 @@ app.post('/escrow/send-transaction', async (req, res) => {
       preflightCommitment: 'confirmed',
     });
 
-    console.log(`[TX] Transaction sent: ${signature.slice(0, 8)}...`);
+    console.log(`[TX] Transaction submitted: ${signature.slice(0, 8)}...`);
 
     res.json({
       success: true,
       signature: signature,
     });
   } catch (error) {
-    console.error('[TX] Send transaction error:', error);
+    console.error('[TX] Submit transaction error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
