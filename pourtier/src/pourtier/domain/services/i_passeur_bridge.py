@@ -13,8 +13,8 @@ class IPasseurBridge(ABC):
     Abstract interface for Passeur Bridge communication.
 
     Prepares unsigned transactions for user signing in frontend.
+    Submits signed transactions to Solana blockchain.
     Queries wallet and escrow balances from blockchain.
-    Does NOT sign transactions - that is user's responsibility.
     """
 
     @abstractmethod
@@ -35,6 +35,24 @@ class IPasseurBridge(ABC):
 
         Raises:
             BridgeError: If Bridge API call fails
+        """
+
+    @abstractmethod
+    async def submit_signed_transaction(
+        self,
+        signed_transaction: str,
+    ) -> str:
+        """
+        Submit signed transaction to Solana blockchain.
+
+        Args:
+            signed_transaction: Base64-encoded signed transaction
+
+        Returns:
+            Transaction signature (hash) from blockchain
+
+        Raises:
+            BridgeError: If submission fails
         """
 
     @abstractmethod

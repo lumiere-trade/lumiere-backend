@@ -78,13 +78,14 @@ async def prepare_initialize_escrow(
     Prepare initialize escrow transaction for user signing.
 
     Returns unsigned transaction (base64) for user to sign in wallet.
-    After signing, user calls POST /api/escrow/initialize with signature.
+    After signing, user calls POST /api/escrow/initialize with signed transaction.
 
     Flow:
     1. User calls this endpoint
     2. Backend generates unsigned transaction via Passeur
     3. User signs transaction in wallet (frontend)
     4. User calls POST /api/escrow/initialize with signed tx
+    5. Backend submits to blockchain and returns signature
     """
     try:
         result = await use_case.execute(user_id=current_user.id)
@@ -121,7 +122,7 @@ async def prepare_initialize_escrow(
     response_model=EscrowAccountResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Initialize escrow account",
-    description="Initialize user's escrow account with blockchain tx",
+    description="Initialize user's escrow account with signed transaction",
 )
 async def initialize_escrow(
     request: InitializeEscrowRequest,
@@ -132,11 +133,12 @@ async def initialize_escrow(
     Initialize escrow account for current user.
 
     User must have signed initialization transaction in wallet.
+    Backend submits transaction to blockchain.
     """
     try:
-        user = await use_case.execute(
+        user, tx_signature = await use_case.execute(
             user_id=current_user.id,
-            tx_signature=request.tx_signature,
+            signed_transaction=request.signed_transaction,
             token_mint=request.token_mint,
         )
 
@@ -144,6 +146,7 @@ async def initialize_escrow(
             escrow_account=user.escrow_account,
             balance=user.escrow_balance,
             token_mint=user.escrow_token_mint,
+            tx_signature=tx_signature,
         )
 
     except EntityNotFoundError as e:
@@ -189,7 +192,7 @@ async def prepare_deposit(
     Prepare deposit transaction for user signing.
 
     Returns unsigned transaction (base64) for user to sign in wallet.
-    After signing, user calls POST /api/escrow/deposit with signature.
+    After signing, user calls POST /api/escrow/deposit with signed transaction.
 
     Flow:
     1. User calls this endpoint with amount
@@ -236,7 +239,7 @@ async def prepare_deposit(
     response_model=TransactionResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Deposit funds to escrow",
-    description="Deposit funds with user-signed blockchain transaction",
+    description="Deposit funds with signed blockchain transaction",
 )
 async def deposit_to_escrow(
     request: DepositRequest,
@@ -252,7 +255,7 @@ async def deposit_to_escrow(
         transaction = await use_case.execute(
             user_id=current_user.id,
             amount=request.amount,
-            tx_signature=request.tx_signature,
+            signed_transaction=request.signed_transaction,
         )
 
         return TransactionResponse.from_entity(transaction)
@@ -284,7 +287,7 @@ async def deposit_to_escrow(
     response_model=TransactionResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Withdraw funds from escrow",
-    description="Withdraw funds with user-signed blockchain transaction",
+    description="Withdraw funds with signed blockchain transaction",
 )
 async def withdraw_from_escrow(
     request: WithdrawRequest,
@@ -300,7 +303,7 @@ async def withdraw_from_escrow(
         transaction = await use_case.execute(
             user_id=current_user.id,
             amount=request.amount,
-            tx_signature=request.tx_signature,
+            signed_transaction=request.signed_transaction,
         )
 
         return TransactionResponse.from_entity(transaction)

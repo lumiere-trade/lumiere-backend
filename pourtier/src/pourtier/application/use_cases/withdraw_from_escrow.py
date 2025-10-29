@@ -1,7 +1,7 @@
 """
 Withdraw from Escrow use case.
 
-Handles withdrawal verification and balance updates.
+Handles withdrawal submission and balance updates.
 """
 
 from datetime import datetime
@@ -23,9 +23,7 @@ from pourtier.domain.repositories.i_escrow_transaction_repository import (
     IEscrowTransactionRepository,
 )
 from pourtier.domain.repositories.i_user_repository import IUserRepository
-from pourtier.domain.services.i_blockchain_verifier import (
-    IBlockchainVerifier,
-)
+from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
 
 
 class WithdrawFromEscrow:
@@ -35,8 +33,7 @@ class WithdrawFromEscrow:
     Business rules:
     - User must exist
     - User must have initialized escrow
-    - Transaction signature must be verified on blockchain
-    - Amount must be extracted from transaction
+    - Signed transaction must be submitted to blockchain
     - Amount must be positive
     - User must have sufficient balance
     - Transaction must not be duplicate (by signature)
@@ -46,7 +43,7 @@ class WithdrawFromEscrow:
         self,
         user_repository: IUserRepository,
         escrow_transaction_repository: IEscrowTransactionRepository,
-        blockchain_verifier: IBlockchainVerifier,
+        passeur_bridge: IPasseurBridge,
     ):
         """
         Initialize use case with dependencies.
@@ -54,25 +51,25 @@ class WithdrawFromEscrow:
         Args:
             user_repository: Repository for user persistence
             escrow_transaction_repository: Repository for transactions
-            blockchain_verifier: Service for verifying blockchain txs
+            passeur_bridge: Bridge for blockchain submission
         """
         self.user_repository = user_repository
         self.escrow_transaction_repository = escrow_transaction_repository
-        self.blockchain_verifier = blockchain_verifier
+        self.passeur_bridge = passeur_bridge
 
     async def execute(
         self,
         user_id: UUID,
         amount: Decimal,
-        tx_signature: str,
+        signed_transaction: str,
     ) -> EscrowTransaction:
         """
         Execute withdrawal from escrow.
 
         Args:
             user_id: User unique identifier
-            amount: Expected withdrawal amount
-            tx_signature: Blockchain transaction signature (user-signed)
+            amount: Withdrawal amount
+            signed_transaction: Base64-encoded signed transaction from wallet
 
         Returns:
             Created EscrowTransaction entity
@@ -81,9 +78,8 @@ class WithdrawFromEscrow:
             EntityNotFoundError: If user not found
             ValidationError: If escrow not initialized or amount invalid
             InsufficientEscrowBalanceError: If insufficient balance
-            TransactionNotFoundError: If tx not found on blockchain
-            TransactionNotConfirmedError: If tx not confirmed
-            InvalidTransactionError: If amount mismatch or duplicate
+            BridgeError: If blockchain submission fails
+            InvalidTransactionError: If duplicate transaction
         """
         # 1. Get user
         user = await self.user_repository.get_by_id(user_id)
@@ -100,7 +96,26 @@ class WithdrawFromEscrow:
                 reason="Escrow not initialized for user",
             )
 
-        # 3. Check for duplicate transaction
+        # 3. Validate amount is positive
+        if amount <= 0:
+            raise ValidationError(
+                field="amount",
+                reason="Withdrawal amount must be positive",
+            )
+
+        # 4. Check sufficient balance
+        if not user.has_sufficient_balance(amount):
+            raise InsufficientEscrowBalanceError(
+                required=str(amount),
+                available=str(user.escrow_balance),
+            )
+
+        # 5. Submit signed transaction to blockchain via Passeur
+        tx_signature = await self.passeur_bridge.submit_signed_transaction(
+            signed_transaction
+        )
+
+        # 6. Check for duplicate transaction
         existing_tx = await self.escrow_transaction_repository.get_by_tx_signature(
             tx_signature
         )
@@ -110,44 +125,14 @@ class WithdrawFromEscrow:
                 tx_signature=tx_signature,
             )
 
-        # 4. Verify transaction on blockchain
-        verified_tx = await self.blockchain_verifier.verify_transaction(tx_signature)
-
-        # 5. Validate amount matches
-        if verified_tx.amount is None:
-            raise InvalidTransactionError(
-                "Could not extract amount from transaction",
-                tx_signature=tx_signature,
-            )
-
-        if verified_tx.amount != amount:
-            raise InvalidTransactionError(
-                f"Amount mismatch: expected {amount}, " f"got {verified_tx.amount}",
-                tx_signature=tx_signature,
-            )
-
-        # 6. Validate amount is positive
-        if amount <= 0:
-            raise ValidationError(
-                field="amount",
-                reason="Withdrawal amount must be positive",
-            )
-
-        # 7. Check sufficient balance
-        if not user.has_sufficient_balance(amount):
-            raise InsufficientEscrowBalanceError(
-                required=str(amount),
-                available=str(user.escrow_balance),
-            )
-
-        # 8. Update user escrow balance
+        # 7. Update user escrow balance
         new_balance = user.escrow_balance - amount
         user.update_escrow_balance(new_balance)
 
-        # 9. Save user to database
+        # 8. Save user to database
         await self.user_repository.update(user)
 
-        # 10. Create escrow transaction record
+        # 9. Create escrow transaction record
         transaction = EscrowTransaction(
             id=uuid4(),
             user_id=user_id,
@@ -156,11 +141,7 @@ class WithdrawFromEscrow:
             amount=amount,
             token_mint=user.escrow_token_mint,
             status=TransactionStatus.CONFIRMED,
-            confirmed_at=(
-                datetime.fromtimestamp(verified_tx.block_time)
-                if verified_tx.block_time
-                else datetime.now()
-            ),
+            confirmed_at=datetime.now(),
         )
 
         created_transaction = await self.escrow_transaction_repository.create(

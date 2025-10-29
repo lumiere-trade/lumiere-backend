@@ -19,11 +19,10 @@ from pydantic import BaseModel, Field
 class InitializeEscrowRequest(BaseModel):
     """Request schema for initializing escrow."""
 
-    tx_signature: str = Field(
+    signed_transaction: str = Field(
         ...,
-        description="Blockchain transaction signature (user-signed)",
-        min_length=64,
-        max_length=128,
+        description="Base64-encoded signed transaction from wallet",
+        min_length=100,
     )
     token_mint: str = Field(
         default="USDC",
@@ -52,11 +51,10 @@ class DepositRequest(BaseModel):
         gt=0,
         decimal_places=8,
     )
-    tx_signature: str = Field(
+    signed_transaction: str = Field(
         ...,
-        description="Blockchain transaction signature (user-signed)",
-        min_length=64,
-        max_length=128,
+        description="Base64-encoded signed transaction from wallet",
+        min_length=100,
     )
 
 
@@ -69,11 +67,10 @@ class WithdrawRequest(BaseModel):
         gt=0,
         decimal_places=8,
     )
-    tx_signature: str = Field(
+    signed_transaction: str = Field(
         ...,
-        description="Blockchain transaction signature (user-signed)",
-        min_length=64,
-        max_length=128,
+        description="Base64-encoded signed transaction from wallet",
+        min_length=100,
     )
 
 
@@ -133,6 +130,10 @@ class EscrowAccountResponse(BaseModel):
     token_mint: str = Field(
         ...,
         description="Token mint address",
+    )
+    tx_signature: str = Field(
+        ...,
+        description="Blockchain transaction signature",
     )
 
     class Config:
