@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     heartbeat_interval: int = Field(default=30, ge=5, le=300)
     max_clients_per_channel: int = Field(default=0, ge=0)
 
-    # JWT Authentication (NEW)
+    # JWT Authentication
     jwt_secret: Optional[str] = Field(
         default=None, description="JWT secret key (from environment)"
     )
@@ -86,6 +86,27 @@ class Settings(BaseSettings):
     require_auth: bool = Field(
         default=False,
         description="Require authentication for WebSocket connections",
+    )
+
+    # Rate Limiting (NEW)
+    rate_limit_enabled: bool = Field(
+        default=True,
+        description="Enable rate limiting",
+    )
+    rate_limit_publish_requests: int = Field(
+        default=100,
+        ge=1,
+        description="Max publish requests per service per minute",
+    )
+    rate_limit_websocket_connections: int = Field(
+        default=10,
+        ge=1,
+        description="Max WebSocket connections per user",
+    )
+    rate_limit_window_seconds: int = Field(
+        default=60,
+        ge=1,
+        description="Rate limit time window in seconds",
     )
 
     # Logging (mapped from YAML 'log_level')
