@@ -29,6 +29,7 @@ async def websocket_endpoint(
     Supports optional JWT authentication via query parameter.
     Rejects new connections during graceful shutdown.
     Validates all incoming messages.
+    Enforces per-message-type rate limiting.
 
     Args:
         websocket: WebSocket connection
@@ -56,6 +57,7 @@ async def websocket_endpoint(
     conn_manager = container.connection_manager
     manage_uc = container.get_manage_channel_use_case()
     validate_msg_uc = container.get_validate_message_use_case()
+    rate_limiter = container.websocket_rate_limiter
 
     # Create or get channel
     manage_uc.create_or_get_channel(channel)
@@ -75,8 +77,8 @@ async def websocket_endpoint(
     # Update statistics
     container.increment_stat("total_connections")
 
-    # Log connection (use shared reporter if available)
-    auth_info = f"user_id={user_id}" if user_id else "unauthenticated"
+    # Use user_id for rate limiting, fallback to client_id
+    rate_limit_identifier = user_id or client.client_id
 
     try:
         # Keep connection alive and handle messages
@@ -124,18 +126,48 @@ async def websocket_endpoint(
                     container.increment_stat("validation_failures")
                     continue
 
-                # Message is valid - handle control messages
-                if validate_msg_uc.is_control_message(validation_result.message_type):
+                # Extract message type for rate limiting
+                message_type = validation_result.message_type
+
+                # Check per-message-type rate limit
+                if rate_limiter:
+                    is_allowed = await rate_limiter.check_rate_limit(
+                        rate_limit_identifier,
+                        message_type=message_type,
+                    )
+
+                    if not is_allowed:
+                        # Rate limit exceeded
+                        retry_after = rate_limiter.get_retry_after_seconds(
+                            rate_limit_identifier,
+                            message_type=message_type,
+                        )
+
+                        error_response = {
+                            "type": "error",
+                            "code": "RATE_LIMIT_EXCEEDED",
+                            "message": f"Rate limit exceeded for message type '{message_type}'",
+                            "retry_after_seconds": retry_after,
+                            "message_type": message_type,
+                        }
+                        await websocket.send_json(error_response)
+
+                        # Track rate limit hit
+                        container.increment_rate_limit_hit(message_type)
+                        continue
+
+                # Message is valid and within rate limit - handle control messages
+                if validate_msg_uc.is_control_message(message_type):
                     # Handle control messages (ping, subscribe, etc.)
                     await _handle_control_message(
-                        websocket, validation_result.message_type, data
+                        websocket, message_type, data
                     )
                 else:
                     # Non-control message - could be echoed or processed
                     # For now, just acknowledge receipt
                     ack_response = {
                         "type": "ack",
-                        "message_type": validation_result.message_type,
+                        "message_type": message_type,
                         "size_bytes": validation_result.size_bytes,
                     }
                     await websocket.send_json(ack_response)
