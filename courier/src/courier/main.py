@@ -35,7 +35,7 @@ class CourierApp:
         - Initialize DI container
         - Setup FastAPI application
         - Register API routes
-        - Manage application lifecycle
+        - Manage application lifecycle with graceful shutdown
         - Run uvicorn server
     """
 
@@ -95,7 +95,7 @@ class CourierApp:
 
         @asynccontextmanager
         async def lifespan(app: FastAPI):
-            """Application lifespan context manager."""
+            """Application lifespan context manager with graceful shutdown."""
             # Startup
             await self._on_startup()
 
@@ -122,10 +122,23 @@ class CourierApp:
         """
         Application startup event handler.
 
-        Logs startup information and initializes background tasks.
+        Initializes shutdown manager, registers signal handlers,
+        and starts background tasks.
         """
         self.reporter.info(
             f"{Emoji.SYSTEM.STARTUP} Courier starting...",
+            context="Courier",
+            verbose_level=1,
+        )
+
+        # Setup graceful shutdown
+        shutdown_manager = self.container.shutdown_manager
+        shutdown_manager.setup_signal_handlers()
+        shutdown_manager.register_shutdown_callback(self._graceful_shutdown_callback)
+
+        self.reporter.info(
+            f"{Emoji.SYSTEM.CONFIG} Graceful shutdown enabled "
+            f"(timeout: {self.settings.shutdown_timeout}s)",
             context="Courier",
             verbose_level=1,
         )
@@ -162,12 +175,29 @@ class CourierApp:
         # Start background tasks
         self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
+    async def _graceful_shutdown_callback(self):
+        """
+        Callback executed when shutdown is initiated.
+
+        Logs shutdown initiation and starts graceful shutdown sequence.
+        """
+        self.reporter.warning(
+            f"{Emoji.SYSTEM.SHUTDOWN} Graceful shutdown initiated",
+            context="Courier",
+            verbose_level=1,
+        )
+
+        # Notify all WebSocket clients
+        await self._notify_clients_shutdown()
+
     async def _on_shutdown(self):
         """
         Application shutdown event handler.
 
         Cleanly shuts down all connections and background tasks.
         """
+        shutdown_manager = self.container.shutdown_manager
+
         self.reporter.info(
             f"{Emoji.SYSTEM.SHUTDOWN} Courier shutting down...",
             context="Courier",
@@ -182,8 +212,14 @@ class CourierApp:
             except asyncio.CancelledError:
                 pass
 
-        # Close all WebSocket connections
-        await self._close_all_connections()
+        # Close all WebSocket connections gracefully
+        await self._close_all_connections_gracefully()
+
+        # Mark shutdown complete
+        shutdown_manager.mark_shutdown_complete()
+
+        # Restore signal handlers
+        shutdown_manager.restore_signal_handlers()
 
         self.reporter.info(
             f"{Emoji.SUCCESS} Courier stopped",
@@ -191,14 +227,85 @@ class CourierApp:
             verbose_level=1,
         )
 
+    async def _notify_clients_shutdown(self):
+        """
+        Notify all connected clients about impending shutdown.
+
+        Sends shutdown notification message to all WebSocket clients.
+        """
+        conn_manager = self.container.connection_manager
+        total = conn_manager.get_total_connections()
+
+        if total == 0:
+            return
+
+        self.reporter.info(
+            f"{Emoji.NETWORK.DISCONNECT} Notifying {total} clients of shutdown",
+            context="Courier",
+            verbose_level=1,
+        )
+
+        # Send shutdown notification to all clients
+        shutdown_msg = {
+            "type": "shutdown",
+            "message": "Server is shutting down",
+            "code": 1001,
+        }
+
+        for channel, subscribers in conn_manager.channels.items():
+            for ws in list(subscribers):
+                try:
+                    await ws.send_json(shutdown_msg)
+                except Exception:
+                    pass
+
+    async def _close_all_connections_gracefully(self):
+        """
+        Close all active WebSocket connections gracefully.
+
+        Waits for grace period before forcing close.
+        """
+        conn_manager = self.container.connection_manager
+        grace_period = self.settings.shutdown_grace_period
+
+        # Wait grace period for clients to disconnect
+        self.reporter.info(
+            f"{Emoji.TIME.HOURGLASS} Waiting {grace_period}s for graceful close",
+            context="Courier",
+            verbose_level=1,
+        )
+
+        await asyncio.sleep(grace_period)
+
+        # Force close remaining connections
+        total_closed = 0
+        for channel, subscribers in conn_manager.channels.items():
+            for ws in list(subscribers):
+                try:
+                    await ws.close(code=1001, reason="Server shutdown")
+                    total_closed += 1
+                except Exception:
+                    pass
+
+            subscribers.clear()
+
+        if total_closed > 0:
+            self.reporter.info(
+                f"{Emoji.NETWORK.DISCONNECT} Closed {total_closed} connections",
+                context="Courier",
+                verbose_level=1,
+            )
+
     async def _heartbeat_loop(self):
         """
         Periodic heartbeat loop to detect dead connections.
 
         Sends ping messages to all connected clients at configured interval.
         Automatically removes dead connections.
+        Stops when shutdown initiated.
         """
         interval = self.settings.heartbeat_interval
+        shutdown_manager = self.container.shutdown_manager
 
         self.reporter.info(
             f"{Emoji.SYSTEM.HEARTBEAT} Heartbeat started " f"(interval: {interval}s)",
@@ -207,6 +314,15 @@ class CourierApp:
         )
 
         while True:
+            # Stop heartbeat if shutting down
+            if shutdown_manager.is_shutting_down():
+                self.reporter.info(
+                    f"{Emoji.SYSTEM.HEARTBEAT} Heartbeat stopped (shutdown)",
+                    context="Courier",
+                    verbose_level=1,
+                )
+                break
+
             await asyncio.sleep(interval)
 
             conn_manager = self.container.connection_manager
@@ -234,23 +350,6 @@ class CourierApp:
                 # Cleanup dead connections
                 for ws in dead_clients:
                     conn_manager.remove_client(ws, channel)
-
-    async def _close_all_connections(self):
-        """
-        Close all active WebSocket connections.
-
-        Sends close frames to all connected clients.
-        """
-        conn_manager = self.container.connection_manager
-
-        for channel, subscribers in conn_manager.channels.items():
-            for ws in list(subscribers):
-                try:
-                    await ws.close(code=1001, reason="Server shutdown")
-                except Exception:
-                    pass
-
-            subscribers.clear()
 
     def start(self):
         """
