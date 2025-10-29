@@ -80,10 +80,12 @@ async def websocket_endpoint(
         while True:
             # Check shutdown state during connection
             if shutdown_manager.is_shutting_down():
-                await websocket.send_json({
-                    "type": "shutdown",
-                    "message": "Server is shutting down",
-                })
+                await websocket.send_json(
+                    {
+                        "type": "shutdown",
+                        "message": "Server is shutting down",
+                    }
+                )
                 await websocket.close(
                     code=status.WS_1001_GOING_AWAY,
                     reason="Server shutdown",
