@@ -10,9 +10,10 @@ Usage:
 import asyncio
 import signal
 
+from shared.tests import LaborantTest
+
 from courier.infrastructure.shutdown import ShutdownManager
 from courier.infrastructure.shutdown.shutdown_manager import ShutdownState
-from shared.tests import LaborantTest
 
 
 class TestShutdownManager(LaborantTest):
