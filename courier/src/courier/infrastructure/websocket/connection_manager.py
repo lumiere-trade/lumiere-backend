@@ -10,21 +10,99 @@ from courier.domain.entities import Client
 from courier.domain.value_objects import ChannelName
 
 
+class ConnectionLimitExceeded(Exception):
+    """Raised when connection limit is exceeded."""
+
+    def __init__(self, message: str, limit_type: str):
+        """
+        Initialize exception.
+
+        Args:
+            message: Error message
+            limit_type: Type of limit exceeded (global, per_user, per_channel)
+        """
+        super().__init__(message)
+        self.limit_type = limit_type
+
+
 class ConnectionManager:
     """
     Manages WebSocket connections and channel subscriptions.
 
-    Handles connection lifecycle, client metadata, and channel routing.
+    Handles connection lifecycle, client metadata, channel routing,
+    and connection limit enforcement.
 
     Attributes:
         channels: Mapping of channel names to WebSocket connections
         client_registry: Mapping of WebSocket IDs to Client entities
+        max_total_connections: Global connection limit (0 = unlimited)
+        max_connections_per_user: Per-user connection limit (0 = unlimited)
+        max_clients_per_channel: Per-channel connection limit (0 = unlimited)
     """
 
-    def __init__(self):
-        """Initialize connection manager."""
+    def __init__(
+        self,
+        max_total_connections: int = 0,
+        max_connections_per_user: int = 0,
+        max_clients_per_channel: int = 0,
+    ):
+        """
+        Initialize connection manager.
+
+        Args:
+            max_total_connections: Global limit (0 = unlimited)
+            max_connections_per_user: Per-user limit (0 = unlimited)
+            max_clients_per_channel: Per-channel limit (0 = unlimited)
+        """
         self.channels: Dict[str, List[WebSocket]] = {}
         self.client_registry: Dict[int, Client] = {}
+
+        # Connection limits
+        self.max_total_connections = max_total_connections
+        self.max_connections_per_user = max_connections_per_user
+        self.max_clients_per_channel = max_clients_per_channel
+
+    def check_connection_limits(
+        self,
+        channel_name: str,
+        user_id: Optional[str] = None,
+    ) -> None:
+        """
+        Check if new connection would exceed limits.
+
+        Args:
+            channel_name: Channel to subscribe to
+            user_id: Optional authenticated user ID
+
+        Raises:
+            ConnectionLimitExceeded: If any limit would be exceeded
+        """
+        # Check global limit
+        if self.max_total_connections > 0:
+            total = self.get_total_connections()
+            if total >= self.max_total_connections:
+                raise ConnectionLimitExceeded(
+                    f"Global connection limit reached: {self.max_total_connections}",
+                    limit_type="global",
+                )
+
+        # Check per-user limit
+        if user_id and self.max_connections_per_user > 0:
+            user_count = self.get_user_connection_count(user_id)
+            if user_count >= self.max_connections_per_user:
+                raise ConnectionLimitExceeded(
+                    f"User connection limit reached: {self.max_connections_per_user}",
+                    limit_type="per_user",
+                )
+
+        # Check per-channel limit
+        if self.max_clients_per_channel > 0:
+            channel_count = self.get_channel_count(channel_name)
+            if channel_count >= self.max_clients_per_channel:
+                raise ConnectionLimitExceeded(
+                    f"Channel connection limit reached: {self.max_clients_per_channel}",
+                    limit_type="per_channel",
+                )
 
     def add_client(
         self,
@@ -44,7 +122,13 @@ class ConnectionManager:
 
         Returns:
             Created Client entity
+
+        Raises:
+            ConnectionLimitExceeded: If connection limits are exceeded
         """
+        # Check limits before adding
+        self.check_connection_limits(channel_name, user_id)
+
         # Validate channel name
         validated_channel = ChannelName(channel_name)
 
@@ -130,6 +214,22 @@ class ConnectionManager:
             Number of subscribers
         """
         return len(self.channels.get(channel_name, []))
+
+    def get_user_connection_count(self, user_id: str) -> int:
+        """
+        Get total connection count for specific user.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            Number of connections for user
+        """
+        count = 0
+        for client in self.client_registry.values():
+            if client.user_id == user_id:
+                count += 1
+        return count
 
     def get_all_channels(self) -> Dict[str, int]:
         """

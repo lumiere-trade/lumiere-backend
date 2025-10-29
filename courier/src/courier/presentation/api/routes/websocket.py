@@ -8,6 +8,7 @@ import json
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
 
 from courier.di import Container
+from courier.infrastructure.websocket import ConnectionLimitExceeded
 from courier.presentation.api.dependencies import (
     authenticate_websocket,
     get_container,
@@ -30,6 +31,7 @@ async def websocket_endpoint(
     Rejects new connections during graceful shutdown.
     Validates all incoming messages.
     Enforces per-message-type rate limiting.
+    Enforces connection limits (global, per-user, per-channel).
 
     Args:
         websocket: WebSocket connection
@@ -66,13 +68,31 @@ async def websocket_endpoint(
     user_id = auth_payload.user_id if auth_payload else None
     wallet_address = auth_payload.wallet_address if auth_payload else None
 
-    # Add client to channel
-    client = conn_manager.add_client(
-        websocket,
-        channel,
-        user_id=user_id,
-        wallet_address=wallet_address,
-    )
+    # Add client to channel with connection limit check
+    try:
+        client = conn_manager.add_client(
+            websocket,
+            channel,
+            user_id=user_id,
+            wallet_address=wallet_address,
+        )
+    except ConnectionLimitExceeded as e:
+        # Connection limit exceeded - send error and close
+        error_response = {
+            "type": "error",
+            "code": "CONNECTION_LIMIT_EXCEEDED",
+            "message": str(e),
+            "limit_type": e.limit_type,
+        }
+        await websocket.send_json(error_response)
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="Connection limit exceeded",
+        )
+
+        # Track rejection
+        container.increment_connection_rejection(e.limit_type)
+        return
 
     # Update statistics
     container.increment_stat("total_connections")
@@ -159,9 +179,7 @@ async def websocket_endpoint(
                 # Message is valid and within rate limit - handle control messages
                 if validate_msg_uc.is_control_message(message_type):
                     # Handle control messages (ping, subscribe, etc.)
-                    await _handle_control_message(
-                        websocket, message_type, data
-                    )
+                    await _handle_control_message(websocket, message_type, data)
                 else:
                     # Non-control message - could be echoed or processed
                     # For now, just acknowledge receipt
