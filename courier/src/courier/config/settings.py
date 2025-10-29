@@ -88,7 +88,19 @@ class Settings(BaseSettings):
         description="Require authentication for WebSocket connections",
     )
 
-    # Rate Limiting (NEW)
+    # Graceful Shutdown
+    shutdown_timeout: int = Field(
+        default=30,
+        ge=1,
+        description="Maximum seconds to wait for graceful shutdown",
+    )
+    shutdown_grace_period: int = Field(
+        default=5,
+        ge=1,
+        description="Seconds to wait for WebSocket clients to close",
+    )
+
+    # Rate Limiting
     rate_limit_enabled: bool = Field(
         default=True,
         description="Enable rate limiting",

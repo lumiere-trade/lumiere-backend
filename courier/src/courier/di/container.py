@@ -16,6 +16,7 @@ from courier.application.use_cases import (
 from courier.config.settings import Settings
 from courier.infrastructure.auth import JWTVerifier
 from courier.infrastructure.rate_limiting import RateLimiter
+from courier.infrastructure.shutdown import ShutdownManager
 from courier.infrastructure.websocket import ConnectionManager
 
 
@@ -40,7 +41,8 @@ class Container:
         self._connection_manager: Optional[ConnectionManager] = None
         self._jwt_verifier: Optional[JWTVerifier] = None
         self._validate_event_use_case: Optional[ValidateEventUseCase] = None
-        
+        self._shutdown_manager: Optional[ShutdownManager] = None
+
         # Rate limiters
         self._publish_rate_limiter: Optional[RateLimiter] = None
         self._websocket_rate_limiter: Optional[RateLimiter] = None
@@ -89,6 +91,21 @@ class Container:
             )
 
         return self._jwt_verifier
+
+    @property
+    def shutdown_manager(self) -> ShutdownManager:
+        """
+        Get ShutdownManager singleton.
+
+        Returns:
+            ShutdownManager instance
+        """
+        if self._shutdown_manager is None:
+            self._shutdown_manager = ShutdownManager(
+                shutdown_timeout=self.settings.shutdown_timeout,
+                grace_period=self.settings.shutdown_grace_period,
+            )
+        return self._shutdown_manager
 
     @property
     def publish_rate_limiter(self) -> Optional[RateLimiter]:
