@@ -2,19 +2,21 @@
 Integration tests for Escrow API routes.
 
 Tests escrow endpoints with httpx.AsyncClient and test database.
+Mocks external services (passeur) using dependency overrides.
 
 Usage:
-    laborant pourtier --integration
+    laborant test pourtier --integration
 """
 
+import base64
 from decimal import Decimal
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import httpx
 
 from pourtier.config.settings import get_settings
-from pourtier.di.dependencies import get_db_session
+from pourtier.di.dependencies import get_db_session, get_passeur_bridge
 from pourtier.domain.entities.user import User
 from pourtier.infrastructure.persistence.database import Database
 from pourtier.infrastructure.persistence.models import Base
@@ -35,6 +37,7 @@ class TestEscrowRoutes(LaborantTest):
     client: httpx.AsyncClient = None
     test_user: User = None
     test_token: str = None
+    mock_passeur: AsyncMock = None
 
     async def async_setup(self):
         """Setup test database and client."""
@@ -53,15 +56,23 @@ class TestEscrowRoutes(LaborantTest):
         await TestEscrowRoutes.db.reset_schema_for_testing(Base.metadata)
         self.reporter.info("Database schema reset", context="Setup")
 
+        # Create mock passeur bridge
+        TestEscrowRoutes.mock_passeur = AsyncMock()
+
         # Create app
         app = create_app(settings)
 
+        # Override dependencies
         async def override_get_db_session():
             async with TestEscrowRoutes.db.session() as session:
                 yield session
 
+        def override_get_passeur_bridge():
+            return TestEscrowRoutes.mock_passeur
+
         app.dependency_overrides[get_db_session] = override_get_db_session
-        self.reporter.info("Database dependency overridden", context="Setup")
+        app.dependency_overrides[get_passeur_bridge] = override_get_passeur_bridge
+        self.reporter.info("Dependencies overridden", context="Setup")
 
         # Create client
         TestEscrowRoutes.client = httpx.AsyncClient(
@@ -97,6 +108,12 @@ class TestEscrowRoutes(LaborantTest):
         """Generate valid 88-character Solana transaction signature."""
         base = prefix + ("A" * 88)
         return base[:88]
+
+    def _generate_valid_signed_tx(self, prefix: str = "test") -> str:
+        """Generate valid base64-encoded signed transaction (100+ chars)."""
+        # Generate 80 chars which becomes 108 in base64
+        data = f"{prefix}_" + ("A" * (80 - len(prefix) - 1))
+        return base64.b64encode(data.encode()).decode()
 
     async def _create_test_user_with_escrow(self):
         """Create test user with initialized escrow."""
@@ -143,36 +160,26 @@ class TestEscrowRoutes(LaborantTest):
 
         # Generate valid signature and transaction
         sig = self._generate_valid_signature("init")
-        signed_tx = "base64_signed_transaction_init"
-        expected_escrow = "3aV1Pbb5bT4x7dPdKj2fhgrXM2kPGMsTs4zB7CMkKfki"
+        signed_tx = self._generate_valid_signed_tx("init")
 
-        # Mock _derive_escrow_pda
-        with patch(
-            "pourtier.application.use_cases.initialize_escrow.InitializeEscrow._derive_escrow_pda",
-            return_value=expected_escrow,
-        ):
-            # Mock passeur bridge
-            with patch(
-                "pourtier.di.container.DIContainer.passeur_bridge"
-            ) as mock_bridge:
-                mock_instance = AsyncMock()
-                mock_instance.submit_signed_transaction.return_value = sig
-                mock_bridge.__get__ = lambda *args: mock_instance
+        # Mock passeur bridge response
+        self.mock_passeur.submit_signed_transaction.return_value = sig
 
-                response = await self.client.post(
-                    "/api/escrow/initialize",
-                    json={
-                        "signed_transaction": signed_tx,
-                        "token_mint": "USDC",
-                    },
-                    headers={"Authorization": f"Bearer {token}"},
-                )
+        response = await self.client.post(
+            "/api/escrow/initialize",
+            json={
+                "signed_transaction": signed_tx,
+                "token_mint": "USDC",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
 
-        assert response.status_code == 201
+        assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
         data = response.json()
         assert "escrow_account" in data
         assert data["token_mint"] == "USDC"
         assert "tx_signature" in data
+        assert data["tx_signature"] == sig
 
         self.reporter.info("Initialize escrow successful", context="Test")
 
@@ -183,25 +190,21 @@ class TestEscrowRoutes(LaborantTest):
         )
 
         sig = self._generate_valid_signature("reinit")
-        signed_tx = "base64_signed_transaction_reinit"
+        signed_tx = self._generate_valid_signed_tx("reinit")
 
-        with patch(
-            "pourtier.di.container.DIContainer.passeur_bridge"
-        ) as mock_bridge:
-            mock_instance = AsyncMock()
-            mock_instance.submit_signed_transaction.return_value = sig
-            mock_bridge.__get__ = lambda *args: mock_instance
+        # Mock passeur bridge response
+        self.mock_passeur.submit_signed_transaction.return_value = sig
 
-            response = await self.client.post(
-                "/api/escrow/initialize",
-                json={
-                    "signed_transaction": signed_tx,
-                    "token_mint": "USDC",
-                },
-                headers=self._auth_headers(),
-            )
+        response = await self.client.post(
+            "/api/escrow/initialize",
+            json={
+                "signed_transaction": signed_tx,
+                "token_mint": "USDC",
+            },
+            headers=self._auth_headers(),
+        )
 
-        assert response.status_code == 409
+        assert response.status_code == 409, f"Expected 409, got {response.status_code}: {response.text}"
         assert "already" in response.json()["detail"].lower()
 
         self.reporter.info("Already initialized error returned", context="Test")
@@ -211,25 +214,21 @@ class TestEscrowRoutes(LaborantTest):
         self.reporter.info("Testing deposit (success)", context="Test")
 
         sig = self._generate_valid_signature("deposit")
-        signed_tx = "base64_signed_transaction_deposit"
+        signed_tx = self._generate_valid_signed_tx("deposit")
 
-        with patch(
-            "pourtier.di.container.DIContainer.passeur_bridge"
-        ) as mock_bridge:
-            mock_instance = AsyncMock()
-            mock_instance.submit_signed_transaction.return_value = sig
-            mock_bridge.__get__ = lambda *args: mock_instance
+        # Mock passeur bridge response
+        self.mock_passeur.submit_signed_transaction.return_value = sig
 
-            response = await self.client.post(
-                "/api/escrow/deposit",
-                json={
-                    "amount": "100.0",
-                    "signed_transaction": signed_tx,
-                },
-                headers=self._auth_headers(),
-            )
+        response = await self.client.post(
+            "/api/escrow/deposit",
+            json={
+                "amount": "100.0",
+                "signed_transaction": signed_tx,
+            },
+            headers=self._auth_headers(),
+        )
 
-        assert response.status_code == 201
+        assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
         data = response.json()
         assert data["transaction_type"] == "deposit"
         assert Decimal(data["amount"]) == Decimal("100.0")
@@ -241,7 +240,7 @@ class TestEscrowRoutes(LaborantTest):
         """Test deposit without authentication."""
         self.reporter.info("Testing deposit (unauthorized)", context="Test")
 
-        signed_tx = "base64_signed_transaction_unauth"
+        signed_tx = self._generate_valid_signed_tx("unauth")
 
         response = await self.client.post(
             "/api/escrow/deposit",
@@ -260,25 +259,21 @@ class TestEscrowRoutes(LaborantTest):
         self.reporter.info("Testing withdraw (success)", context="Test")
 
         sig = self._generate_valid_signature("withdraw")
-        signed_tx = "base64_signed_transaction_withdraw"
+        signed_tx = self._generate_valid_signed_tx("withdraw")
 
-        with patch(
-            "pourtier.di.container.DIContainer.passeur_bridge"
-        ) as mock_bridge:
-            mock_instance = AsyncMock()
-            mock_instance.submit_signed_transaction.return_value = sig
-            mock_bridge.__get__ = lambda *args: mock_instance
+        # Mock passeur bridge response
+        self.mock_passeur.submit_signed_transaction.return_value = sig
 
-            response = await self.client.post(
-                "/api/escrow/withdraw",
-                json={
-                    "amount": "50.0",
-                    "signed_transaction": signed_tx,
-                },
-                headers=self._auth_headers(),
-            )
+        response = await self.client.post(
+            "/api/escrow/withdraw",
+            json={
+                "amount": "50.0",
+                "signed_transaction": signed_tx,
+            },
+            headers=self._auth_headers(),
+        )
 
-        assert response.status_code == 201
+        assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
         data = response.json()
         assert data["transaction_type"] == "withdraw"
         assert Decimal(data["amount"]) == Decimal("50.0")
@@ -290,25 +285,21 @@ class TestEscrowRoutes(LaborantTest):
         self.reporter.info("Testing withdraw (insufficient balance)", context="Test")
 
         sig = self._generate_valid_signature("withdraw_fail")
-        signed_tx = "base64_signed_transaction_withdraw_fail"
+        signed_tx = self._generate_valid_signed_tx("withdraw_fail")
 
-        with patch(
-            "pourtier.di.container.DIContainer.passeur_bridge"
-        ) as mock_bridge:
-            mock_instance = AsyncMock()
-            mock_instance.submit_signed_transaction.return_value = sig
-            mock_bridge.__get__ = lambda *args: mock_instance
+        # Mock passeur bridge response
+        self.mock_passeur.submit_signed_transaction.return_value = sig
 
-            response = await self.client.post(
-                "/api/escrow/withdraw",
-                json={
-                    "amount": "1000.0",
-                    "signed_transaction": signed_tx,
-                },
-                headers=self._auth_headers(),
-            )
+        response = await self.client.post(
+            "/api/escrow/withdraw",
+            json={
+                "amount": "1000.0",
+                "signed_transaction": signed_tx,
+            },
+            headers=self._auth_headers(),
+        )
 
-        assert response.status_code == 400
+        assert response.status_code == 400, f"Expected 400, got {response.status_code}: {response.text}"
         assert "insufficient" in response.json()["detail"].lower()
 
         self.reporter.info("Insufficient balance error returned", context="Test")
@@ -339,17 +330,23 @@ class TestEscrowRoutes(LaborantTest):
         """Test getting balance with blockchain sync."""
         self.reporter.info("Testing get balance (with sync)", context="Test")
 
-        with patch(
-            "pourtier.di.container.DIContainer.escrow_query_service"
-        ) as mock_query:
-            mock_instance = AsyncMock()
-            mock_instance.get_escrow_balance.return_value = Decimal("600.0")
-            mock_query.__get__ = lambda *args: mock_instance
+        # Mock escrow query service
+        from pourtier.di.dependencies import get_escrow_query_service
 
-            response = await self.client.get(
-                "/api/escrow/balance?sync=true",
-                headers=self._auth_headers(),
-            )
+        mock_query = AsyncMock()
+        mock_query.get_escrow_balance.return_value = Decimal("600.0")
+
+        def override_get_escrow_query():
+            return mock_query
+
+        # Get current app instance
+        current_app = self.client._transport.app  # type: ignore
+        current_app.dependency_overrides[get_escrow_query_service] = override_get_escrow_query
+
+        response = await self.client.get(
+            "/api/escrow/balance?sync=true",
+            headers=self._auth_headers(),
+        )
 
         assert response.status_code == 200
         data = response.json()

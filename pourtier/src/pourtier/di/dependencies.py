@@ -270,6 +270,18 @@ def get_wallet_authenticator():
     return container.get_wallet_authenticator()
 
 
+def get_passeur_bridge():
+    """Get PasseurBridge service dependency."""
+    container = get_container()
+    return container.passeur_bridge
+
+
+def get_escrow_query_service():
+    """Get EscrowQueryService dependency."""
+    container = get_container()
+    return container.escrow_query_service
+
+
 def get_get_active_legal_documents(
     session: AsyncSession = Depends(get_db_session),
 ):

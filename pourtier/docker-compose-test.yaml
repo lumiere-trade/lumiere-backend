@@ -95,6 +95,7 @@ services:
     volumes:
       - ./config:/app/config:ro
       - ./tests:/app/tests:ro
+      - ./src:/app/src:ro
       - ./logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7000/health"]
