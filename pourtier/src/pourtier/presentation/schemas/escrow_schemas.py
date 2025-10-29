@@ -82,6 +82,19 @@ class WithdrawRequest(BaseModel):
 # ================================================================
 
 
+class PrepareInitializeResponse(BaseModel):
+    """Response schema for prepare initialize escrow operation."""
+
+    transaction: str = Field(
+        ...,
+        description="Unsigned transaction (base64) for user to sign",
+    )
+    token_mint: str = Field(
+        ...,
+        description="Token mint address (USDC)",
+    )
+
+
 class PrepareDepositResponse(BaseModel):
     """Response schema for prepare deposit operation."""
 

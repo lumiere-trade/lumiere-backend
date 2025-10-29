@@ -7,7 +7,6 @@ HTTP client for communicating with Passeur Bridge API.
 import asyncio
 from decimal import Decimal
 from typing import Optional
-from uuid import UUID
 
 import aiohttp
 from tenacity import (
@@ -151,16 +150,14 @@ class PasseurBridgeClient(IPasseurBridge):
     async def prepare_initialize_escrow(
         self,
         user_wallet: str,
-        token_mint: str,
-        strategy_id: UUID,
+        token_mint: str = "USDC",
     ) -> str:
         """
         Prepare initialize escrow transaction.
 
         Args:
             user_wallet: User's Solana wallet address
-            token_mint: Token mint address (e.g., USDC)
-            strategy_id: Strategy unique identifier
+            token_mint: Token mint address (default: USDC)
 
         Returns:
             Unsigned transaction (base64) for user to sign
@@ -171,7 +168,6 @@ class PasseurBridgeClient(IPasseurBridge):
         payload = {
             "userWallet": user_wallet,
             "tokenMint": token_mint,
-            "strategyId": str(strategy_id),
         }
 
         return await self._make_request_with_retry(
