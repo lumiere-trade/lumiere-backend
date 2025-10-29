@@ -121,6 +121,23 @@ class Settings(BaseSettings):
         description="Rate limit time window in seconds",
     )
 
+    # Message Validation
+    max_message_size: int = Field(
+        default=1_048_576,  # 1MB
+        ge=1024,
+        description="Maximum WebSocket message size in bytes",
+    )
+    max_string_length: int = Field(
+        default=10_000,
+        ge=100,
+        description="Maximum string field length in messages",
+    )
+    max_array_size: int = Field(
+        default=1_000,
+        ge=10,
+        description="Maximum array field size in messages",
+    )
+
     # Logging (mapped from YAML 'log_level')
     log_level: str = Field(default="info")
     log_file: Optional[str] = Field(default=None)

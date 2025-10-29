@@ -12,6 +12,7 @@ from courier.application.use_cases import (
     BroadcastMessageUseCase,
     ManageChannelUseCase,
     ValidateEventUseCase,
+    ValidateMessageUseCase,
 )
 from courier.config.settings import Settings
 from courier.infrastructure.auth import JWTVerifier
@@ -41,6 +42,7 @@ class Container:
         self._connection_manager: Optional[ConnectionManager] = None
         self._jwt_verifier: Optional[JWTVerifier] = None
         self._validate_event_use_case: Optional[ValidateEventUseCase] = None
+        self._validate_message_use_case: Optional[ValidateMessageUseCase] = None
         self._shutdown_manager: Optional[ShutdownManager] = None
 
         # Rate limiters
@@ -53,6 +55,7 @@ class Container:
             "total_messages_sent": 0,
             "total_messages_received": 0,
             "rate_limit_hits": 0,
+            "validation_failures": 0,
             "start_time": datetime.utcnow(),
         }
 
@@ -185,6 +188,21 @@ class Container:
         if self._validate_event_use_case is None:
             self._validate_event_use_case = ValidateEventUseCase()
         return self._validate_event_use_case
+
+    def get_validate_message_use_case(self) -> ValidateMessageUseCase:
+        """
+        Get ValidateMessageUseCase singleton.
+
+        Returns:
+            Use case instance
+        """
+        if self._validate_message_use_case is None:
+            self._validate_message_use_case = ValidateMessageUseCase(
+                max_message_size=self.settings.max_message_size,
+                max_string_length=self.settings.max_string_length,
+                max_array_size=self.settings.max_array_size,
+            )
+        return self._validate_message_use_case
 
     def increment_stat(self, stat_name: str, amount: int = 1) -> None:
         """
