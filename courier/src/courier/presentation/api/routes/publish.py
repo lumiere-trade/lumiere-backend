@@ -4,7 +4,7 @@ Event publishing endpoints with Clean Architecture, Schema Validation and Rate L
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import ValidationError
 
 from courier.di import Container
@@ -36,7 +36,7 @@ async def publish_event(
         Publication result with clients reached
 
     Raises:
-        HTTPException: 
+        HTTPException:
             - 400: Invalid channel name or event validation fails
             - 429: Rate limit exceeded
     """
@@ -44,15 +44,15 @@ async def publish_event(
     rate_limiter = container.publish_rate_limiter
     if rate_limiter and x_service_name:
         is_allowed = await rate_limiter.check_rate_limit(x_service_name)
-        
+
         if not is_allowed:
             # Get rate limit info
             stats = rate_limiter.get_stats(x_service_name)
             retry_after = stats["retry_after_seconds"]
-            
+
             # Increment rate limit hit counter
             container.increment_stat("rate_limit_hits")
-            
+
             # Return 429 with rate limit info
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -62,7 +62,9 @@ async def publish_event(
                     "limit": stats["limit"],
                     "window_seconds": stats["window_seconds"],
                     "retry_after_seconds": retry_after,
-                    "reset_at": stats["reset_at"].isoformat() if stats["reset_at"] else None,
+                    "reset_at": (
+                        stats["reset_at"].isoformat() if stats["reset_at"] else None
+                    ),
                 },
                 headers={
                     "X-RateLimit-Limit": str(stats["limit"]),
@@ -81,13 +83,13 @@ async def publish_event(
 
     # Extract event type from data for validation
     event_type = publish_request.data.get("type")
-    
+
     # Validate event schema if event type is provided
     if event_type:
         try:
             # Validate against Pydantic schema
             validated_event = validate_uc.execute(event_type, publish_request.data)
-            
+
             # Check if source matches service name header (if provided)
             if x_service_name:
                 event_source = publish_request.data.get("metadata", {}).get("source")
@@ -102,10 +104,10 @@ async def publish_event(
                             ),
                         },
                     )
-            
+
             # Use validated event data
             message_data = validated_event.model_dump()
-            
+
         except ValueError as e:
             # Unknown event type or validation error
             raise HTTPException(
@@ -135,10 +137,7 @@ async def publish_event(
     try:
         manage_uc.create_or_get_channel(publish_request.channel)
     except ValueError as e:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Invalid channel name: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid channel name: {str(e)}")
 
     # Get channel subscribers
     subscribers = container.connection_manager.get_channel_subscribers(
@@ -153,10 +152,7 @@ async def publish_event(
             subscribers,
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Invalid message data: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid message data: {str(e)}")
 
     # Update statistics
     container.increment_stat("total_messages_sent", sent_count)

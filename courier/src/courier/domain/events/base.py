@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 class EventMetadata(BaseModel):
     """
     Metadata common to all events.
-    
+
     Attributes:
         timestamp: ISO 8601 timestamp
         source: Publishing service name
@@ -39,13 +39,13 @@ class EventMetadata(BaseModel):
 class BaseEvent(BaseModel):
     """
     Base event that all Courier events must inherit from.
-    
+
     Provides:
     - Consistent structure (type, metadata, data)
     - Automatic timestamp generation
     - Source validation
     - Type safety via Pydantic
-    
+
     Attributes:
         type: Event type identifier (e.g., 'backtest.started')
         metadata: Event metadata (timestamp, source, etc.)
@@ -66,25 +66,25 @@ class BaseEvent(BaseModel):
     def get_channel(self) -> Optional[str]:
         """
         Determine target channel from event data.
-        
+
         Returns:
             Channel name, or None if cannot be determined
         """
         # User-scoped events
         if self.metadata.user_id:
             return f"user.{self.metadata.user_id}"
-        
+
         # Strategy-scoped events
         if "strategy_id" in self.data:
             return f"strategy.{self.data['strategy_id']}"
-        
+
         # Backtest-scoped events
         if "backtest_id" in self.data:
             return f"backtest.{self.data['backtest_id']}"
-        
+
         # Job-scoped events
         if "job_id" in self.data:
             return f"forge.job.{self.data['job_id']}"
-        
+
         # Default to global channel
         return "global"

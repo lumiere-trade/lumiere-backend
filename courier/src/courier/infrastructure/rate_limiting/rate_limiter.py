@@ -7,7 +7,7 @@ For production with multiple instances, consider using Redis.
 
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 
 class RateLimiter:
@@ -84,9 +84,7 @@ class RateLimiter:
         cutoff = now - self.window
 
         # Count valid requests
-        valid_requests = [
-            ts for ts in self.requests.get(identifier, []) if ts > cutoff
-        ]
+        valid_requests = [ts for ts in self.requests.get(identifier, []) if ts > cutoff]
 
         return max(0, self.limit - len(valid_requests))
 
@@ -141,9 +139,7 @@ class RateLimiter:
         now = datetime.utcnow()
         cutoff = now - self.window
 
-        valid_requests = [
-            ts for ts in self.requests.get(identifier, []) if ts > cutoff
-        ]
+        valid_requests = [ts for ts in self.requests.get(identifier, []) if ts > cutoff]
 
         return {
             "identifier": identifier,

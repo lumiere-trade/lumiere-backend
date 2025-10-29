@@ -2,7 +2,7 @@
 Use case for validating events against schemas.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from pydantic import ValidationError
 
