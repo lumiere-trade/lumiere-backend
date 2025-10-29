@@ -282,6 +282,17 @@ class DockerTestExecutor:
                 duration=0.0,
             )
 
+        # CRITICAL: Ensure infrastructure before executing test
+        if not self.ensure_infrastructure(component):
+            return self._create_error_result(
+                test_file=test_file,
+                component=component,
+                category=category,
+                error="Failed to start test infrastructure",
+                stderr="",
+                duration=0.0,
+            )
+
         # Check if component has docker-compose
         compose_file = self._get_compose_file_path(component)
 
