@@ -180,13 +180,17 @@ class Container:
 
     def get_validate_event_use_case(self) -> ValidateEventUseCase:
         """
-        Get ValidateEventUseCase singleton.
+        Get ValidateEventUseCase singleton with configured size limits.
 
         Returns:
             Use case instance
         """
         if self._validate_event_use_case is None:
-            self._validate_event_use_case = ValidateEventUseCase()
+            self._validate_event_use_case = ValidateEventUseCase(
+                max_event_size=self.settings.max_event_size,
+                max_payload_size=self.settings.max_event_payload_size,
+                max_metadata_size=self.settings.max_event_metadata_size,
+            )
         return self._validate_event_use_case
 
     def get_validate_message_use_case(self) -> ValidateMessageUseCase:

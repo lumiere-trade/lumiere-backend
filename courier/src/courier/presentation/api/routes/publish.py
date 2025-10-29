@@ -1,5 +1,5 @@
 """
-Event publishing endpoints with Clean Architecture, Schema Validation and Rate Limiting.
+Event publishing endpoints with Clean Architecture, Schema Validation, Size Limits and Rate Limiting.
 """
 
 from typing import Optional
@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import ValidationError
 
+from courier.application.use_cases.validate_event import EventSizeExceededError
 from courier.di import Container
 from courier.presentation.api.dependencies import get_container
 from courier.presentation.schemas import PublishRequest, PublishResponse
@@ -22,7 +23,7 @@ async def publish_event(
     x_service_name: Optional[str] = Header(None, alias="X-Service-Name"),
 ):
     """
-    Publish event to channel with schema validation and rate limiting.
+    Publish event to channel with schema validation, size limits and rate limiting.
 
     Recommended endpoint for new implementations.
 
@@ -38,6 +39,7 @@ async def publish_event(
     Raises:
         HTTPException:
             - 400: Invalid channel name or event validation fails
+            - 413: Event size exceeds limits
             - 429: Rate limit exceeded
     """
     # Rate limiting check (if enabled)
@@ -87,7 +89,7 @@ async def publish_event(
     # Validate event schema if event type is provided
     if event_type:
         try:
-            # Validate against Pydantic schema
+            # Validate against Pydantic schema AND size limits
             validated_event = validate_uc.execute(event_type, publish_request.data)
 
             # Check if source matches service name header (if provided)
@@ -108,8 +110,31 @@ async def publish_event(
             # Use validated event data
             message_data = validated_event.model_dump()
 
+        except EventSizeExceededError as e:
+            # Event size exceeded - return 413 Payload Too Large
+            container.increment_stat("validation_failures")
+
+            # Get size limits for helpful error message
+            limits = validate_uc.get_size_limits()
+
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail={
+                    "error": "Event size exceeded",
+                    "message": str(e),
+                    "component": e.component,
+                    "size_bytes": e.size,
+                    "max_size_bytes": e.max_size,
+                    "limits": limits,
+                },
+                headers={
+                    "X-Event-Size": str(e.size),
+                    "X-Event-Max-Size": str(e.max_size),
+                },
+            )
         except ValueError as e:
             # Unknown event type or validation error
+            container.increment_stat("validation_failures")
             raise HTTPException(
                 status_code=400,
                 detail={
@@ -120,6 +145,7 @@ async def publish_event(
             )
         except ValidationError as e:
             # Pydantic validation error
+            container.increment_stat("validation_failures")
             raise HTTPException(
                 status_code=400,
                 detail={

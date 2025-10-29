@@ -138,6 +138,26 @@ class Settings(BaseSettings):
         description="Maximum array field size in messages",
     )
 
+    # Event Validation (NEW - Phase 2.1)
+    max_event_size: int = Field(
+        default=1_048_576,  # 1MB
+        ge=1024,
+        le=10_485_760,  # Max 10MB
+        description="Maximum total event size in bytes",
+    )
+    max_event_payload_size: int = Field(
+        default=524_288,  # 512KB
+        ge=1024,
+        le=5_242_880,  # Max 5MB
+        description="Maximum event payload (data field) size in bytes",
+    )
+    max_event_metadata_size: int = Field(
+        default=10_240,  # 10KB
+        ge=512,
+        le=102_400,  # Max 100KB
+        description="Maximum event metadata size in bytes",
+    )
+
     # Logging (mapped from YAML 'log_level')
     log_level: str = Field(default="info")
     log_file: Optional[str] = Field(default=None)
