@@ -3,6 +3,7 @@ WebSocket endpoint with Clean Architecture.
 """
 
 import asyncio
+import json
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
 
@@ -27,6 +28,7 @@ async def websocket_endpoint(
 
     Supports optional JWT authentication via query parameter.
     Rejects new connections during graceful shutdown.
+    Validates all incoming messages.
 
     Args:
         websocket: WebSocket connection
@@ -53,6 +55,7 @@ async def websocket_endpoint(
     # Get managers and use cases
     conn_manager = container.connection_manager
     manage_uc = container.get_manage_channel_use_case()
+    validate_msg_uc = container.get_validate_message_use_case()
 
     # Create or get channel
     manage_uc.create_or_get_channel(channel)
@@ -99,9 +102,45 @@ async def websocket_endpoint(
                 # Increment message counter
                 container.increment_stat("total_messages_received")
 
-                # Handle ping/pong
+                # Handle legacy ping/pong (simple text)
                 if data == "ping":
                     await websocket.send_text("pong")
+                    continue
+
+                # Validate message
+                validation_result = validate_msg_uc.validate_message(data)
+
+                if not validation_result.valid:
+                    # Send validation error to client
+                    error_response = {
+                        "type": "error",
+                        "code": "VALIDATION_ERROR",
+                        "message": "Message validation failed",
+                        "errors": validation_result.errors,
+                    }
+                    await websocket.send_json(error_response)
+
+                    # Track validation failure
+                    container.increment_stat("validation_failures")
+                    continue
+
+                # Message is valid - handle control messages
+                if validate_msg_uc.is_control_message(
+                    validation_result.message_type
+                ):
+                    # Handle control messages (ping, subscribe, etc.)
+                    await _handle_control_message(
+                        websocket, validation_result.message_type, data
+                    )
+                else:
+                    # Non-control message - could be echoed or processed
+                    # For now, just acknowledge receipt
+                    ack_response = {
+                        "type": "ack",
+                        "message_type": validation_result.message_type,
+                        "size_bytes": validation_result.size_bytes,
+                    }
+                    await websocket.send_json(ack_response)
 
             except asyncio.TimeoutError:
                 # Send heartbeat ping
@@ -118,3 +157,35 @@ async def websocket_endpoint(
         if manage_uc.should_cleanup_channel(channel):
             if channel in conn_manager.channels:
                 del conn_manager.channels[channel]
+
+
+async def _handle_control_message(
+    websocket: WebSocket, message_type: str, raw_data: str
+) -> None:
+    """
+    Handle control messages (ping, subscribe, etc.).
+
+    Args:
+        websocket: WebSocket connection
+        message_type: Type of control message
+        raw_data: Raw message data
+    """
+    try:
+        message = json.loads(raw_data)
+    except json.JSONDecodeError:
+        return
+
+    if message_type == "ping":
+        await websocket.send_json({"type": "pong"})
+
+    elif message_type == "subscribe":
+        # Future: Handle channel subscription
+        await websocket.send_json(
+            {"type": "subscribed", "channel": message.get("channel")}
+        )
+
+    elif message_type == "unsubscribe":
+        # Future: Handle channel unsubscription
+        await websocket.send_json(
+            {"type": "unsubscribed", "channel": message.get("channel")}
+        )
