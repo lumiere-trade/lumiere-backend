@@ -57,19 +57,25 @@ class Container:
             "rate_limit_hits": 0,
             "rate_limit_hits_per_type": {},
             "validation_failures": 0,
+            "connection_rejections": 0,
+            "connection_rejections_by_type": {},
             "start_time": datetime.utcnow(),
         }
 
     @property
     def connection_manager(self) -> ConnectionManager:
         """
-        Get ConnectionManager singleton.
+        Get ConnectionManager singleton with configured connection limits.
 
         Returns:
             ConnectionManager instance
         """
         if self._connection_manager is None:
-            self._connection_manager = ConnectionManager()
+            self._connection_manager = ConnectionManager(
+                max_total_connections=self.settings.max_total_connections,
+                max_connections_per_user=self.settings.max_connections_per_user,
+                max_clients_per_channel=self.settings.max_clients_per_channel,
+            )
         return self._connection_manager
 
     @property
@@ -236,6 +242,21 @@ class Container:
             if message_type not in self.stats["rate_limit_hits_per_type"]:
                 self.stats["rate_limit_hits_per_type"][message_type] = 0
             self.stats["rate_limit_hits_per_type"][message_type] += 1
+
+    def increment_connection_rejection(self, limit_type: str) -> None:
+        """
+        Increment connection rejection counter.
+
+        Args:
+            limit_type: Type of limit that caused rejection (global, per_user, per_channel)
+        """
+        self.stats["connection_rejections"] += 1
+
+        if "connection_rejections_by_type" not in self.stats:
+            self.stats["connection_rejections_by_type"] = {}
+        if limit_type not in self.stats["connection_rejections_by_type"]:
+            self.stats["connection_rejections_by_type"][limit_type] = 0
+        self.stats["connection_rejections_by_type"][limit_type] += 1
 
     def get_uptime_seconds(self) -> float:
         """

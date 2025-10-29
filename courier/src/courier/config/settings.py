@@ -76,7 +76,21 @@ class Settings(BaseSettings):
 
     # Connection settings (mapped from YAML lowercase keys)
     heartbeat_interval: int = Field(default=30, ge=5, le=300)
-    max_clients_per_channel: int = Field(default=0, ge=0)
+    max_clients_per_channel: int = Field(
+        default=0,
+        ge=0,
+        description="Max clients per channel (0 = unlimited)",
+    )
+    max_total_connections: int = Field(
+        default=10000,
+        ge=0,
+        description="Max total WebSocket connections (0 = unlimited)",
+    )
+    max_connections_per_user: int = Field(
+        default=5,
+        ge=0,
+        description="Max connections per user (0 = unlimited)",
+    )
 
     # JWT Authentication
     jwt_secret: Optional[str] = Field(
