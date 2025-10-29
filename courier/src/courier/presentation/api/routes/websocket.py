@@ -125,9 +125,7 @@ async def websocket_endpoint(
                     continue
 
                 # Message is valid - handle control messages
-                if validate_msg_uc.is_control_message(
-                    validation_result.message_type
-                ):
+                if validate_msg_uc.is_control_message(validation_result.message_type):
                     # Handle control messages (ping, subscribe, etc.)
                     await _handle_control_message(
                         websocket, validation_result.message_type, data
