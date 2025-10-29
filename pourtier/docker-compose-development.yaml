@@ -2,12 +2,13 @@
 # POURTIER DEVELOPMENT INFRASTRUCTURE
 # Uses: config/development.yaml + .env.development
 # Port: 9000 (from config/development.yaml)
+# Network: lumiere-network (external, shared with other services)
 # =============================================
 
 networks:
-  pourtier-dev-net:
-    driver: bridge
-    name: pourtier-dev-network
+  lumiere-network:
+    external: true
+    name: lumiere-network
 
 volumes:
   pourtier-postgres-dev-data:
@@ -30,7 +31,7 @@ services:
       - pourtier-postgres-dev-data:/var/lib/postgresql/data
       - ../postgres/init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
-      - pourtier-dev-net
+      - lumiere-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lumiere}"]
       interval: 10s
@@ -60,7 +61,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - pourtier-dev-net
+      - lumiere-network
     volumes:
       - ./config:/app/config:ro
       - ./logs:/app/logs
