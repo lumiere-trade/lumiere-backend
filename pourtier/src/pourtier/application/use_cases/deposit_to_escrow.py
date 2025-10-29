@@ -1,7 +1,7 @@
 """
 Deposit to Escrow use case.
 
-Handles deposit verification and balance updates.
+Handles deposit submission and balance updates.
 """
 
 from datetime import datetime
@@ -22,9 +22,7 @@ from pourtier.domain.repositories.i_escrow_transaction_repository import (
     IEscrowTransactionRepository,
 )
 from pourtier.domain.repositories.i_user_repository import IUserRepository
-from pourtier.domain.services.i_blockchain_verifier import (
-    IBlockchainVerifier,
-)
+from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
 
 
 class DepositToEscrow:
@@ -34,7 +32,7 @@ class DepositToEscrow:
     Business rules:
     - User must exist
     - User must have initialized escrow
-    - Transaction signature must be verified on blockchain
+    - Signed transaction must be submitted to blockchain
     - Amount is trusted from user (transaction is cryptographically signed)
     - Amount must be positive
     - Transaction must not be duplicate (by signature)
@@ -49,7 +47,7 @@ class DepositToEscrow:
         self,
         user_repository: IUserRepository,
         escrow_transaction_repository: IEscrowTransactionRepository,
-        blockchain_verifier: IBlockchainVerifier,
+        passeur_bridge: IPasseurBridge,
     ):
         """
         Initialize use case with dependencies.
@@ -57,23 +55,23 @@ class DepositToEscrow:
         Args:
             user_repository: Repository for user persistence
             escrow_transaction_repository: Repository for transactions
-            blockchain_verifier: Service for verifying blockchain txs
+            passeur_bridge: Bridge for blockchain submission
         """
         self.user_repository = user_repository
         self.escrow_transaction_repository = escrow_transaction_repository
-        self.blockchain_verifier = blockchain_verifier
+        self.passeur_bridge = passeur_bridge
 
     async def execute(
         self,
         user_id: UUID,
         amount: Decimal,
-        tx_signature: str,
+        signed_transaction: str,
     ) -> EscrowTransaction:
         """
         Execute deposit to escrow.
 
         FAST APPROACH - Optimistic update:
-        1. Verify transaction confirmed on blockchain
+        1. Submit signed transaction to blockchain
         2. Trust amount (user signed transaction cryptographically)
         3. Update balance immediately - INSTANT UX
         4. Background job reconciles later (eventual consistency)
@@ -81,7 +79,7 @@ class DepositToEscrow:
         Args:
             user_id: User unique identifier
             amount: Deposit amount (from signed transaction)
-            tx_signature: Blockchain transaction signature (user-signed)
+            signed_transaction: Base64-encoded signed transaction from wallet
 
         Returns:
             Created EscrowTransaction entity
@@ -89,8 +87,7 @@ class DepositToEscrow:
         Raises:
             EntityNotFoundError: If user not found
             ValidationError: If escrow not initialized or amount invalid
-            TransactionNotFoundError: If tx not found on blockchain
-            TransactionNotConfirmedError: If tx not confirmed
+            BridgeError: If blockchain submission fails
             InvalidTransactionError: If duplicate transaction
         """
         # 1. Get user
@@ -108,7 +105,20 @@ class DepositToEscrow:
                 reason="Escrow not initialized for user",
             )
 
-        # 3. Check for duplicate transaction
+        # 3. Validate amount is positive
+        if amount <= 0:
+            raise ValidationError(
+                field="amount",
+                reason="Deposit amount must be positive",
+            )
+
+        # 4. Submit signed transaction to blockchain via Passeur
+        # This is CRITICAL - ensures transaction is real and user signed it
+        tx_signature = await self.passeur_bridge.submit_signed_transaction(
+            signed_transaction
+        )
+
+        # 5. Check for duplicate transaction
         existing_tx = await self.escrow_transaction_repository.get_by_tx_signature(
             tx_signature
         )
@@ -117,17 +127,6 @@ class DepositToEscrow:
                 "Transaction already processed",
                 tx_signature=tx_signature,
             )
-
-        # 4. Validate amount is positive
-        if amount <= 0:
-            raise ValidationError(
-                field="amount",
-                reason="Deposit amount must be positive",
-            )
-
-        # 5. Verify transaction on blockchain (confirmed & exists)
-        # This is CRITICAL - ensures transaction is real and user signed it
-        verified_tx = await self.blockchain_verifier.verify_transaction(tx_signature)
 
         # 6. Update user balance immediately (INSTANT UX!)
         # We trust the amount because:
@@ -149,11 +148,7 @@ class DepositToEscrow:
             amount=amount,
             token_mint=user.escrow_token_mint,
             status=TransactionStatus.CONFIRMED,
-            confirmed_at=(
-                datetime.fromtimestamp(verified_tx.block_time)
-                if verified_tx.block_time
-                else datetime.now()
-            ),
+            confirmed_at=datetime.now(),
         )
 
         created_transaction = await self.escrow_transaction_repository.create(

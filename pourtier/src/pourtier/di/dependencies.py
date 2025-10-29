@@ -134,12 +134,12 @@ def get_initialize_escrow(
     container = get_container()
     user_repo = container.get_user_repository(session)
     escrow_tx_repo = container.get_escrow_transaction_repository(session)
-    blockchain_verifier = container.blockchain_verifier
+    passeur_bridge = container.passeur_bridge
 
     return InitializeEscrow(
         user_repository=user_repo,
         escrow_transaction_repository=escrow_tx_repo,
-        blockchain_verifier=blockchain_verifier,
+        passeur_bridge=passeur_bridge,
     )
 
 
@@ -152,12 +152,12 @@ def get_deposit_to_escrow(
     container = get_container()
     user_repo = container.get_user_repository(session)
     escrow_tx_repo = container.get_escrow_transaction_repository(session)
-    blockchain_verifier = container.blockchain_verifier
+    passeur_bridge = container.passeur_bridge
 
     return DepositToEscrow(
         user_repository=user_repo,
         escrow_transaction_repository=escrow_tx_repo,
-        blockchain_verifier=blockchain_verifier,
+        passeur_bridge=passeur_bridge,
     )
 
 
@@ -170,12 +170,12 @@ def get_withdraw_from_escrow(
     container = get_container()
     user_repo = container.get_user_repository(session)
     escrow_tx_repo = container.get_escrow_transaction_repository(session)
-    blockchain_verifier = container.blockchain_verifier
+    passeur_bridge = container.passeur_bridge
 
     return WithdrawFromEscrow(
         user_repository=user_repo,
         escrow_transaction_repository=escrow_tx_repo,
-        blockchain_verifier=blockchain_verifier,
+        passeur_bridge=passeur_bridge,
     )
 
 

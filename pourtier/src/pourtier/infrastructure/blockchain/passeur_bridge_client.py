@@ -26,7 +26,8 @@ class PasseurBridgeClient(IPasseurBridge):
     Passeur Bridge HTTP client.
 
     Communicates with Passeur Bridge API to prepare unsigned
-    blockchain transactions for user signing and query blockchain state.
+    blockchain transactions for user signing, submit signed transactions,
+    and query blockchain state.
 
     Includes retries and optimized timeouts for production reliability.
     """
@@ -56,7 +57,7 @@ class PasseurBridgeClient(IPasseurBridge):
         self._session: Optional[aiohttp.ClientSession] = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create HTTP session with optimized get_settings()."""
+        """Get or create HTTP session with optimized settings."""
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(
                 timeout=self.timeout,
@@ -175,6 +176,66 @@ class PasseurBridgeClient(IPasseurBridge):
             payload=payload,
             operation="initialize escrow",
         )
+
+    async def submit_signed_transaction(
+        self,
+        signed_transaction: str,
+    ) -> str:
+        """
+        Submit signed transaction to Solana blockchain.
+
+        Args:
+            signed_transaction: Base64-encoded signed transaction
+
+        Returns:
+            Transaction signature (hash) from blockchain
+
+        Raises:
+            BridgeError: If submission fails
+        """
+        payload = {
+            "signedTransaction": signed_transaction,
+        }
+
+        try:
+            async for attempt in AsyncRetrying(
+                stop=stop_after_attempt(self.max_retries),
+                wait=wait_exponential(multiplier=1, min=1, max=4),
+                retry=retry_if_exception_type(
+                    (aiohttp.ClientError, asyncio.TimeoutError)
+                ),
+                reraise=True,
+            ):
+                with attempt:
+                    return await self._submit_transaction_once(payload)
+        except RetryError:
+            raise BridgeError(
+                f"Failed to submit transaction after {self.max_retries} retries"
+            )
+
+    async def _submit_transaction_once(self, payload: dict) -> str:
+        """Submit transaction - single attempt."""
+        session = await self._get_session()
+        url = f"{self.bridge_url}/transaction/submit"
+
+        try:
+            async with session.post(url, json=payload) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    if 400 <= response.status < 500:
+                        raise BridgeError(
+                            f"Failed to submit transaction: {error_text}",
+                            status_code=response.status,
+                        )
+                    raise aiohttp.ClientError(
+                        f"Server error {response.status}: {error_text}"
+                    )
+
+                data = await response.json()
+                return data["signature"]
+
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            raise
 
     async def prepare_deposit(
         self,

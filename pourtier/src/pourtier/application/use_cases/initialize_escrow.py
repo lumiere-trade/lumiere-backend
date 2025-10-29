@@ -24,9 +24,7 @@ from pourtier.domain.repositories.i_escrow_transaction_repository import (
     IEscrowTransactionRepository,
 )
 from pourtier.domain.repositories.i_user_repository import IUserRepository
-from pourtier.domain.services.i_blockchain_verifier import (
-    IBlockchainVerifier,
-)
+from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
 
 
 class InitializeEscrow:
@@ -36,7 +34,7 @@ class InitializeEscrow:
     Business rules:
     - User must exist
     - User must not have escrow already initialized
-    - Transaction signature must be verified on blockchain
+    - Signed transaction must be submitted to blockchain
     - Escrow account is derived deterministically (PDA)
     """
 
@@ -44,7 +42,7 @@ class InitializeEscrow:
         self,
         user_repository: IUserRepository,
         escrow_transaction_repository: IEscrowTransactionRepository,
-        blockchain_verifier: IBlockchainVerifier,
+        passeur_bridge: IPasseurBridge,
     ):
         """
         Initialize use case with dependencies.
@@ -52,11 +50,11 @@ class InitializeEscrow:
         Args:
             user_repository: Repository for user persistence
             escrow_transaction_repository: Repository for transactions
-            blockchain_verifier: Service for verifying blockchain txs
+            passeur_bridge: Bridge for blockchain submission
         """
         self.user_repository = user_repository
         self.escrow_transaction_repository = escrow_transaction_repository
-        self.blockchain_verifier = blockchain_verifier
+        self.passeur_bridge = passeur_bridge
 
     def _derive_escrow_pda(self, wallet_address: str) -> str:
         """
@@ -80,25 +78,24 @@ class InitializeEscrow:
     async def execute(
         self,
         user_id: UUID,
-        tx_signature: str,
+        signed_transaction: str,
         token_mint: str = "USDC",
-    ) -> User:
+    ) -> tuple[User, str]:
         """
         Execute escrow initialization.
 
         Args:
             user_id: User unique identifier
-            tx_signature: Blockchain transaction signature (user-signed)
+            signed_transaction: Base64-encoded signed transaction from wallet
             token_mint: Token mint address (default: USDC)
 
         Returns:
-            Updated User entity with escrow_account set
+            Tuple of (Updated User entity, transaction signature)
 
         Raises:
             EntityNotFoundError: If user not found
             EscrowAlreadyInitializedError: If user has escrow
-            TransactionNotFoundError: If tx not found on blockchain
-            TransactionNotConfirmedError: If tx not confirmed
+            BridgeError: If blockchain submission fails
         """
         # 1. Get user
         user = await self.user_repository.get_by_id(user_id)
@@ -112,8 +109,10 @@ class InitializeEscrow:
         if user.escrow_account:
             raise EscrowAlreadyInitializedError(str(user_id))
 
-        # 3. Verify transaction on blockchain (exists & confirmed)
-        verified_tx = await self.blockchain_verifier.verify_transaction(tx_signature)
+        # 3. Submit signed transaction to blockchain via Passeur
+        tx_signature = await self.passeur_bridge.submit_signed_transaction(
+            signed_transaction
+        )
 
         # 4. Derive escrow PDA (deterministic, no parsing needed!)
         escrow_account = self._derive_escrow_pda(user.wallet_address)
@@ -136,13 +135,9 @@ class InitializeEscrow:
             amount=0,  # No amount for initialization
             token_mint=token_mint,
             status=TransactionStatus.CONFIRMED,
-            confirmed_at=(
-                datetime.fromtimestamp(verified_tx.block_time)
-                if verified_tx.block_time
-                else datetime.now()
-            ),
+            confirmed_at=datetime.now(),
         )
 
         await self.escrow_transaction_repository.create(transaction)
 
-        return updated_user
+        return updated_user, tx_signature
