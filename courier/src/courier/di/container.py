@@ -11,9 +11,11 @@ from courier.application.use_cases import (
     AuthenticateWebSocketUseCase,
     BroadcastMessageUseCase,
     ManageChannelUseCase,
+    ValidateEventUseCase,
 )
 from courier.config.settings import Settings
 from courier.infrastructure.auth import JWTVerifier
+from courier.infrastructure.rate_limiting import RateLimiter
 from courier.infrastructure.websocket import ConnectionManager
 
 
@@ -37,12 +39,18 @@ class Container:
         # Shared infrastructure
         self._connection_manager: Optional[ConnectionManager] = None
         self._jwt_verifier: Optional[JWTVerifier] = None
+        self._validate_event_use_case: Optional[ValidateEventUseCase] = None
+        
+        # Rate limiters
+        self._publish_rate_limiter: Optional[RateLimiter] = None
+        self._websocket_rate_limiter: Optional[RateLimiter] = None
 
         # Statistics
         self.stats = {
             "total_connections": 0,
             "total_messages_sent": 0,
             "total_messages_received": 0,
+            "rate_limit_hits": 0,
             "start_time": datetime.utcnow(),
         }
 
@@ -82,6 +90,44 @@ class Container:
 
         return self._jwt_verifier
 
+    @property
+    def publish_rate_limiter(self) -> Optional[RateLimiter]:
+        """
+        Get publish rate limiter singleton.
+
+        Returns:
+            RateLimiter instance if rate limiting enabled, None otherwise
+        """
+        if not self.settings.rate_limit_enabled:
+            return None
+
+        if self._publish_rate_limiter is None:
+            self._publish_rate_limiter = RateLimiter(
+                limit=self.settings.rate_limit_publish_requests,
+                window_seconds=self.settings.rate_limit_window_seconds,
+            )
+
+        return self._publish_rate_limiter
+
+    @property
+    def websocket_rate_limiter(self) -> Optional[RateLimiter]:
+        """
+        Get WebSocket rate limiter singleton.
+
+        Returns:
+            RateLimiter instance if rate limiting enabled, None otherwise
+        """
+        if not self.settings.rate_limit_enabled:
+            return None
+
+        if self._websocket_rate_limiter is None:
+            self._websocket_rate_limiter = RateLimiter(
+                limit=self.settings.rate_limit_websocket_connections,
+                window_seconds=self.settings.rate_limit_window_seconds,
+            )
+
+        return self._websocket_rate_limiter
+
     def get_authenticate_use_case(self) -> Optional[AuthenticateWebSocketUseCase]:
         """
         Get AuthenticateWebSocketUseCase.
@@ -111,6 +157,17 @@ class Container:
             Use case instance
         """
         return ManageChannelUseCase(self.connection_manager.channels)
+
+    def get_validate_event_use_case(self) -> ValidateEventUseCase:
+        """
+        Get ValidateEventUseCase singleton.
+
+        Returns:
+            Use case instance
+        """
+        if self._validate_event_use_case is None:
+            self._validate_event_use_case = ValidateEventUseCase()
+        return self._validate_event_use_case
 
     def increment_stat(self, stat_name: str, amount: int = 1) -> None:
         """

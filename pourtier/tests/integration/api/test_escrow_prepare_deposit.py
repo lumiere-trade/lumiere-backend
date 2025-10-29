@@ -56,9 +56,7 @@ class TestEscrowPrepareDeposit(LaborantTest):
         self.reporter.info("Connected to test database", context="Setup")
 
         # Reset database schema
-        await TestEscrowPrepareDeposit.db.reset_schema_for_testing(
-            Base.metadata
-        )
+        await TestEscrowPrepareDeposit.db.reset_schema_for_testing(Base.metadata)
         self.reporter.info("Database schema reset", context="Setup")
 
         # Create app
@@ -140,9 +138,7 @@ class TestEscrowPrepareDeposit(LaborantTest):
         )
 
         # Mock Passeur Bridge
-        with patch(
-            "pourtier.di.container.DIContainer.passeur_bridge"
-        ) as mock_bridge:
+        with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
             mock_instance = AsyncMock()
             mock_instance.prepare_deposit.return_value = (
                 "fake_base64_unsigned_transaction_abcdef123456"
@@ -158,9 +154,7 @@ class TestEscrowPrepareDeposit(LaborantTest):
         assert response.status_code == 200
         data = response.json()
         assert "transaction" in data
-        assert data["transaction"] == (
-            "fake_base64_unsigned_transaction_abcdef123456"
-        )
+        assert data["transaction"] == ("fake_base64_unsigned_transaction_abcdef123456")
         assert "escrow_account" in data
         assert data["escrow_account"] == self.test_user.escrow_account
         assert "amount" in data
@@ -279,9 +273,7 @@ class TestEscrowPrepareDeposit(LaborantTest):
         from pourtier.domain.exceptions.blockchain import BlockchainError
 
         # Mock Passeur Bridge to raise error
-        with patch(
-            "pourtier.di.container.DIContainer.passeur_bridge"
-        ) as mock_bridge:
+        with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
             mock_instance = AsyncMock()
             mock_instance.prepare_deposit.side_effect = BlockchainError(
                 message="Bridge service unavailable"
@@ -307,13 +299,9 @@ class TestEscrowPrepareDeposit(LaborantTest):
         )
 
         # Mock Passeur Bridge
-        with patch(
-            "pourtier.di.container.DIContainer.passeur_bridge"
-        ) as mock_bridge:
+        with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
             mock_instance = AsyncMock()
-            mock_instance.prepare_deposit.return_value = (
-                "fake_base64_large_tx"
-            )
+            mock_instance.prepare_deposit.return_value = "fake_base64_large_tx"
             mock_bridge.__get__ = lambda *args: mock_instance
 
             response = await self.client.post(

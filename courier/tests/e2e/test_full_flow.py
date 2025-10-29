@@ -133,7 +133,7 @@ class TestFullFlow(LaborantTest):
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.http_base_url}/publish",
-                    json={"channel": channel, "data": {"type": "test", "value": 123}},
+                    json={"channel": channel, "data": {"message": "test", "value": 123}},
                 )
                 assert response.status_code == 200
 
@@ -142,7 +142,7 @@ class TestFullFlow(LaborantTest):
             receive_task.cancel()
 
         assert len(messages_received) == 1
-        assert messages_received[0]["type"] == "test"
+        assert messages_received[0]["message"] == "test"
 
         self.reporter.info("Full flow successful", context="Test")
 

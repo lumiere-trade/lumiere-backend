@@ -1,8 +1,7 @@
 """
 E2E tests for Publish API endpoints.
 
-Tests real HTTP publish endpoints with WebSocket subscribers.
-Automatically starts/stops Courier container for testing.
+Tests event publishing with real HTTP requests.
 
 Usage:
     laborant courier --e2e
@@ -16,19 +15,20 @@ from shared.tests import LaborantTest
 
 
 class TestPublishAPI(LaborantTest):
-    """E2E tests for publish API endpoints."""
+    """E2E tests for publish endpoints."""
 
     component_name = "courier"
     test_category = "e2e"
 
     client: httpx.AsyncClient = None
     api_base_url = "http://localhost:7765"
-    container_name = "courier-e2e-publish-test"
+    container_name = "courier-e2e-test"
 
     async def async_setup(self):
         """Setup HTTP client and start Courier container."""
         self.reporter.info("Setting up Publish API E2E tests...", context="Setup")
 
+        # Start Courier container
         await self._start_courier_container()
         await self._wait_for_api()
 
@@ -46,7 +46,7 @@ class TestPublishAPI(LaborantTest):
         self.reporter.info("Cleanup complete", context="Teardown")
 
     async def _start_courier_container(self):
-        """Start Courier container for testing."""
+        """Start Courier container."""
         self.reporter.info("Starting Courier container...", context="Setup")
 
         subprocess.run(
@@ -113,17 +113,36 @@ class TestPublishAPI(LaborantTest):
 
         raise RuntimeError("Courier API not accessible after 30 seconds")
 
+    # ================================================================
+    # Valid event publishing tests (using real event schemas)
+    # ================================================================
+
     async def test_publish_new_format_success(self):
-        """Test publishing with new format returns success."""
+        """Test publishing with valid backtest.started event."""
         self.reporter.info("Testing publish new format success", context="Test")
+
+        # Valid backtest.started event
+        event_data = {
+            "type": "backtest.started",
+            "metadata": {
+                "source": "cartographe",
+                "user_id": "test_user",
+            },
+            "data": {
+                "backtest_id": "bt_test_123",
+                "job_id": "job_test_456",
+                "user_id": "test_user",
+                "strategy_id": "strat_test",
+                "parameters": {},
+            },
+        }
 
         response = await self.client.post(
             "/publish",
-            json={"channel": "test.channel", "data": {"type": "test", "value": 123}},
+            json={"channel": "test.channel", "data": event_data},
         )
 
         assert response.status_code == 200
-
         data = response.json()
         assert "clients_reached" in data
         assert isinstance(data["clients_reached"], int)
@@ -131,151 +150,242 @@ class TestPublishAPI(LaborantTest):
 
         self.reporter.info("Publish new format successful", context="Test")
 
-    async def test_publish_new_format_creates_channel(self):
-        """Test publish auto-creates channel if needed."""
-        self.reporter.info("Testing publish creates channel", context="Test")
-
-        channel_name = "auto.created"
-
-        response = await self.client.post(
-            "/publish", json={"channel": channel_name, "data": {"test": "data"}}
-        )
-
-        assert response.status_code == 200
-
-        health = await self.client.get("/health")
-        channels = health.json()["channels"]
-
-        assert channel_name in channels or True
-
-        self.reporter.info("Channel auto-creation works", context="Test")
-
-    async def test_publish_new_format_validates_request(self):
-        """Test publish validates request schema."""
-        self.reporter.info("Testing publish request validation", context="Test")
-
-        response = await self.client.post("/publish", json={})
-
-        assert response.status_code == 422
-
-        self.reporter.info("Request validation working", context="Test")
-
-    async def test_publish_new_format_invalid_channel_name(self):
-        """Test publish rejects invalid channel name."""
-        self.reporter.info("Testing invalid channel name rejection", context="Test")
-
-        response = await self.client.post(
-            "/publish",
-            json={"channel": "INVALID CHANNEL!", "data": {"test": "data"}},
-        )
-
-        assert response.status_code in [400, 422]
-
-        self.reporter.info("Invalid channel name rejected", context="Test")
-
     async def test_publish_legacy_format_success(self):
-        """Test legacy format is backwards compatible."""
+        """Test legacy format with valid event."""
         self.reporter.info("Testing legacy format success", context="Test")
 
+        # Valid prophet.message_chunk event
+        event_data = {
+            "type": "prophet.message_chunk",
+            "metadata": {"source": "prophet"},
+            "data": {
+                "conversation_id": "conv_test",
+                "chunk": "test message",
+                "is_final": False,
+            },
+        }
+
         response = await self.client.post(
-            "/publish/legacy.channel", json={"type": "test", "value": 456}
+            "/publish/legacy.channel",
+            json=event_data,
         )
 
         assert response.status_code == 200
-
         data = response.json()
         assert "clients_reached" in data
 
         self.reporter.info("Legacy format works", context="Test")
 
+    async def test_publish_without_event_type(self):
+        """Test publishing without event type (backwards compatibility)."""
+        self.reporter.info("Testing publish without type", context="Test")
+
+        # No 'type' field - should pass through
+        response = await self.client.post(
+            "/publish",
+            json={"channel": "test.channel", "data": {"message": "hello"}},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["clients_reached"] == 0
+
+        self.reporter.info("Publish without type works", context="Test")
+
+    async def test_publish_invalid_event_schema(self):
+        """Test publishing with invalid event schema fails."""
+        self.reporter.info("Testing invalid event schema", context="Test")
+
+        # backtest.started missing required fields
+        invalid_event = {
+            "type": "backtest.started",
+            "metadata": {"source": "cartographe"},
+            "data": {"backtest_id": "bt_123"},  # Missing required fields
+        }
+
+        response = await self.client.post(
+            "/publish",
+            json={"channel": "test.channel", "data": invalid_event},
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "detail" in data
+        assert "validation" in str(data["detail"]).lower()
+
+        self.reporter.info("Invalid schema rejected", context="Test")
+
+    # ================================================================
+    # Channel and request validation tests
+    # ================================================================
+
     async def test_publish_legacy_format_channel_in_url(self):
-        """Test legacy format uses channel from URL."""
+        """Test legacy format with channel in URL."""
         self.reporter.info("Testing channel from URL", context="Test")
 
-        channel = "url.channel"
+        event_data = {
+            "type": "forge.job.started",
+            "metadata": {"source": "forge"},
+            "data": {
+                "job_id": "job_123",
+                "job_type": "test",
+                "user_id": "user_123",
+                "parameters": {},
+            },
+        }
 
-        response = await self.client.post(f"/publish/{channel}", json={"data": "test"})
+        response = await self.client.post(
+            "/publish/url.test.channel",
+            json=event_data,
+        )
 
         assert response.status_code == 200
 
         self.reporter.info("Channel from URL works", context="Test")
 
-    async def test_publish_with_no_subscribers_returns_zero(self):
-        """Test publish with no subscribers returns 0."""
-        self.reporter.info("Testing publish with no subscribers", context="Test")
+    async def test_publish_new_format_creates_channel(self):
+        """Test publish auto-creates channel if needed."""
+        self.reporter.info("Testing publish creates channel", context="Test")
+
+        channel_name = "auto.created"
+        event_data = {
+            "type": "backtest.progress",
+            "metadata": {"source": "cartographe"},
+            "data": {
+                "backtest_id": "bt_123",
+                "job_id": "job_123",
+                "user_id": "user_123",
+                "progress": 0.5,
+                "stage": "testing",
+                "message": "Progress update",
+            },
+        }
 
         response = await self.client.post(
-            "/publish", json={"channel": "empty.channel", "data": {"test": "data"}}
+            "/publish",
+            json={"channel": channel_name, "data": event_data},
         )
 
         assert response.status_code == 200
 
-        data = response.json()
-        assert data["clients_reached"] == 0
+        # Check channel was created
+        health = await self.client.get("/health")
+        channels = health.json()["channels"]
+        assert channel_name in channels
 
-        self.reporter.info("No subscribers returns 0", context="Test")
+        self.reporter.info("Channel auto-creation works", context="Test")
 
-    async def test_publish_increments_stats(self):
-        """Test publish returns valid stats."""
-        self.reporter.info("Testing stats handling", context="Test")
+    async def test_publish_new_format_invalid_channel_name(self):
+        """Test invalid channel name is rejected."""
+        self.reporter.info("Testing invalid channel name rejection", context="Test")
 
-        stats_before = await self.client.get("/stats")
-        sent_before = stats_before.json()["total_messages_sent"]
-
-        await self.client.post(
-            "/publish", json={"channel": "stats.test", "data": {"test": "data"}}
+        response = await self.client.post(
+            "/publish",
+            json={"channel": "INVALID", "data": {"simple": "data"}},
         )
 
-        stats_after = await self.client.get("/stats")
-        sent_after = stats_after.json()["total_messages_sent"]
+        assert response.status_code == 400
 
-        assert sent_after >= sent_before
-
-        self.reporter.info("Stats handling passed", context="Test")
+        self.reporter.info("Invalid channel name rejected", context="Test")
 
     async def test_publish_requires_channel(self):
-        """Test publish requires channel field."""
+        """Test channel field is required."""
         self.reporter.info("Testing channel required", context="Test")
 
-        response = await self.client.post("/publish", json={"data": {"test": "data"}})
+        response = await self.client.post(
+            "/publish",
+            json={"data": {"test": "data"}},
+        )
 
         assert response.status_code == 422
 
         self.reporter.info("Channel field required", context="Test")
 
     async def test_publish_requires_data(self):
-        """Test publish requires data field."""
+        """Test data field is required."""
         self.reporter.info("Testing data required", context="Test")
 
-        response = await self.client.post("/publish", json={"channel": "test"})
+        response = await self.client.post(
+            "/publish",
+            json={"channel": "test.channel"},
+        )
 
         assert response.status_code == 422
 
         self.reporter.info("Data field required", context="Test")
 
     async def test_publish_data_must_be_dict(self):
-        """Test publish data must be object."""
+        """Test data field must be a dictionary."""
         self.reporter.info("Testing data must be dict", context="Test")
 
         response = await self.client.post(
-            "/publish", json={"channel": "test", "data": "not a dict"}
+            "/publish",
+            json={"channel": "test.channel", "data": "not a dict"},
         )
 
-        assert response.status_code in [400, 422]
+        assert response.status_code == 422
 
         self.reporter.info("Data type validated", context="Test")
 
-    async def test_publish_without_auth(self):
-        """Test publish works without authentication."""
-        self.reporter.info("Testing publish without auth", context="Test")
+    # ================================================================
+    # Response and stats tests
+    # ================================================================
+
+    async def test_publish_response_format(self):
+        """Test publish response has correct format."""
+        self.reporter.info("Testing response format", context="Test")
 
         response = await self.client.post(
-            "/publish", json={"channel": "public", "data": {"test": "data"}}
+            "/publish",
+            json={"channel": "test.format", "data": {"no": "type"}},
         )
 
         assert response.status_code == 200
+        data = response.json()
+        assert "status" in data
+        assert "channel" in data
+        assert "clients_reached" in data
+        assert "timestamp" in data
 
-        self.reporter.info("No auth required (as configured)", context="Test")
+        self.reporter.info("Response format correct", context="Test")
+
+    async def test_publish_increments_stats(self):
+        """Test publishing increments statistics."""
+        self.reporter.info("Testing stats handling", context="Test")
+
+        stats_before = await self.client.get("/stats")
+        before_count = stats_before.json()["total_messages_sent"]
+
+        await self.client.post(
+            "/publish",
+            json={"channel": "stats.test", "data": {"test": "data"}},
+        )
+
+        stats_after = await self.client.get("/stats")
+        after_count = stats_after.json()["total_messages_sent"]
+
+        assert after_count >= before_count
+
+        self.reporter.info("Stats handling passed", context="Test")
+
+    async def test_publish_with_no_subscribers_returns_zero(self):
+        """Test publish with no subscribers returns 0."""
+        self.reporter.info("Testing publish with no subscribers", context="Test")
+
+        response = await self.client.post(
+            "/publish",
+            json={"channel": "empty.channel", "data": {"test": "data"}},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["clients_reached"] == 0
+
+        self.reporter.info("No subscribers returns 0", context="Test")
+
+    # ================================================================
+    # Multiple operations tests
+    # ================================================================
 
     async def test_publish_multiple_messages_same_channel(self):
         """Test publishing multiple messages to same channel."""
@@ -285,7 +395,8 @@ class TestPublishAPI(LaborantTest):
 
         for i in range(3):
             response = await self.client.post(
-                "/publish", json={"channel": channel, "data": {"count": i}}
+                "/publish",
+                json={"channel": channel, "data": {"count": i}},
             )
             assert response.status_code == 200
 
@@ -295,31 +406,51 @@ class TestPublishAPI(LaborantTest):
         """Test publishing to different channels."""
         self.reporter.info("Testing different channels", context="Test")
 
-        channels = ["channel.one", "channel.two", "channel.three"]
+        channels = ["channel.a", "channel.b", "channel.c"]
 
         for channel in channels:
             response = await self.client.post(
-                "/publish", json={"channel": channel, "data": {"test": "data"}}
+                "/publish",
+                json={"channel": channel, "data": {"channel": channel}},
             )
             assert response.status_code == 200
 
         self.reporter.info("Different channels work", context="Test")
 
-    async def test_publish_response_format(self):
-        """Test publish response has correct format."""
-        self.reporter.info("Testing response format", context="Test")
+    # ================================================================
+    # Auth tests
+    # ================================================================
+
+    async def test_publish_without_auth(self):
+        """Test publishing without authentication works when auth disabled."""
+        self.reporter.info("Testing publish without auth", context="Test")
 
         response = await self.client.post(
-            "/publish", json={"channel": "format.test", "data": {"test": "data"}}
+            "/publish",
+            json={"channel": "no.auth", "data": {"test": "data"}},
         )
 
         assert response.status_code == 200
 
-        data = response.json()
-        assert "clients_reached" in data
-        assert isinstance(data["clients_reached"], int)
+        self.reporter.info("No auth required (as configured)", context="Test")
 
-        self.reporter.info("Response format correct", context="Test")
+    # ================================================================
+    # Request validation tests
+    # ================================================================
+
+    async def test_publish_new_format_validates_request(self):
+        """Test new format validates request structure."""
+        self.reporter.info("Testing publish request validation", context="Test")
+
+        # Invalid JSON structure
+        response = await self.client.post(
+            "/publish",
+            json={"wrong": "structure"},
+        )
+
+        assert response.status_code == 422
+
+        self.reporter.info("Request validation working", context="Test")
 
 
 if __name__ == "__main__":
