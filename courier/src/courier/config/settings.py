@@ -7,7 +7,7 @@ Priority: Environment variables > YAML config > Pydantic defaults
 
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import yaml
 from dotenv import load_dotenv
@@ -119,6 +119,10 @@ class Settings(BaseSettings):
         default=60,
         ge=1,
         description="Rate limit time window in seconds",
+    )
+    rate_limit_per_message_type: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Per-message-type rate limits (overrides global limit)",
     )
 
     # Message Validation

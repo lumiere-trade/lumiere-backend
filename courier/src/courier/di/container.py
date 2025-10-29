@@ -55,6 +55,7 @@ class Container:
             "total_messages_sent": 0,
             "total_messages_received": 0,
             "rate_limit_hits": 0,
+            "rate_limit_hits_per_type": {},
             "validation_failures": 0,
             "start_time": datetime.utcnow(),
         }
@@ -132,7 +133,7 @@ class Container:
     @property
     def websocket_rate_limiter(self) -> Optional[RateLimiter]:
         """
-        Get WebSocket rate limiter singleton.
+        Get WebSocket rate limiter singleton with per-message-type support.
 
         Returns:
             RateLimiter instance if rate limiting enabled, None otherwise
@@ -144,6 +145,7 @@ class Container:
             self._websocket_rate_limiter = RateLimiter(
                 limit=self.settings.rate_limit_websocket_connections,
                 window_seconds=self.settings.rate_limit_window_seconds,
+                per_type_limits=self.settings.rate_limit_per_message_type,
             )
 
         return self._websocket_rate_limiter
@@ -218,6 +220,22 @@ class Container:
         """
         if stat_name in self.stats:
             self.stats[stat_name] += amount
+
+    def increment_rate_limit_hit(self, message_type: Optional[str] = None) -> None:
+        """
+        Increment rate limit hit counter.
+
+        Args:
+            message_type: Optional message type for per-type tracking
+        """
+        self.stats["rate_limit_hits"] += 1
+
+        if message_type:
+            if "rate_limit_hits_per_type" not in self.stats:
+                self.stats["rate_limit_hits_per_type"] = {}
+            if message_type not in self.stats["rate_limit_hits_per_type"]:
+                self.stats["rate_limit_hits_per_type"][message_type] = 0
+            self.stats["rate_limit_hits_per_type"][message_type] += 1
 
     def get_uptime_seconds(self) -> float:
         """
