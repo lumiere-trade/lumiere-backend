@@ -191,7 +191,7 @@ class TestValidateEventUseCase(LaborantTest):
         try:
             use_case.execute("backtest.progress", invalid_event)
             assert False, "Should have raised ValidationError"
-        except ValidationError as e:
+        except ValidationError:
             self.reporter.info("Invalid progress value rejected", context="Test")
 
     def test_validate_wrong_event_type_for_data(self):
@@ -270,23 +270,32 @@ class TestValidateEventUseCase(LaborantTest):
         use_case = ValidateEventUseCase()
 
         prophet_events = [
-            ("prophet.message_chunk", {
-                "conversation_id": "conv_123",
-                "chunk": "test",
-                "is_final": False,
-            }),
-            ("prophet.tsdl_ready", {
-                "conversation_id": "conv_123",
-                "strategy_id": "strat_123",
-                "tsdl": "...",
-                "metadata": {},
-            }),
-            ("prophet.error", {
-                "conversation_id": "conv_123",
-                "error_code": "TEST",
-                "message": "test",
-                "details": "",
-            }),
+            (
+                "prophet.message_chunk",
+                {
+                    "conversation_id": "conv_123",
+                    "chunk": "test",
+                    "is_final": False,
+                },
+            ),
+            (
+                "prophet.tsdl_ready",
+                {
+                    "conversation_id": "conv_123",
+                    "strategy_id": "strat_123",
+                    "tsdl": "...",
+                    "metadata": {},
+                },
+            ),
+            (
+                "prophet.error",
+                {
+                    "conversation_id": "conv_123",
+                    "error_code": "TEST",
+                    "message": "test",
+                    "details": "",
+                },
+            ),
         ]
 
         for event_type, data in prophet_events:

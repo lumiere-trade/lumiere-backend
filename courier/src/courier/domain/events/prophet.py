@@ -4,7 +4,7 @@ Prophet service event schemas.
 Events published by Prophet AI during strategy generation.
 """
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Literal
 
 from pydantic import Field
 
@@ -14,7 +14,7 @@ from courier.domain.events.base import BaseEvent
 class ProphetMessageChunkEvent(BaseEvent):
     """
     Streamed message chunk from Prophet AI.
-    
+
     Published during real-time strategy generation conversation.
     """
 
@@ -33,7 +33,7 @@ class ProphetMessageChunkEvent(BaseEvent):
 class ProphetTSDLReadyEvent(BaseEvent):
     """
     TSDL strategy code ready event.
-    
+
     Published when Prophet generates complete TSDL code.
     """
 
@@ -57,7 +57,7 @@ class ProphetTSDLReadyEvent(BaseEvent):
 class ProphetErrorEvent(BaseEvent):
     """
     Prophet error event.
-    
+
     Published when strategy generation fails.
     """
 
@@ -75,6 +75,4 @@ class ProphetErrorEvent(BaseEvent):
 
 
 # Union type for type hints
-ProphetEvent = (
-    ProphetMessageChunkEvent | ProphetTSDLReadyEvent | ProphetErrorEvent
-)
+ProphetEvent = ProphetMessageChunkEvent | ProphetTSDLReadyEvent | ProphetErrorEvent

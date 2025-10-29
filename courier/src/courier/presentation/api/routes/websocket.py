@@ -4,7 +4,7 @@ WebSocket endpoint with Clean Architecture.
 
 import asyncio
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
 
 from courier.di import Container
 from courier.presentation.api.dependencies import (
@@ -26,6 +26,7 @@ async def websocket_endpoint(
     WebSocket endpoint for real-time event streaming.
 
     Supports optional JWT authentication via query parameter.
+    Rejects new connections during graceful shutdown.
 
     Args:
         websocket: WebSocket connection
@@ -37,6 +38,15 @@ async def websocket_endpoint(
         - ws://localhost:8765/ws/global
         - ws://localhost:8765/ws/user.123?token=eyJ...
     """
+    # Check if shutting down BEFORE accepting connection
+    shutdown_manager = container.shutdown_manager
+    if shutdown_manager.is_shutting_down():
+        await websocket.close(
+            code=status.WS_1001_GOING_AWAY,
+            reason="Server is shutting down",
+        )
+        return
+
     # Accept connection (auth already verified by dependency)
     await websocket.accept()
 
@@ -68,6 +78,18 @@ async def websocket_endpoint(
     try:
         # Keep connection alive and handle messages
         while True:
+            # Check shutdown state during connection
+            if shutdown_manager.is_shutting_down():
+                await websocket.send_json({
+                    "type": "shutdown",
+                    "message": "Server is shutting down",
+                })
+                await websocket.close(
+                    code=status.WS_1001_GOING_AWAY,
+                    reason="Server shutdown",
+                )
+                break
+
             try:
                 # Wait for message with timeout
                 data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
@@ -86,7 +108,6 @@ async def websocket_endpoint(
     except WebSocketDisconnect:
         # Client disconnected normally
         pass
-
     finally:
         # Cleanup - remove client from channel
         conn_manager.remove_client(websocket, channel)

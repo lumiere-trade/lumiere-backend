@@ -37,7 +37,7 @@ async def health_check(
     # Check if shutting down
     if shutdown_manager.is_shutting_down():
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        
+
         return HealthResponse(
             status="shutting_down",
             uptime_seconds=container.get_uptime_seconds(),

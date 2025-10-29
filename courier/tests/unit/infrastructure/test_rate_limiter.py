@@ -134,7 +134,7 @@ class TestRateLimiter(LaborantTest):
         # Make request
         before = datetime.utcnow()
         await limiter.check_rate_limit("service_e")
-        after = datetime.utcnow()
+        datetime.utcnow()
 
         reset_time = limiter.get_reset_time("service_e")
         assert reset_time is not None
