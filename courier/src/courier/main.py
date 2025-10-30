@@ -47,10 +47,12 @@ class CourierApp:
             settings: Application settings
         """
         self.settings = settings
-        self.container = Container(settings)
 
-        # Initialize reporter
+        # Initialize reporter FIRST
         self.reporter = self._create_reporter()
+
+        # Initialize container with reporter
+        self.container = Container(settings, reporter=self.reporter)
 
         # Create FastAPI app
         self.app = self._create_app()

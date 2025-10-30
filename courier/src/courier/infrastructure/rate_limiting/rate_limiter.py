@@ -1,5 +1,5 @@
 """
-Rate limiter using token bucket algorithm.
+Rate limiter using token bucket algorithm with production logging.
 
 Provides in-memory rate limiting for publish requests and WebSocket connections.
 Supports both global and per-message-type rate limits.
@@ -9,6 +9,8 @@ For production with multiple instances, consider using Redis.
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
+
+from shared.reporter import SystemReporter
 
 
 class RateLimiter:
@@ -25,6 +27,7 @@ class RateLimiter:
         per_type_limits: Optional per-message-type limits
         requests: Dictionary mapping identifiers to request timestamps
         type_requests: Dictionary mapping (identifier, type) to timestamps
+        reporter: Optional SystemReporter for logging
     """
 
     def __init__(
@@ -32,6 +35,7 @@ class RateLimiter:
         limit: int = 100,
         window_seconds: int = 60,
         per_type_limits: Optional[Dict[str, int]] = None,
+        reporter: Optional[SystemReporter] = None,
     ):
         """
         Initialize rate limiter.
@@ -41,16 +45,29 @@ class RateLimiter:
             window_seconds: Time window in seconds
             per_type_limits: Optional per-message-type limits
                 Example: {"trade": 50, "candles": 100, "strategy": 10}
+            reporter: Optional SystemReporter for logging
         """
         self.limit = limit
         self.window = timedelta(seconds=window_seconds)
         self.per_type_limits = per_type_limits or {}
+        self.reporter = reporter
 
         # Global rate limiting (backward compatible)
         self.requests: Dict[str, List[datetime]] = defaultdict(list)
 
         # Per-type rate limiting
         self.type_requests: Dict[tuple, List[datetime]] = defaultdict(list)
+
+        # Log initialization
+        if self.reporter:
+            self.reporter.info(
+                "RateLimiter initialized",
+                context="RateLimiter",
+                default_limit=limit,
+                window_seconds=window_seconds,
+                per_type_limits=list(self.per_type_limits.keys()),
+                verbose_level=2,
+            )
 
     async def check_rate_limit(
         self,
@@ -92,10 +109,38 @@ class RateLimiter:
 
         # Check limit
         if len(self.requests[identifier]) >= self.limit:
+            # Log rate limit exceeded (only at warning level)
+            if self.reporter:
+                remaining = self.get_remaining(identifier)
+                retry_after = self.get_retry_after_seconds(identifier)
+                self.reporter.warning(
+                    "Global rate limit exceeded",
+                    context="RateLimiter",
+                    identifier=identifier,
+                    limit=self.limit,
+                    current_count=len(self.requests[identifier]),
+                    remaining=remaining,
+                    retry_after_seconds=retry_after,
+                    verbose_level=2,
+                )
             return False
 
         # Add current request
         self.requests[identifier].append(now)
+        
+        # Log at debug level only (avoid spam)
+        if self.reporter:
+            remaining = self.get_remaining(identifier)
+            self.reporter.debug(
+                "Rate limit check passed (global)",
+                context="RateLimiter",
+                identifier=identifier,
+                current_count=len(self.requests[identifier]),
+                limit=self.limit,
+                remaining=remaining,
+                verbose_level=3,
+            )
+        
         return True
 
     async def _check_type_rate_limit(
@@ -125,10 +170,40 @@ class RateLimiter:
 
         # Check limit
         if len(self.type_requests[key]) >= type_limit:
+            # Log rate limit exceeded
+            if self.reporter:
+                remaining = self.get_remaining(identifier, message_type)
+                retry_after = self.get_retry_after_seconds(identifier, message_type)
+                self.reporter.warning(
+                    "Per-type rate limit exceeded",
+                    context="RateLimiter",
+                    identifier=identifier,
+                    message_type=message_type,
+                    limit=type_limit,
+                    current_count=len(self.type_requests[key]),
+                    remaining=remaining,
+                    retry_after_seconds=retry_after,
+                    verbose_level=2,
+                )
             return False
 
         # Add current request
         self.type_requests[key].append(now)
+        
+        # Log at debug level only (avoid spam)
+        if self.reporter:
+            remaining = self.get_remaining(identifier, message_type)
+            self.reporter.debug(
+                "Rate limit check passed (per-type)",
+                context="RateLimiter",
+                identifier=identifier,
+                message_type=message_type,
+                current_count=len(self.type_requests[key]),
+                limit=type_limit,
+                remaining=remaining,
+                verbose_level=3,
+            )
+        
         return True
 
     def get_remaining(
@@ -288,23 +363,58 @@ class RateLimiter:
         """
         if identifier is None and message_type is None:
             # Clear everything
+            cleared_global = len(self.requests)
+            cleared_typed = len(self.type_requests)
             self.requests.clear()
             self.type_requests.clear()
+            
+            if self.reporter:
+                self.reporter.info(
+                    "Rate limiter cleared (all data)",
+                    context="RateLimiter",
+                    cleared_global_identifiers=cleared_global,
+                    cleared_typed_entries=cleared_typed,
+                    verbose_level=2,
+                )
+                
         elif identifier and message_type:
             # Clear specific identifier + type
             key = (identifier, message_type)
             if key in self.type_requests:
                 del self.type_requests[key]
+                
+                if self.reporter:
+                    self.reporter.debug(
+                        "Rate limiter cleared (specific type)",
+                        context="RateLimiter",
+                        identifier=identifier,
+                        message_type=message_type,
+                        verbose_level=3,
+                    )
+                    
         elif identifier:
             # Clear all data for identifier
-            if identifier in self.requests:
+            cleared_global = identifier in self.requests
+            if cleared_global:
                 del self.requests[identifier]
+                
             # Clear all type-specific data for identifier
             keys_to_delete = [
                 k for k in self.type_requests.keys() if k[0] == identifier
             ]
+            cleared_types = len(keys_to_delete)
             for key in keys_to_delete:
                 del self.type_requests[key]
+                
+            if self.reporter:
+                self.reporter.debug(
+                    "Rate limiter cleared (identifier)",
+                    context="RateLimiter",
+                    identifier=identifier,
+                    cleared_global=cleared_global,
+                    cleared_types=cleared_types,
+                    verbose_level=3,
+                )
 
     def get_all_stats(self) -> Dict[str, Dict[str, any]]:
         """
@@ -323,6 +433,15 @@ class RateLimiter:
         for identifier, message_type in self.type_requests.keys():
             key = f"{identifier}:{message_type}"
             stats[key] = self.get_stats(identifier, message_type)
+
+        # Log stats retrieval at debug level
+        if self.reporter and stats:
+            self.reporter.debug(
+                "Rate limiter stats retrieved",
+                context="RateLimiter",
+                total_identifiers=len(stats),
+                verbose_level=3,
+            )
 
         return stats
 
