@@ -121,9 +121,7 @@ class RateLimiter:
         type_limit = self.per_type_limits[message_type]
 
         # Remove expired timestamps
-        self.type_requests[key] = [
-            ts for ts in self.type_requests[key] if ts > cutoff
-        ]
+        self.type_requests[key] = [ts for ts in self.type_requests[key] if ts > cutoff]
 
         # Check limit
         if len(self.type_requests[key]) >= type_limit:
@@ -161,9 +159,7 @@ class RateLimiter:
             return max(0, type_limit - len(valid_requests))
 
         # Global limit
-        valid_requests = [
-            ts for ts in self.requests.get(identifier, []) if ts > cutoff
-        ]
+        valid_requests = [ts for ts in self.requests.get(identifier, []) if ts > cutoff]
         return max(0, self.limit - len(valid_requests))
 
     def get_reset_time(
@@ -263,9 +259,7 @@ class RateLimiter:
             }
 
         # Global stats
-        valid_requests = [
-            ts for ts in self.requests.get(identifier, []) if ts > cutoff
-        ]
+        valid_requests = [ts for ts in self.requests.get(identifier, []) if ts > cutoff]
 
         return {
             "identifier": identifier,
@@ -326,7 +320,7 @@ class RateLimiter:
             stats[identifier] = self.get_stats(identifier)
 
         # Per-type stats
-        for (identifier, message_type) in self.type_requests.keys():
+        for identifier, message_type in self.type_requests.keys():
             key = f"{identifier}:{message_type}"
             stats[key] = self.get_stats(identifier, message_type)
 
