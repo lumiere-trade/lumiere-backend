@@ -7,6 +7,8 @@ Manages lifecycle and dependencies of all application components.
 from datetime import datetime
 from typing import Optional
 
+from shared.reporter import SystemReporter
+
 from courier.application.use_cases import (
     AuthenticateWebSocketUseCase,
     BroadcastMessageUseCase,
@@ -29,14 +31,16 @@ class Container:
     Implements singleton pattern for shared resources.
     """
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, reporter: Optional[SystemReporter] = None):
         """
         Initialize container with settings.
 
         Args:
             settings: Application settings
+            reporter: Optional SystemReporter for logging
         """
         self.settings = settings
+        self.reporter = reporter
 
         # Shared infrastructure
         self._connection_manager: Optional[ConnectionManager] = None
@@ -75,6 +79,7 @@ class Container:
                 max_total_connections=self.settings.max_total_connections,
                 max_connections_per_user=self.settings.max_connections_per_user,
                 max_clients_per_channel=self.settings.max_clients_per_channel,
+                reporter=self.reporter,
             )
         return self._connection_manager
 
@@ -132,6 +137,7 @@ class Container:
             self._publish_rate_limiter = RateLimiter(
                 limit=self.settings.rate_limit_publish_requests,
                 window_seconds=self.settings.rate_limit_window_seconds,
+                reporter=self.reporter,
             )
 
         return self._publish_rate_limiter
@@ -152,6 +158,7 @@ class Container:
                 limit=self.settings.rate_limit_websocket_connections,
                 window_seconds=self.settings.rate_limit_window_seconds,
                 per_type_limits=self.settings.rate_limit_per_message_type,
+                reporter=self.reporter,
             )
 
         return self._websocket_rate_limiter
