@@ -30,6 +30,29 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 # ================================================================
+# Service Dependencies
+# ================================================================
+
+
+def get_wallet_authenticator():
+    """Get WalletAuthenticator service dependency."""
+    container = get_container()
+    return container.get_wallet_authenticator()
+
+
+def get_passeur_bridge():
+    """Get PasseurBridge service dependency."""
+    container = get_container()
+    return container.passeur_bridge
+
+
+def get_escrow_query_service():
+    """Get EscrowQueryService dependency."""
+    container = get_container()
+    return container.escrow_query_service
+
+
+# ================================================================
 # Use Case Dependencies
 # ================================================================
 
@@ -89,6 +112,7 @@ def get_create_user_with_legal(
 
 def get_login_user(
     session: AsyncSession = Depends(get_db_session),
+    wallet_auth=Depends(get_wallet_authenticator),
 ):
     """Get LoginUser use case dependency."""
     from pourtier.application.use_cases.login_user import LoginUser
@@ -97,7 +121,6 @@ def get_login_user(
     user_repo = container.get_user_repository(session)
     legal_doc_repo = container.get_legal_document_repository(session)
     user_legal_repo = container.get_user_legal_acceptance_repository(session)
-    wallet_auth = container.get_wallet_authenticator()
 
     return LoginUser(
         user_repository=user_repo,
@@ -109,6 +132,7 @@ def get_login_user(
 
 def get_verify_wallet_signature(
     session: AsyncSession = Depends(get_db_session),
+    wallet_auth=Depends(get_wallet_authenticator),
 ):
     """Get VerifyWalletSignature use case dependency."""
     from pourtier.application.use_cases.verify_wallet_signature import (
@@ -117,7 +141,6 @@ def get_verify_wallet_signature(
 
     container = get_container()
     user_repo = container.get_user_repository(session)
-    wallet_auth = container.get_wallet_authenticator()
 
     return VerifyWalletSignature(
         user_repository=user_repo,
@@ -127,6 +150,7 @@ def get_verify_wallet_signature(
 
 def get_initialize_escrow(
     session: AsyncSession = Depends(get_db_session),
+    passeur_bridge=Depends(get_passeur_bridge),
 ):
     """Get InitializeEscrow use case dependency."""
     from pourtier.application.use_cases.initialize_escrow import InitializeEscrow
@@ -134,7 +158,6 @@ def get_initialize_escrow(
     container = get_container()
     user_repo = container.get_user_repository(session)
     escrow_tx_repo = container.get_escrow_transaction_repository(session)
-    passeur_bridge = container.passeur_bridge
 
     return InitializeEscrow(
         user_repository=user_repo,
@@ -145,6 +168,7 @@ def get_initialize_escrow(
 
 def get_deposit_to_escrow(
     session: AsyncSession = Depends(get_db_session),
+    passeur_bridge=Depends(get_passeur_bridge),
 ):
     """Get DepositToEscrow use case dependency."""
     from pourtier.application.use_cases.deposit_to_escrow import DepositToEscrow
@@ -152,7 +176,6 @@ def get_deposit_to_escrow(
     container = get_container()
     user_repo = container.get_user_repository(session)
     escrow_tx_repo = container.get_escrow_transaction_repository(session)
-    passeur_bridge = container.passeur_bridge
 
     return DepositToEscrow(
         user_repository=user_repo,
@@ -163,6 +186,7 @@ def get_deposit_to_escrow(
 
 def get_withdraw_from_escrow(
     session: AsyncSession = Depends(get_db_session),
+    passeur_bridge=Depends(get_passeur_bridge),
 ):
     """Get WithdrawFromEscrow use case dependency."""
     from pourtier.application.use_cases.withdraw_from_escrow import WithdrawFromEscrow
@@ -170,7 +194,6 @@ def get_withdraw_from_escrow(
     container = get_container()
     user_repo = container.get_user_repository(session)
     escrow_tx_repo = container.get_escrow_transaction_repository(session)
-    passeur_bridge = container.passeur_bridge
 
     return WithdrawFromEscrow(
         user_repository=user_repo,
@@ -181,13 +204,13 @@ def get_withdraw_from_escrow(
 
 def get_get_escrow_balance(
     session: AsyncSession = Depends(get_db_session),
+    escrow_query_service=Depends(get_escrow_query_service),
 ):
     """Get GetEscrowBalance use case dependency."""
     from pourtier.application.use_cases.get_escrow_balance import GetEscrowBalance
 
     container = get_container()
     user_repo = container.get_user_repository(session)
-    escrow_query_service = container.escrow_query_service
 
     return GetEscrowBalance(
         user_repository=user_repo,
@@ -195,12 +218,11 @@ def get_get_escrow_balance(
     )
 
 
-def get_get_wallet_balance():
+def get_get_wallet_balance(
+    passeur_bridge=Depends(get_passeur_bridge),
+):
     """Get GetWalletBalance use case dependency."""
     from pourtier.application.use_cases.get_wallet_balance import GetWalletBalance
-
-    container = get_container()
-    passeur_bridge = container.passeur_bridge
 
     return GetWalletBalance(
         passeur_bridge=passeur_bridge,
@@ -209,6 +231,7 @@ def get_get_wallet_balance():
 
 def get_prepare_initialize_escrow(
     session: AsyncSession = Depends(get_db_session),
+    passeur_bridge=Depends(get_passeur_bridge),
 ):
     """Get PrepareInitializeEscrow use case dependency."""
     from pourtier.application.use_cases.prepare_initialize_escrow import (
@@ -217,7 +240,6 @@ def get_prepare_initialize_escrow(
 
     container = get_container()
     user_repo = container.get_user_repository(session)
-    passeur_bridge = container.passeur_bridge
 
     return PrepareInitializeEscrow(
         user_repository=user_repo,
@@ -227,6 +249,7 @@ def get_prepare_initialize_escrow(
 
 def get_prepare_deposit_to_escrow(
     session: AsyncSession = Depends(get_db_session),
+    passeur_bridge=Depends(get_passeur_bridge),
 ):
     """Get PrepareDepositToEscrow use case dependency."""
     from pourtier.application.use_cases.prepare_deposit_to_escrow import (
@@ -235,7 +258,6 @@ def get_prepare_deposit_to_escrow(
 
     container = get_container()
     user_repo = container.get_user_repository(session)
-    passeur_bridge = container.passeur_bridge
 
     return PrepareDepositToEscrow(
         user_repository=user_repo,
@@ -257,29 +279,6 @@ def get_create_subscription(
         user_repository=user_repo,
         subscription_repository=subscription_repo,
     )
-
-
-# ================================================================
-# Service Dependencies
-# ================================================================
-
-
-def get_wallet_authenticator():
-    """Get WalletAuthenticator service dependency."""
-    container = get_container()
-    return container.get_wallet_authenticator()
-
-
-def get_passeur_bridge():
-    """Get PasseurBridge service dependency."""
-    container = get_container()
-    return container.passeur_bridge
-
-
-def get_escrow_query_service():
-    """Get EscrowQueryService dependency."""
-    container = get_container()
-    return container.escrow_query_service
 
 
 def get_get_active_legal_documents(
