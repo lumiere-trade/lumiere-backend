@@ -188,7 +188,12 @@ async def accept_legal_documents(
 async def check_legal_compliance(
     request: Request,
     current_user: User = Depends(get_current_user),
-    use_case: CheckUserLegalCompliance = Depends(get_check_user_legal_compliance),
+    compliance_use_case: CheckUserLegalCompliance = Depends(
+        get_check_user_legal_compliance
+    ),
+    active_docs_use_case: GetActiveLegalDocuments = Depends(
+        get_get_active_legal_documents
+    ),
 ) -> LegalComplianceResponse:
     """
     Check user's legal compliance status.
@@ -200,19 +205,18 @@ async def check_legal_compliance(
     Args:
         request: FastAPI request (for caching)
         current_user: Authenticated user from JWT
+        compliance_use_case: Check compliance use case (injected)
+        active_docs_use_case: Get active documents use case (injected)
 
     Returns:
         Compliance status and pending documents
     """
     try:
-        is_compliant, pending_documents = await use_case.execute(
+        is_compliant, pending_documents = await compliance_use_case.execute(
             user_id=current_user.id
         )
 
         # Get total required documents
-        from pourtier.di.dependencies import get_get_active_legal_documents
-
-        active_docs_use_case = get_get_active_legal_documents()
         all_active = await active_docs_use_case.execute()
         total_required = len(all_active)
         accepted_count = total_required - len(pending_documents)
