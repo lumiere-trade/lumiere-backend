@@ -11,9 +11,9 @@ Usage:
 import base64
 from decimal import Decimal
 from unittest.mock import AsyncMock
-from uuid import uuid4
 
 import httpx
+from solders.keypair import Keypair
 
 from pourtier.config.settings import get_settings
 from pourtier.di.dependencies import get_db_session, get_passeur_bridge
@@ -100,9 +100,9 @@ class TestEscrowRoutes(LaborantTest):
         self.reporter.info("Cleanup complete", context="Teardown")
 
     def _generate_unique_wallet(self) -> str:
-        """Generate unique 44-character wallet address."""
-        unique_id = str(uuid4()).replace("-", "")
-        return unique_id.ljust(44, "0")
+        """Generate unique valid Solana wallet address."""
+        keypair = Keypair()
+        return str(keypair.pubkey())
 
     def _generate_valid_signature(self, prefix: str = "test") -> str:
         """Generate valid 88-character Solana transaction signature."""
@@ -174,7 +174,9 @@ class TestEscrowRoutes(LaborantTest):
             headers={"Authorization": f"Bearer {token}"},
         )
 
-        assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 201
+        ), f"Expected 201, got {response.status_code}: {response.text}"
         data = response.json()
         assert "escrow_account" in data
         assert data["token_mint"] == "USDC"
@@ -204,7 +206,9 @@ class TestEscrowRoutes(LaborantTest):
             headers=self._auth_headers(),
         )
 
-        assert response.status_code == 409, f"Expected 409, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 409
+        ), f"Expected 409, got {response.status_code}: {response.text}"
         assert "already" in response.json()["detail"].lower()
 
         self.reporter.info("Already initialized error returned", context="Test")
@@ -228,7 +232,9 @@ class TestEscrowRoutes(LaborantTest):
             headers=self._auth_headers(),
         )
 
-        assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 201
+        ), f"Expected 201, got {response.status_code}: {response.text}"
         data = response.json()
         assert data["transaction_type"] == "deposit"
         assert Decimal(data["amount"]) == Decimal("100.0")
@@ -273,7 +279,9 @@ class TestEscrowRoutes(LaborantTest):
             headers=self._auth_headers(),
         )
 
-        assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 201
+        ), f"Expected 201, got {response.status_code}: {response.text}"
         data = response.json()
         assert data["transaction_type"] == "withdraw"
         assert Decimal(data["amount"]) == Decimal("50.0")
@@ -299,7 +307,9 @@ class TestEscrowRoutes(LaborantTest):
             headers=self._auth_headers(),
         )
 
-        assert response.status_code == 400, f"Expected 400, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 400
+        ), f"Expected 400, got {response.status_code}: {response.text}"
         assert "insufficient" in response.json()["detail"].lower()
 
         self.reporter.info("Insufficient balance error returned", context="Test")
@@ -341,7 +351,9 @@ class TestEscrowRoutes(LaborantTest):
 
         # Get current app instance
         current_app = self.client._transport.app  # type: ignore
-        current_app.dependency_overrides[get_escrow_query_service] = override_get_escrow_query
+        current_app.dependency_overrides[get_escrow_query_service] = (
+            override_get_escrow_query
+        )
 
         response = await self.client.get(
             "/api/escrow/balance?sync=true",
