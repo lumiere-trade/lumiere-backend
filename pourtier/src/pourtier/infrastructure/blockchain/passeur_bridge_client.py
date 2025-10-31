@@ -216,7 +216,7 @@ class PasseurBridgeClient(IPasseurBridge):
     async def _submit_transaction_once(self, payload: dict) -> str:
         """Submit transaction - single attempt."""
         session = await self._get_session()
-        url = f"{self.bridge_url}/transaction/submit"
+        url = f"{self.bridge_url}/escrow/send-transaction"
 
         try:
             async with session.post(url, json=payload) as response:
