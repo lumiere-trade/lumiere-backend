@@ -66,18 +66,16 @@ class ConnectionManager:
         self.max_total_connections = max_total_connections
         self.max_connections_per_user = max_connections_per_user
         self.max_clients_per_channel = max_clients_per_channel
-        
+
         # Reporter for logging
         self.reporter = reporter
 
         # Log initialization
         if self.reporter:
             self.reporter.info(
-                "ConnectionManager initialized",
+                f"ConnectionManager initialized (limits: total={max_total_connections}, "
+                f"per_user={max_connections_per_user}, per_channel={max_clients_per_channel})",
                 context="ConnectionManager",
-                max_total_connections=max_total_connections,
-                max_connections_per_user=max_connections_per_user,
-                max_clients_per_channel=max_clients_per_channel,
                 verbose_level=2,
             )
 
@@ -205,8 +203,10 @@ class ConnectionManager:
         if self.reporter:
             total_connections = self.get_total_connections()
             channel_count = self.get_channel_count(channel_name)
-            user_connections = self.get_user_connection_count(user_id) if user_id else None
-            
+            user_connections = (
+                self.get_user_connection_count(user_id) if user_id else None
+            )
+
             self.reporter.info(
                 f"{Emoji.NETWORK.CONNECTED} Client added to channel",
                 context="ConnectionManager",
@@ -234,7 +234,7 @@ class ConnectionManager:
         # Get client info before removal for logging
         ws_id = id(websocket)
         client = self.client_registry.get(ws_id)
-        
+
         # Remove from channel
         removed_from_channel = False
         if channel_name in self.channels:
@@ -252,7 +252,7 @@ class ConnectionManager:
         if self.reporter and (removed_from_channel or removed_from_registry):
             total_connections = self.get_total_connections()
             channel_count = self.get_channel_count(channel_name)
-            
+
             log_context = {
                 "context": "ConnectionManager",
                 "channel": channel_name,
@@ -260,13 +260,15 @@ class ConnectionManager:
                 "total_connections": total_connections,
                 "verbose_level": 2,
             }
-            
+
             if client:
-                log_context.update({
-                    "client_id": client.client_id,
-                    "user_id": client.user_id,
-                })
-            
+                log_context.update(
+                    {
+                        "client_id": client.client_id,
+                        "user_id": client.user_id,
+                    }
+                )
+
             self.reporter.info(
                 f"{Emoji.NETWORK.DISCONNECT} Client removed from channel",
                 **log_context,

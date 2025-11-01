@@ -106,6 +106,45 @@ class PasseurQueryService(IEscrowQueryService):
         except (ValueError, KeyError) as e:
             raise BlockchainError(f"Invalid response format: {e}")
 
+    async def check_escrow_exists(self, escrow_account: str) -> bool:
+        """
+        Check if escrow account exists on blockchain.
+
+        Args:
+            escrow_account: Escrow PDA address
+
+        Returns:
+            True if account exists, False otherwise
+
+        Raises:
+            BlockchainError: If query fails
+        """
+        try:
+            client = await self._ensure_client()
+            response = await client.get(
+                f"{self.bridge_url}/escrow/{escrow_account}"
+            )
+
+            # 404 = account doesn't exist (normal case)
+            if response.status_code == 404:
+                return False
+
+            # 200 = account exists
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("success", False)
+
+            # Other status codes = error
+            response.raise_for_status()
+            return False
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return False
+            raise BlockchainError(f"Failed to check escrow existence: {e.response.text}")
+        except httpx.RequestError as e:
+            raise BlockchainError(f"Network error checking escrow: {e}")
+
     async def close(self) -> None:
         """
         Close HTTP client and cleanup resources.

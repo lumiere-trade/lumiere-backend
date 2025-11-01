@@ -16,17 +16,20 @@ class User:
 
     Business rules:
     - Wallet address is unique identifier (Web3 identity)
-    - User can initialize escrow once
-    - User can update escrow balance
+    - Escrow account is derived from wallet (not stored)
+    - Balance is cached from blockchain
     - All authentication via wallet signature verification
+
+    Architecture Decision:
+    - wallet_address is single source of truth
+    - escrow_account computed on-the-fly (derive_escrow_pda)
+    - Only cache volatile blockchain data (balance)
     """
 
     id: UUID = field(default_factory=uuid4)
     wallet_address: str = field(default="")
-    escrow_account: Optional[str] = field(default=None)
     escrow_balance: Decimal = field(default=Decimal("0"))
-    escrow_token_mint: Optional[str] = field(default=None)
-    escrow_initialized_at: Optional[datetime] = field(default=None)
+    last_blockchain_check: Optional[datetime] = field(default=None)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -40,30 +43,6 @@ class User:
             raise ValueError(
                 f"Invalid wallet address length: {len(self.wallet_address)}"
             )
-
-    def initialize_escrow(
-        self,
-        escrow_account: str,
-        token_mint: str = "USDC",
-    ) -> None:
-        """
-        Initialize escrow account for user.
-
-        Args:
-            escrow_account: Escrow PDA address
-            token_mint: Token mint address (default: USDC)
-
-        Raises:
-            ValueError: If escrow already initialized
-        """
-        if self.escrow_account:
-            raise ValueError("Escrow already initialized")
-
-        self.escrow_account = escrow_account
-        self.escrow_token_mint = token_mint
-        self.escrow_balance = Decimal("0")
-        self.escrow_initialized_at = datetime.now()
-        self.updated_at = datetime.now()
 
     def update_escrow_balance(self, new_balance: Decimal) -> None:
         """
@@ -81,6 +60,11 @@ class User:
         self.escrow_balance = new_balance
         self.updated_at = datetime.now()
 
+    def update_blockchain_check_timestamp(self) -> None:
+        """Update timestamp of last blockchain check."""
+        self.last_blockchain_check = datetime.now()
+        self.updated_at = datetime.now()
+
     def has_sufficient_balance(self, amount: Decimal) -> bool:
         """Check if user has sufficient escrow balance."""
         return self.escrow_balance >= amount
@@ -90,12 +74,10 @@ class User:
         return {
             "id": str(self.id),
             "wallet_address": self.wallet_address,
-            "escrow_account": self.escrow_account,
             "escrow_balance": str(self.escrow_balance),
-            "escrow_token_mint": self.escrow_token_mint,
-            "escrow_initialized_at": (
-                self.escrow_initialized_at.isoformat()
-                if self.escrow_initialized_at
+            "last_blockchain_check": (
+                self.last_blockchain_check.isoformat()
+                if self.last_blockchain_check
                 else None
             ),
             "created_at": self.created_at.isoformat(),

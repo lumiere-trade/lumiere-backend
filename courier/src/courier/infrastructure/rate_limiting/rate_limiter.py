@@ -127,7 +127,7 @@ class RateLimiter:
 
         # Add current request
         self.requests[identifier].append(now)
-        
+
         # Log at debug level only (avoid spam)
         if self.reporter:
             remaining = self.get_remaining(identifier)
@@ -140,7 +140,7 @@ class RateLimiter:
                 remaining=remaining,
                 verbose_level=3,
             )
-        
+
         return True
 
     async def _check_type_rate_limit(
@@ -189,7 +189,7 @@ class RateLimiter:
 
         # Add current request
         self.type_requests[key].append(now)
-        
+
         # Log at debug level only (avoid spam)
         if self.reporter:
             remaining = self.get_remaining(identifier, message_type)
@@ -203,7 +203,7 @@ class RateLimiter:
                 remaining=remaining,
                 verbose_level=3,
             )
-        
+
         return True
 
     def get_remaining(
@@ -367,7 +367,7 @@ class RateLimiter:
             cleared_typed = len(self.type_requests)
             self.requests.clear()
             self.type_requests.clear()
-            
+
             if self.reporter:
                 self.reporter.info(
                     "Rate limiter cleared (all data)",
@@ -376,13 +376,13 @@ class RateLimiter:
                     cleared_typed_entries=cleared_typed,
                     verbose_level=2,
                 )
-                
+
         elif identifier and message_type:
             # Clear specific identifier + type
             key = (identifier, message_type)
             if key in self.type_requests:
                 del self.type_requests[key]
-                
+
                 if self.reporter:
                     self.reporter.debug(
                         "Rate limiter cleared (specific type)",
@@ -391,13 +391,13 @@ class RateLimiter:
                         message_type=message_type,
                         verbose_level=3,
                     )
-                    
+
         elif identifier:
             # Clear all data for identifier
             cleared_global = identifier in self.requests
             if cleared_global:
                 del self.requests[identifier]
-                
+
             # Clear all type-specific data for identifier
             keys_to_delete = [
                 k for k in self.type_requests.keys() if k[0] == identifier
@@ -405,7 +405,7 @@ class RateLimiter:
             cleared_types = len(keys_to_delete)
             for key in keys_to_delete:
                 del self.type_requests[key]
-                
+
             if self.reporter:
                 self.reporter.debug(
                     "Rate limiter cleared (identifier)",

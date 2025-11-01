@@ -33,5 +33,20 @@ class IEscrowQueryService(ABC):
         """
 
     @abstractmethod
+    async def check_escrow_exists(self, escrow_account: str) -> bool:
+        """
+        Check if escrow account exists on blockchain.
+
+        Args:
+            escrow_account: Escrow PDA address
+
+        Returns:
+            True if account exists, False otherwise
+
+        Raises:
+            BlockchainError: If query fails
+        """
+
+    @abstractmethod
     async def close(self) -> None:
         """Close any open connections."""

@@ -18,9 +18,11 @@ from pourtier.domain.repositories.i_subscription_repository import (
     ISubscriptionRepository,
 )
 from pourtier.domain.repositories.i_user_repository import IUserRepository
+from pourtier.domain.services.i_escrow_query_service import IEscrowQueryService
 from pourtier.domain.value_objects.subscription_plan import (
     get_plan_details,
 )
+from pourtier.infrastructure.blockchain.solana_utils import derive_escrow_pda
 
 
 @dataclass
@@ -38,16 +40,21 @@ class CreateSubscription:
     Flow:
     1. Validate plan type
     2. Check user doesn't have active subscription
-    3. Check user has initialized escrow
+    3. Check user has initialized escrow on blockchain
     4. Check sufficient escrow balance for first payment
     5. Create subscription entity
     6. Return subscription (billing handled separately by cron)
+
+    Architecture:
+    - Check blockchain for escrow existence (not DB)
     """
 
     def __init__(
         self,
         subscription_repository: ISubscriptionRepository,
         user_repository: IUserRepository,
+        escrow_query_service: IEscrowQueryService,
+        program_id: str,
     ):
         """
         Initialize use case.
@@ -55,9 +62,13 @@ class CreateSubscription:
         Args:
             subscription_repository: Subscription repository
             user_repository: User repository for balance check
+            escrow_query_service: Service for querying blockchain
+            program_id: Escrow program ID for PDA derivation
         """
         self.subscription_repository = subscription_repository
         self.user_repository = user_repository
+        self.escrow_query_service = escrow_query_service
+        self.program_id = program_id
 
     async def execute(self, command: CreateSubscriptionCommand) -> Subscription:
         """
@@ -95,8 +106,18 @@ class CreateSubscription:
                 f"Please cancel the current subscription before creating a new one."
             )
 
-        # Check escrow initialized
-        if not user.escrow_account:
+        # Derive escrow account
+        escrow_account, _ = derive_escrow_pda(
+            user.wallet_address,
+            self.program_id,
+        )
+
+        # Check blockchain if escrow exists
+        escrow_exists = await self.escrow_query_service.check_escrow_exists(
+            escrow_account
+        )
+
+        if not escrow_exists:
             raise ValueError("User must initialize escrow before subscribing")
 
         # Check sufficient balance for first payment

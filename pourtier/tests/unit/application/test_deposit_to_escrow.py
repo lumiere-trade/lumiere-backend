@@ -1,14 +1,13 @@
 """
 Unit tests for DepositToEscrow use case.
 
-Tests deposit verification and balance update logic.
+Tests deposit submission and balance update logic.
 
 Usage:
     python -m pourtier.tests.unit.application.test_deposit_to_escrow
     laborant pourtier --unit
 """
 
-from datetime import datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -26,9 +25,6 @@ from pourtier.domain.exceptions import (
     EntityNotFoundError,
     InvalidTransactionError,
     ValidationError,
-)
-from pourtier.domain.services.i_blockchain_verifier import (
-    VerifiedTransaction,
 )
 from shared.tests import LaborantTest
 
@@ -65,29 +61,19 @@ class TestDepositToEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # Create test data
         user_id = uuid4()
         wallet = self._generate_valid_wallet()
         escrow_account = self._generate_escrow_account()
         deposit_amount = Decimal("100.0")
-        tx_signature = "deposit_tx_sig_123"
+        signed_transaction = "base64_signed_transaction"
+        tx_signature = "5" * 88
 
         user = User(id=user_id, wallet_address=wallet)
         user.initialize_escrow(escrow_account=escrow_account)
         user.update_escrow_balance(Decimal("50.0"))
-
-        verified_tx = VerifiedTransaction(
-            signature=tx_signature,
-            is_confirmed=True,
-            sender=wallet,
-            recipient=escrow_account,
-            amount=None,  # Amount not extracted (custom program)
-            token_mint="USDC",
-            block_time=int(datetime.now().timestamp()),
-            slot=12345,
-        )
 
         # Create expected transaction
         expected_transaction = EscrowTransaction(
@@ -105,19 +91,19 @@ class TestDepositToEscrow(LaborantTest):
         user_repo.update.return_value = user
         tx_repo.get_by_tx_signature.return_value = None
         tx_repo.create.return_value = expected_transaction
-        verifier.verify_transaction.return_value = verified_tx
+        passeur_bridge.submit_signed_transaction.return_value = tx_signature
 
         # Execute use case
         use_case = DepositToEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         result = await use_case.execute(
             user_id=user_id,
             amount=deposit_amount,
-            tx_signature=tx_signature,
+            signed_transaction=signed_transaction,
         )
 
         # Verify
@@ -126,7 +112,9 @@ class TestDepositToEscrow(LaborantTest):
         assert result.status == TransactionStatus.CONFIRMED
         assert user.escrow_balance == Decimal("150.0")
         user_repo.get_by_id.assert_called_once_with(user_id)
-        verifier.verify_transaction.assert_called_once_with(tx_signature)
+        passeur_bridge.submit_signed_transaction.assert_called_once_with(
+            signed_transaction
+        )
         user_repo.update.assert_called_once()
         tx_repo.create.assert_called_once()
 
@@ -139,7 +127,7 @@ class TestDepositToEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # User not found
         user_repo.get_by_id.return_value = None
@@ -148,14 +136,14 @@ class TestDepositToEscrow(LaborantTest):
         use_case = DepositToEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         try:
             await use_case.execute(
                 user_id=uuid4(),
                 amount=Decimal("100.0"),
-                tx_signature="tx_sig_123",
+                signed_transaction="base64_signed_transaction",
             )
             assert False, "Should raise EntityNotFoundError"
         except EntityNotFoundError as e:
@@ -175,7 +163,7 @@ class TestDepositToEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # User without escrow
         user_id = uuid4()
@@ -187,14 +175,14 @@ class TestDepositToEscrow(LaborantTest):
         use_case = DepositToEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         try:
             await use_case.execute(
                 user_id=user_id,
                 amount=Decimal("100.0"),
-                tx_signature="tx_sig_123",
+                signed_transaction="base64_signed_transaction",
             )
             assert False, "Should raise ValidationError"
         except ValidationError as e:
@@ -214,7 +202,7 @@ class TestDepositToEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # User with escrow
         user_id = uuid4()
@@ -222,10 +210,11 @@ class TestDepositToEscrow(LaborantTest):
         user.initialize_escrow(escrow_account=self._generate_escrow_account())
 
         # Existing transaction
+        tx_signature = "5" * 88
         existing_tx = EscrowTransaction(
             id=uuid4(),
             user_id=user_id,
-            tx_signature="duplicate_tx_sig",
+            tx_signature=tx_signature,
             transaction_type=TransactionType.DEPOSIT,
             amount=Decimal("50.0"),
             token_mint="USDC",
@@ -233,20 +222,21 @@ class TestDepositToEscrow(LaborantTest):
         )
 
         user_repo.get_by_id.return_value = user
+        passeur_bridge.submit_signed_transaction.return_value = tx_signature
         tx_repo.get_by_tx_signature.return_value = existing_tx
 
         # Execute use case
         use_case = DepositToEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         try:
             await use_case.execute(
                 user_id=user_id,
                 amount=Decimal("50.0"),
-                tx_signature="duplicate_tx_sig",
+                signed_transaction="base64_signed_transaction",
             )
             assert False, "Should raise InvalidTransactionError"
         except InvalidTransactionError as e:
@@ -263,7 +253,7 @@ class TestDepositToEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # Create test data
         user_id = uuid4()
@@ -271,20 +261,19 @@ class TestDepositToEscrow(LaborantTest):
         user.initialize_escrow(escrow_account=self._generate_escrow_account())
 
         user_repo.get_by_id.return_value = user
-        tx_repo.get_by_tx_signature.return_value = None
 
         # Execute use case
         use_case = DepositToEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         try:
             await use_case.execute(
                 user_id=user_id,
                 amount=Decimal("-10.0"),  # Negative amount
-                tx_signature="tx_sig_123",
+                signed_transaction="base64_signed_transaction",
             )
             assert False, "Should raise ValidationError"
         except ValidationError as e:

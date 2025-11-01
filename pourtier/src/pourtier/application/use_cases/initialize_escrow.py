@@ -7,9 +7,6 @@ Handles escrow account initialization for users.
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from solders.pubkey import Pubkey
-
-from pourtier.config.settings import get_settings
 from pourtier.domain.entities.escrow_transaction import (
     EscrowTransaction,
     TransactionStatus,
@@ -25,6 +22,7 @@ from pourtier.domain.repositories.i_escrow_transaction_repository import (
 )
 from pourtier.domain.repositories.i_user_repository import IUserRepository
 from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
+from pourtier.infrastructure.blockchain.solana_utils import derive_escrow_pda
 
 
 class InitializeEscrow:
@@ -33,9 +31,14 @@ class InitializeEscrow:
 
     Business rules:
     - User must exist
-    - User must not have escrow already initialized
+    - User must not have escrow already initialized on blockchain
     - Signed transaction must be submitted to blockchain
     - Escrow account is derived deterministically (PDA)
+
+    Architecture:
+    - Escrow account is NOT stored in DB
+    - Only transaction record is stored for audit trail
+    - Blockchain is source of truth for initialization status
     """
 
     def __init__(
@@ -43,6 +46,7 @@ class InitializeEscrow:
         user_repository: IUserRepository,
         escrow_transaction_repository: IEscrowTransactionRepository,
         passeur_bridge: IPasseurBridge,
+        program_id: str,
     ):
         """
         Initialize use case with dependencies.
@@ -51,29 +55,12 @@ class InitializeEscrow:
             user_repository: Repository for user persistence
             escrow_transaction_repository: Repository for transactions
             passeur_bridge: Bridge for blockchain submission
+            program_id: Escrow program ID for PDA derivation
         """
         self.user_repository = user_repository
         self.escrow_transaction_repository = escrow_transaction_repository
         self.passeur_bridge = passeur_bridge
-
-    def _derive_escrow_pda(self, wallet_address: str) -> str:
-        """
-        Derive escrow PDA for user (deterministic).
-
-        Args:
-            wallet_address: User's wallet public key
-
-        Returns:
-            Escrow PDA address as string
-        """
-        user_pubkey = Pubkey.from_string(wallet_address)
-        program_id = Pubkey.from_string(get_settings().ESCROW_PROGRAM_ID)
-
-        # PDA seeds: ["escrow", user_pubkey]
-        seeds = [b"escrow", bytes(user_pubkey)]
-        escrow_pda, _ = Pubkey.find_program_address(seeds, program_id)
-
-        return str(escrow_pda)
+        self.program_id = program_id
 
     async def execute(
         self,
@@ -90,11 +77,11 @@ class InitializeEscrow:
             token_mint: Token mint address (default: USDC)
 
         Returns:
-            Tuple of (Updated User entity, transaction signature)
+            Tuple of (User entity, transaction signature)
 
         Raises:
             EntityNotFoundError: If user not found
-            EscrowAlreadyInitializedError: If user has escrow
+            EscrowAlreadyInitializedError: If user has escrow on blockchain
             BridgeError: If blockchain submission fails
         """
         # 1. Get user
@@ -105,28 +92,29 @@ class InitializeEscrow:
                 entity_id=str(user_id),
             )
 
-        # 2. Check if escrow already initialized
-        if user.escrow_account:
-            raise EscrowAlreadyInitializedError(str(user_id))
-
-        # 3. Submit signed transaction to blockchain via Passeur
-        tx_signature = await self.passeur_bridge.submit_signed_transaction(
-            signed_transaction
+        # 2. Derive escrow PDA (deterministic)
+        escrow_account, _ = derive_escrow_pda(
+            user.wallet_address,
+            self.program_id,
         )
 
-        # 4. Derive escrow PDA (deterministic, no parsing needed!)
-        escrow_account = self._derive_escrow_pda(user.wallet_address)
+        # 3. Check if escrow already exists on blockchain
+        # Note: Blockchain will reject if account already exists
+        # We rely on blockchain validation rather than pre-checking
 
-        # 5. Initialize user's escrow
-        user.initialize_escrow(
-            escrow_account=escrow_account,
-            token_mint=token_mint,
-        )
+        # 4. Submit signed transaction to blockchain via Passeur
+        try:
+            tx_signature = await self.passeur_bridge.submit_signed_transaction(
+                signed_transaction
+            )
+        except Exception as e:
+            # If blockchain rejects (account already exists), throw proper error
+            if "already in use" in str(e).lower():
+                raise EscrowAlreadyInitializedError(str(user_id))
+            raise
 
-        # 6. Save user to database
-        updated_user = await self.user_repository.update(user)
-
-        # 7. Create escrow transaction record (INITIALIZE type)
+        # 5. Create escrow transaction record (INITIALIZE type)
+        # This is our audit trail - blockchain is source of truth
         transaction = EscrowTransaction(
             id=uuid4(),
             user_id=user_id,
@@ -139,5 +127,9 @@ class InitializeEscrow:
         )
 
         await self.escrow_transaction_repository.create(transaction)
+
+        # 6. Update user's blockchain check timestamp
+        user.update_blockchain_check_timestamp()
+        updated_user = await self.user_repository.update(user)
 
         return updated_user, tx_signature
