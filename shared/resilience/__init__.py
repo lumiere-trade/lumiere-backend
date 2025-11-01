@@ -5,6 +5,7 @@ This module provides production-ready resilience patterns including:
 - Circuit Breaker: Prevents cascading failures
 - Timeout Protection: Prevents hanging operations
 - Retry: Automatic retry with exponential backoff
+- Rate Limiting: Token bucket rate limiter
 """
 
 from shared.resilience.circuit_breaker import (
@@ -28,6 +29,12 @@ from shared.resilience.retry import (
     BackoffStrategy,
     with_retry,
 )
+from shared.resilience.rate_limiter import (
+    TokenBucket,
+    RateLimitConfig,
+    RateLimitExceeded,
+    RateLimiterRegistry,
+)
 
 __all__ = [
     # Circuit Breaker
@@ -46,4 +53,9 @@ __all__ = [
     "RetryError",
     "BackoffStrategy",
     "with_retry",
+    # Rate Limiting
+    "TokenBucket",
+    "RateLimitConfig",
+    "RateLimitExceeded",
+    "RateLimiterRegistry",
 ]
