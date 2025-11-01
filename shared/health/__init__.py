@@ -7,12 +7,18 @@ Provides Kubernetes-compatible health checks with:
 - Readiness probe support
 """
 
-from shared.health.checks import HealthStatus
-from shared.health.health_checker import HealthChecker
+from shared.health.checks import (
+    HealthChecker,
+    HealthStatus,
+    HealthCheck,
+    HealthReport,
+)
 from shared.health.health_server import HealthServer
 
 __all__ = [
-    "HealthStatus",
     "HealthChecker",
+    "HealthStatus",
+    "HealthCheck",
+    "HealthReport",
     "HealthServer",
 ]
