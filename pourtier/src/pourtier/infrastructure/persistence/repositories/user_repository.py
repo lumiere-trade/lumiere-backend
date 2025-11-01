@@ -53,10 +53,8 @@ class UserRepository(IUserRepository):
         model = UserModel(
             id=user.id,
             wallet_address=user.wallet_address,
-            escrow_account=user.escrow_account,
             escrow_balance=user.escrow_balance,
-            escrow_token_mint=user.escrow_token_mint,
-            escrow_initialized_at=user.escrow_initialized_at,
+            last_blockchain_check=user.last_blockchain_check,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
@@ -179,16 +177,16 @@ class UserRepository(IUserRepository):
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
-    async def list_all_with_escrow(self) -> list[User]:
+    async def list_all_with_balance(self) -> list[User]:
         """
-        List all users with escrow accounts.
+        List all users with escrow balance > 0.
 
         Not cached - bulk query.
 
         Returns:
-            List of users who have initialized escrow
+            List of users who have escrow balance
         """
-        stmt = select(UserModel).where(UserModel.escrow_account.isnot(None))
+        stmt = select(UserModel).where(UserModel.escrow_balance > 0)
         result = await self.session.execute(stmt)
         models = result.scalars().all()
 
@@ -213,10 +211,8 @@ class UserRepository(IUserRepository):
 
         # Update fields
         model.wallet_address = user.wallet_address
-        model.escrow_account = user.escrow_account
         model.escrow_balance = user.escrow_balance
-        model.escrow_token_mint = user.escrow_token_mint
-        model.escrow_initialized_at = user.escrow_initialized_at
+        model.last_blockchain_check = user.last_blockchain_check
         model.updated_at = user.updated_at
 
         await self.session.flush()
@@ -284,10 +280,8 @@ class UserRepository(IUserRepository):
         return User(
             id=model.id,
             wallet_address=model.wallet_address,
-            escrow_account=model.escrow_account,
             escrow_balance=model.escrow_balance,
-            escrow_token_mint=model.escrow_token_mint,
-            escrow_initialized_at=model.escrow_initialized_at,
+            last_blockchain_check=model.last_blockchain_check,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
