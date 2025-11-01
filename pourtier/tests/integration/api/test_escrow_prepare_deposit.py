@@ -35,6 +35,7 @@ class TestEscrowPrepareDeposit(LaborantTest):
     client: httpx.AsyncClient = None
     test_user: User = None
     test_token: str = None
+    escrow_account: str = "3aV1Pbb5bT4x7dPdKj2fhgrXM2kPGMsTs4zB7CMkKfki"
 
     async def async_setup(self):
         """Setup test database and client."""
@@ -75,8 +76,8 @@ class TestEscrowPrepareDeposit(LaborantTest):
             base_url="http://test",
         )
 
-        # Create test user with escrow
-        await self._create_test_user_with_escrow()
+        # Create test user
+        await self._create_test_user()
 
         # Generate token
         TestEscrowPrepareDeposit.test_token = self._generate_test_token()
@@ -103,15 +104,11 @@ class TestEscrowPrepareDeposit(LaborantTest):
         unique_id = str(uuid4()).replace("-", "")
         return unique_id.ljust(44, "0")
 
-    async def _create_test_user_with_escrow(self):
-        """Create test user with initialized escrow."""
+    async def _create_test_user(self):
+        """Create test user."""
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             user = User(wallet_address=self._generate_unique_wallet())
-            user.initialize_escrow(
-                escrow_account="3aV1Pbb5bT4x7dPdKj2fhgrXM2kPGMsTs4zB7CMkKfki",
-                token_mint="USDC",
-            )
             user.update_escrow_balance(Decimal("0.0"))
             TestEscrowPrepareDeposit.test_user = await user_repo.create(user)
 
@@ -130,12 +127,16 @@ class TestEscrowPrepareDeposit(LaborantTest):
         """Get authorization headers."""
         return {"Authorization": f"Bearer {self.test_token}"}
 
-    async def test_prepare_deposit_success(self):
+    @patch("pourtier.application.use_cases.prepare_deposit_to_escrow.derive_escrow_pda")
+    async def test_prepare_deposit_success(self, mock_derive_pda):
         """Test successful prepare deposit."""
         self.reporter.info(
             "Testing prepare deposit (success)",
             context="Test",
         )
+
+        # Mock PDA derivation
+        mock_derive_pda.return_value = (self.escrow_account, 255)
 
         # Mock Passeur Bridge
         with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
@@ -145,25 +146,31 @@ class TestEscrowPrepareDeposit(LaborantTest):
             )
             mock_bridge.__get__ = lambda *args: mock_instance
 
-            response = await self.client.post(
-                "/api/escrow/prepare-deposit",
-                json={"amount": "5.00"},
-                headers=self._auth_headers(),
-            )
+            # Mock escrow query service to return True
+            with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+                mock_query_instance = AsyncMock()
+                mock_query_instance.check_escrow_exists.return_value = True
+                mock_query.__get__ = lambda *args: mock_query_instance
+
+                response = await self.client.post(
+                    "/api/escrow/prepare-deposit",
+                    json={"amount": "5.00"},
+                    headers=self._auth_headers(),
+                )
 
         assert response.status_code == 200
         data = response.json()
         assert "transaction" in data
         assert data["transaction"] == ("fake_base64_unsigned_transaction_abcdef123456")
         assert "escrow_account" in data
-        assert data["escrow_account"] == self.test_user.escrow_account
+        assert data["escrow_account"] == self.escrow_account
         assert "amount" in data
         assert data["amount"] == "5.00"
 
         # Verify bridge was called correctly
         mock_instance.prepare_deposit.assert_called_once_with(
             user_wallet=self.test_user.wallet_address,
-            escrow_account=self.test_user.escrow_account,
+            escrow_account=self.escrow_account,
             amount=Decimal("5.00"),
         )
 
@@ -185,12 +192,16 @@ class TestEscrowPrepareDeposit(LaborantTest):
 
         self.reporter.info("Unauthorized error returned", context="Test")
 
-    async def test_prepare_deposit_escrow_not_initialized(self):
+    @patch("pourtier.application.use_cases.prepare_deposit_to_escrow.derive_escrow_pda")
+    async def test_prepare_deposit_escrow_not_initialized(self, mock_derive_pda):
         """Test prepare deposit when escrow not initialized."""
         self.reporter.info(
             "Testing prepare deposit (escrow not initialized)",
             context="Test",
         )
+
+        # Mock PDA derivation
+        mock_derive_pda.return_value = (self.escrow_account, 255)
 
         # Create user without escrow
         async with self.db.session() as session:
@@ -208,11 +219,17 @@ class TestEscrowPrepareDeposit(LaborantTest):
             wallet_address=created_user.wallet_address,
         )
 
-        response = await self.client.post(
-            "/api/escrow/prepare-deposit",
-            json={"amount": "5.00"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        # Mock escrow query service to return False (not initialized)
+        with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+            mock_query_instance = AsyncMock()
+            mock_query_instance.check_escrow_exists.return_value = False
+            mock_query.__get__ = lambda *args: mock_query_instance
+
+            response = await self.client.post(
+                "/api/escrow/prepare-deposit",
+                json={"amount": "5.00"},
+                headers={"Authorization": f"Bearer {token}"},
+            )
 
         assert response.status_code == 400
         assert "not initialized" in response.json()["detail"].lower()
@@ -263,52 +280,72 @@ class TestEscrowPrepareDeposit(LaborantTest):
             context="Test",
         )
 
-    async def test_prepare_deposit_passeur_bridge_failure(self):
+    @patch("pourtier.application.use_cases.prepare_deposit_to_escrow.derive_escrow_pda")
+    async def test_prepare_deposit_passeur_bridge_failure(self, mock_derive_pda):
         """Test prepare deposit when Passeur Bridge fails."""
         self.reporter.info(
             "Testing prepare deposit (bridge failure)",
             context="Test",
         )
 
+        # Mock PDA derivation
+        mock_derive_pda.return_value = (self.escrow_account, 255)
+
         from pourtier.domain.exceptions.blockchain import BlockchainError
 
-        # Mock Passeur Bridge to raise error
-        with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
-            mock_instance = AsyncMock()
-            mock_instance.prepare_deposit.side_effect = BlockchainError(
-                message="Bridge service unavailable"
-            )
-            mock_bridge.__get__ = lambda *args: mock_instance
+        # Mock escrow query service
+        with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+            mock_query_instance = AsyncMock()
+            mock_query_instance.check_escrow_exists.return_value = True
+            mock_query.__get__ = lambda *args: mock_query_instance
 
-            response = await self.client.post(
-                "/api/escrow/prepare-deposit",
-                json={"amount": "5.00"},
-                headers=self._auth_headers(),
-            )
+            # Mock Passeur Bridge to raise error
+            with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
+                mock_instance = AsyncMock()
+                mock_instance.prepare_deposit.side_effect = BlockchainError(
+                    message="Bridge service unavailable"
+                )
+                mock_bridge.__get__ = lambda *args: mock_instance
+
+                response = await self.client.post(
+                    "/api/escrow/prepare-deposit",
+                    json={"amount": "5.00"},
+                    headers=self._auth_headers(),
+                )
 
         assert response.status_code == 502
         assert "failed to prepare deposit" in response.json()["detail"].lower()
 
         self.reporter.info("Bridge failure error returned", context="Test")
 
-    async def test_prepare_deposit_large_amount(self):
+    @patch("pourtier.application.use_cases.prepare_deposit_to_escrow.derive_escrow_pda")
+    async def test_prepare_deposit_large_amount(self, mock_derive_pda):
         """Test prepare deposit with large amount."""
         self.reporter.info(
             "Testing prepare deposit (large amount)",
             context="Test",
         )
 
-        # Mock Passeur Bridge
-        with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
-            mock_instance = AsyncMock()
-            mock_instance.prepare_deposit.return_value = "fake_base64_large_tx"
-            mock_bridge.__get__ = lambda *args: mock_instance
+        # Mock PDA derivation
+        mock_derive_pda.return_value = (self.escrow_account, 255)
 
-            response = await self.client.post(
-                "/api/escrow/prepare-deposit",
-                json={"amount": "10000.50"},
-                headers=self._auth_headers(),
-            )
+        # Mock escrow query service
+        with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+            mock_query_instance = AsyncMock()
+            mock_query_instance.check_escrow_exists.return_value = True
+            mock_query.__get__ = lambda *args: mock_query_instance
+
+            # Mock Passeur Bridge
+            with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
+                mock_instance = AsyncMock()
+                mock_instance.prepare_deposit.return_value = "fake_base64_large_tx"
+                mock_bridge.__get__ = lambda *args: mock_instance
+
+                response = await self.client.post(
+                    "/api/escrow/prepare-deposit",
+                    json={"amount": "10000.50"},
+                    headers=self._auth_headers(),
+                )
 
         assert response.status_code == 200
         data = response.json()
