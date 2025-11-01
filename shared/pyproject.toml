@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shared"
-version = "0.1.5"
+version = "0.2.0"
 description = "Shared utilities for Lumière trading system"
 requires-python = ">=3.11"
 dependencies = [
@@ -32,13 +32,16 @@ packages = [
     "shared.indicators",
     "shared.reporter",
     "shared.reporter.emojis",
+    "shared.strategy",
+    "shared.resilience",
+    "shared.health",
+    "shared.lifecycle",
     "shared.tests",
 ]
 
 [tool.setuptools.package-dir]
 shared = "."
 
-# Include keypairs as package data
 [tool.setuptools.package-data]
 "shared.blockchain" = ["keypairs/**/*.json"]
 
