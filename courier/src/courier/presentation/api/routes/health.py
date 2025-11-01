@@ -8,9 +8,9 @@ Provides multiple types of health checks:
 4. /health/ready - Readiness probe (can the service accept traffic?)
 """
 
-import psutil
 from typing import Any, Dict
 
+import psutil
 from fastapi import APIRouter, Depends, Response, status
 
 from courier.di import Container
@@ -108,14 +108,16 @@ async def detailed_health_check(
     # WebSocket Server component
     total_connections = conn_manager.get_total_connections()
     max_connections = container.settings.max_total_connections
-    
+
     ws_status = "healthy"
     ws_message = f"{total_connections} active connections"
-    
+
     if max_connections > 0 and total_connections >= max_connections * 0.9:
         ws_status = "degraded"
-        ws_message = f"Approaching connection limit ({total_connections}/{max_connections})"
-    
+        ws_message = (
+            f"Approaching connection limit ({total_connections}/{max_connections})"
+        )
+
     components["websocket_server"] = ComponentHealth(
         status=ws_status,
         message=ws_message,
@@ -129,24 +131,24 @@ async def detailed_health_check(
     # Rate Limiter component
     rate_limiter = container.websocket_rate_limiter
     rate_limit_hits = container.stats.get("rate_limit_hits", 0)
-    
+
     rl_status = "healthy"
     rl_message = "Rate limiting operational"
-    
+
     if rate_limit_hits > 1000:
         rl_status = "degraded"
         rl_message = f"High rate limit hits ({rate_limit_hits})"
-    
+
     rl_details = {
         "enabled": container.settings.rate_limit_enabled,
         "total_hits": rate_limit_hits,
     }
-    
+
     if rate_limiter:
         rl_details["global_limit"] = rate_limiter.limit
         rl_details["window_seconds"] = int(rate_limiter.window.total_seconds())
         rl_details["configured_types"] = rate_limiter.get_configured_types()
-    
+
     components["rate_limiter"] = ComponentHealth(
         status=rl_status,
         message=rl_message,
@@ -155,20 +157,22 @@ async def detailed_health_check(
 
     # Connection Manager component
     connection_rejections = container.stats.get("connection_rejections", 0)
-    
+
     cm_status = "healthy"
     cm_message = "Connection management operational"
-    
+
     if connection_rejections > 100:
         cm_status = "degraded"
         cm_message = f"High connection rejections ({connection_rejections})"
-    
+
     components["connection_manager"] = ComponentHealth(
         status=cm_status,
         message=cm_message,
         details={
             "total_rejections": connection_rejections,
-            "rejections_by_type": container.stats.get("connection_rejections_by_type", {}),
+            "rejections_by_type": container.stats.get(
+                "connection_rejections_by_type", {}
+            ),
             "max_total": container.settings.max_total_connections,
             "max_per_user": container.settings.max_connections_per_user,
             "max_per_channel": container.settings.max_clients_per_channel,
@@ -212,7 +216,7 @@ async def detailed_health_check(
     # System resources
     process = psutil.Process()
     memory_info = process.memory_info()
-    
+
     system = {
         "memory": {
             "rss_mb": round(memory_info.rss / 1024 / 1024, 2),
@@ -261,7 +265,7 @@ async def liveness_check(
     """
     # Simple liveness check - if we can respond, we're alive
     # Even during shutdown, we're still "alive" (just shutting down gracefully)
-    
+
     return LivenessResponse(
         alive=True,
         uptime_seconds=container.get_uptime_seconds(),
@@ -312,13 +316,15 @@ async def readiness_check(
     # Check 2: Connection capacity available
     total_connections = conn_manager.get_total_connections()
     max_connections = container.settings.max_total_connections
-    
+
     if max_connections > 0:
         # Consider ready if under 95% capacity
         checks["connection_capacity"] = total_connections < (max_connections * 0.95)
         if not checks["connection_capacity"]:
             ready = False
-            message = f"Connection capacity exhausted ({total_connections}/{max_connections})"
+            message = (
+                f"Connection capacity exhausted ({total_connections}/{max_connections})"
+            )
     else:
         checks["connection_capacity"] = True
 

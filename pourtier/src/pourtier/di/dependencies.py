@@ -10,6 +10,7 @@ from typing import AsyncGenerator
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pourtier.config.settings import get_settings
 from pourtier.di.container import get_container
 
 # ================================================================
@@ -50,6 +51,11 @@ def get_escrow_query_service():
     """Get EscrowQueryService dependency."""
     container = get_container()
     return container.escrow_query_service
+
+
+def get_program_id() -> str:
+    """Get Solana escrow program ID from settings."""
+    return get_settings().ESCROW_PROGRAM_ID
 
 
 # ================================================================
@@ -151,6 +157,7 @@ def get_verify_wallet_signature(
 def get_initialize_escrow(
     session: AsyncSession = Depends(get_db_session),
     passeur_bridge=Depends(get_passeur_bridge),
+    program_id: str = Depends(get_program_id),
 ):
     """Get InitializeEscrow use case dependency."""
     from pourtier.application.use_cases.initialize_escrow import InitializeEscrow
@@ -163,12 +170,15 @@ def get_initialize_escrow(
         user_repository=user_repo,
         escrow_transaction_repository=escrow_tx_repo,
         passeur_bridge=passeur_bridge,
+        program_id=program_id,
     )
 
 
 def get_deposit_to_escrow(
     session: AsyncSession = Depends(get_db_session),
     passeur_bridge=Depends(get_passeur_bridge),
+    escrow_query_service=Depends(get_escrow_query_service),
+    program_id: str = Depends(get_program_id),
 ):
     """Get DepositToEscrow use case dependency."""
     from pourtier.application.use_cases.deposit_to_escrow import DepositToEscrow
@@ -181,12 +191,16 @@ def get_deposit_to_escrow(
         user_repository=user_repo,
         escrow_transaction_repository=escrow_tx_repo,
         passeur_bridge=passeur_bridge,
+        escrow_query_service=escrow_query_service,
+        program_id=program_id,
     )
 
 
 def get_withdraw_from_escrow(
     session: AsyncSession = Depends(get_db_session),
     passeur_bridge=Depends(get_passeur_bridge),
+    escrow_query_service=Depends(get_escrow_query_service),
+    program_id: str = Depends(get_program_id),
 ):
     """Get WithdrawFromEscrow use case dependency."""
     from pourtier.application.use_cases.withdraw_from_escrow import WithdrawFromEscrow
@@ -199,12 +213,15 @@ def get_withdraw_from_escrow(
         user_repository=user_repo,
         escrow_transaction_repository=escrow_tx_repo,
         passeur_bridge=passeur_bridge,
+        escrow_query_service=escrow_query_service,
+        program_id=program_id,
     )
 
 
 def get_get_escrow_balance(
     session: AsyncSession = Depends(get_db_session),
     escrow_query_service=Depends(get_escrow_query_service),
+    program_id: str = Depends(get_program_id),
 ):
     """Get GetEscrowBalance use case dependency."""
     from pourtier.application.use_cases.get_escrow_balance import GetEscrowBalance
@@ -215,6 +232,7 @@ def get_get_escrow_balance(
     return GetEscrowBalance(
         user_repository=user_repo,
         escrow_query_service=escrow_query_service,
+        program_id=program_id,
     )
 
 
@@ -232,6 +250,8 @@ def get_get_wallet_balance(
 def get_prepare_initialize_escrow(
     session: AsyncSession = Depends(get_db_session),
     passeur_bridge=Depends(get_passeur_bridge),
+    escrow_query_service=Depends(get_escrow_query_service),
+    program_id: str = Depends(get_program_id),
 ):
     """Get PrepareInitializeEscrow use case dependency."""
     from pourtier.application.use_cases.prepare_initialize_escrow import (
@@ -244,12 +264,16 @@ def get_prepare_initialize_escrow(
     return PrepareInitializeEscrow(
         user_repository=user_repo,
         passeur_bridge=passeur_bridge,
+        escrow_query_service=escrow_query_service,
+        program_id=program_id,
     )
 
 
 def get_prepare_deposit_to_escrow(
     session: AsyncSession = Depends(get_db_session),
     passeur_bridge=Depends(get_passeur_bridge),
+    escrow_query_service=Depends(get_escrow_query_service),
+    program_id: str = Depends(get_program_id),
 ):
     """Get PrepareDepositToEscrow use case dependency."""
     from pourtier.application.use_cases.prepare_deposit_to_escrow import (
@@ -262,11 +286,15 @@ def get_prepare_deposit_to_escrow(
     return PrepareDepositToEscrow(
         user_repository=user_repo,
         passeur_bridge=passeur_bridge,
+        escrow_query_service=escrow_query_service,
+        program_id=program_id,
     )
 
 
 def get_create_subscription(
     session: AsyncSession = Depends(get_db_session),
+    escrow_query_service=Depends(get_escrow_query_service),
+    program_id: str = Depends(get_program_id),
 ):
     """Get CreateSubscription use case dependency."""
     from pourtier.application.use_cases.create_subscription import CreateSubscription
@@ -278,6 +306,8 @@ def get_create_subscription(
     return CreateSubscription(
         user_repository=user_repo,
         subscription_repository=subscription_repo,
+        escrow_query_service=escrow_query_service,
+        program_id=program_id,
     )
 
 
