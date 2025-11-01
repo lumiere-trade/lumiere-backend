@@ -23,7 +23,9 @@ from pourtier.domain.repositories.i_escrow_transaction_repository import (
     IEscrowTransactionRepository,
 )
 from pourtier.domain.repositories.i_user_repository import IUserRepository
+from pourtier.domain.services.i_escrow_query_service import IEscrowQueryService
 from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
+from pourtier.infrastructure.blockchain.solana_utils import derive_escrow_pda
 
 
 class WithdrawFromEscrow:
@@ -32,11 +34,14 @@ class WithdrawFromEscrow:
 
     Business rules:
     - User must exist
-    - User must have initialized escrow
+    - User must have initialized escrow on blockchain
     - Signed transaction must be submitted to blockchain
     - Amount must be positive
     - User must have sufficient balance
     - Transaction must not be duplicate (by signature)
+
+    Architecture:
+    - Check blockchain for escrow existence (not DB)
     """
 
     def __init__(
@@ -44,6 +49,8 @@ class WithdrawFromEscrow:
         user_repository: IUserRepository,
         escrow_transaction_repository: IEscrowTransactionRepository,
         passeur_bridge: IPasseurBridge,
+        escrow_query_service: IEscrowQueryService,
+        program_id: str,
     ):
         """
         Initialize use case with dependencies.
@@ -52,10 +59,14 @@ class WithdrawFromEscrow:
             user_repository: Repository for user persistence
             escrow_transaction_repository: Repository for transactions
             passeur_bridge: Bridge for blockchain submission
+            escrow_query_service: Service for querying blockchain
+            program_id: Escrow program ID for PDA derivation
         """
         self.user_repository = user_repository
         self.escrow_transaction_repository = escrow_transaction_repository
         self.passeur_bridge = passeur_bridge
+        self.escrow_query_service = escrow_query_service
+        self.program_id = program_id
 
     async def execute(
         self,
@@ -89,33 +100,43 @@ class WithdrawFromEscrow:
                 entity_id=str(user_id),
             )
 
-        # 2. Validate escrow initialized
-        if not user.escrow_account:
+        # 2. Derive escrow account
+        escrow_account, _ = derive_escrow_pda(
+            user.wallet_address,
+            self.program_id,
+        )
+
+        # 3. Check blockchain if escrow exists
+        escrow_exists = await self.escrow_query_service.check_escrow_exists(
+            escrow_account
+        )
+
+        if not escrow_exists:
             raise ValidationError(
                 field="escrow_account",
                 reason="Escrow not initialized for user",
             )
 
-        # 3. Validate amount is positive
+        # 4. Validate amount is positive
         if amount <= 0:
             raise ValidationError(
                 field="amount",
                 reason="Withdrawal amount must be positive",
             )
 
-        # 4. Check sufficient balance
+        # 5. Check sufficient balance
         if not user.has_sufficient_balance(amount):
             raise InsufficientEscrowBalanceError(
                 required=str(amount),
                 available=str(user.escrow_balance),
             )
 
-        # 5. Submit signed transaction to blockchain via Passeur
+        # 6. Submit signed transaction to blockchain via Passeur
         tx_signature = await self.passeur_bridge.submit_signed_transaction(
             signed_transaction
         )
 
-        # 6. Check for duplicate transaction
+        # 7. Check for duplicate transaction
         existing_tx = await self.escrow_transaction_repository.get_by_tx_signature(
             tx_signature
         )
@@ -125,21 +146,21 @@ class WithdrawFromEscrow:
                 tx_signature=tx_signature,
             )
 
-        # 7. Update user escrow balance
+        # 8. Update user escrow balance
         new_balance = user.escrow_balance - amount
         user.update_escrow_balance(new_balance)
 
-        # 8. Save user to database
+        # 9. Save user to database
         await self.user_repository.update(user)
 
-        # 9. Create escrow transaction record
+        # 10. Create escrow transaction record
         transaction = EscrowTransaction(
             id=uuid4(),
             user_id=user_id,
             tx_signature=tx_signature,
             transaction_type=TransactionType.WITHDRAW,
             amount=amount,
-            token_mint=user.escrow_token_mint,
+            token_mint="USDC",  # Hardcoded for now
             status=TransactionStatus.CONFIRMED,
             confirmed_at=datetime.now(),
         )

@@ -1,17 +1,19 @@
 """
 Prepare Initialize Escrow use case.
-
 Generates unsigned initialize escrow transaction for user to sign in wallet.
 """
 
 from dataclasses import dataclass
+from uuid import UUID
 
 from pourtier.domain.exceptions.base import EntityNotFoundError
 from pourtier.domain.exceptions.blockchain import (
     EscrowAlreadyInitializedError,
 )
 from pourtier.domain.repositories.i_user_repository import IUserRepository
+from pourtier.domain.services.i_escrow_query_service import IEscrowQueryService
 from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
+from pourtier.infrastructure.blockchain.solana_utils import derive_escrow_pda
 
 
 @dataclass
@@ -34,16 +36,22 @@ class PrepareInitializeEscrow:
 
     Business rules:
     - User must exist
-    - User must not have escrow already initialized
+    - User must not have escrow already initialized on blockchain
     - Generates unsigned transaction via Passeur Bridge
     - User signs transaction in wallet (frontend)
     - After signing, user calls POST /api/escrow/initialize
+
+    Architecture:
+    - Check blockchain (not DB) for escrow existence
+    - Blockchain is source of truth
     """
 
     def __init__(
         self,
         user_repository: IUserRepository,
         passeur_bridge: IPasseurBridge,
+        escrow_query_service: IEscrowQueryService,
+        program_id: str,
     ):
         """
         Initialize use case with dependencies.
@@ -51,13 +59,17 @@ class PrepareInitializeEscrow:
         Args:
             user_repository: Repository for user data access
             passeur_bridge: Bridge service for preparing transactions
+            escrow_query_service: Service for querying blockchain
+            program_id: Escrow program ID for PDA derivation
         """
         self.user_repository = user_repository
         self.passeur_bridge = passeur_bridge
+        self.escrow_query_service = escrow_query_service
+        self.program_id = program_id
 
     async def execute(
         self,
-        user_id: int,
+        user_id: UUID,
         token_mint: str = "USDC",
     ) -> PrepareInitializeResult:
         """
@@ -83,8 +95,18 @@ class PrepareInitializeEscrow:
                 entity_id=str(user_id),
             )
 
-        # Check if escrow already initialized
-        if user.escrow_account:
+        # Derive escrow PDA
+        escrow_account, _ = derive_escrow_pda(
+            user.wallet_address,
+            self.program_id,
+        )
+
+        # Check blockchain (not DB) if escrow already exists
+        escrow_exists = await self.escrow_query_service.check_escrow_exists(
+            escrow_account
+        )
+
+        if escrow_exists:
             raise EscrowAlreadyInitializedError(str(user_id))
 
         # Prepare unsigned transaction via Passeur

@@ -2,6 +2,7 @@
 # Multi-stage Dockerfile for Courier
 # Uses Private PyPI Registry for shared package
 # Clean Architecture Implementation
+# Build context: courier/ directory
 # ============================================
 
 # ============================================
@@ -19,8 +20,8 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy courier package files
-COPY courier/pyproject.toml ./
-COPY courier/src/ ./src/
+COPY pyproject.toml ./
+COPY src/ ./src/
 
 # Install courier (shared will be fetched from PyPI registry)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
@@ -51,7 +52,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # Copy application code
-COPY courier/ .
+COPY . .
 
 # Install in editable mode for development
 RUN pip install --no-cache-dir \
@@ -62,12 +63,12 @@ RUN pip install --no-cache-dir \
 # Create logs directory
 RUN mkdir -p logs
 
-# Expose port
-EXPOSE 8766
+# Expose port (development uses 9765, but E2E tests override with PORT env var)
+EXPOSE 9765
 
-# Health check
+# Health check (uses PORT env var if set, defaults to 9765)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8766/health || exit 1
+    CMD curl -f http://localhost:${PORT:-9765}/health || exit 1
 
 # Run development (using main.py)
 CMD ["python", "-m", "courier.main"]
@@ -90,8 +91,8 @@ WORKDIR /app
 COPY --from=python-builder /root/.local /home/courier_user/.local
 
 # Copy application code
-COPY --chown=courier_user:courier_user courier/config/ ./config/
-COPY --chown=courier_user:courier_user courier/src/ ./src/
+COPY --chown=courier_user:courier_user config/ ./config/
+COPY --chown=courier_user:courier_user src/ ./src/
 
 # Create logs directory with proper permissions
 RUN mkdir -p /app/logs && \
@@ -107,7 +108,7 @@ ENV PATH=/home/courier_user/.local/bin:$PATH
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Expose port
+# Expose port (production uses 8765)
 EXPOSE 8765
 
 # Health check

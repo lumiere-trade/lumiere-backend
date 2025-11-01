@@ -8,7 +8,6 @@ Usage:
     laborant pourtier --unit
 """
 
-from datetime import datetime
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -19,9 +18,6 @@ from pourtier.domain.entities.user import User
 from pourtier.domain.exceptions import (
     EntityNotFoundError,
     EscrowAlreadyInitializedError,
-)
-from pourtier.domain.services.i_blockchain_verifier import (
-    VerifiedTransaction,
 )
 from shared.tests import LaborantTest
 
@@ -58,53 +54,46 @@ class TestInitializeEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # Create test data
         user_id = uuid4()
         wallet = self._generate_valid_wallet()
         escrow_account = self._generate_escrow_account()
-        tx_signature = "tx_sig_123"
+        signed_transaction = "base64_signed_transaction_here"
+        tx_signature = "5" * 88  # Valid Solana signature
 
         user = User(id=user_id, wallet_address=wallet)
 
-        verified_tx = VerifiedTransaction(
-            signature=tx_signature,
-            is_confirmed=True,
-            sender=wallet,
-            recipient=None,  # Not extracted (custom program)
-            amount=None,
-            token_mint="USDC",
-            block_time=int(datetime.now().timestamp()),
-            slot=12345,
-        )
-
-        # Mock repository responses
+        # Mock responses
         user_repo.get_by_id.return_value = user
         user_repo.update.return_value = user
-        verifier.verify_transaction.return_value = verified_tx
+        passeur_bridge.submit_signed_transaction.return_value = tx_signature
         tx_repo.create.return_value = AsyncMock()
 
         # Execute use case
         use_case = InitializeEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         # Mock _derive_escrow_pda to return expected escrow
         with patch.object(use_case, "_derive_escrow_pda", return_value=escrow_account):
-            result = await use_case.execute(
+            result_user, result_signature = await use_case.execute(
                 user_id=user_id,
-                tx_signature=tx_signature,
+                signed_transaction=signed_transaction,
                 token_mint="USDC",
             )
 
         # Verify
-        assert result.escrow_account == escrow_account
-        assert result.escrow_token_mint == "USDC"
+        assert result_user.escrow_account == escrow_account
+        assert result_user.escrow_token_mint == "USDC"
+        assert result_signature == tx_signature
         user_repo.get_by_id.assert_called_once_with(user_id)
-        verifier.verify_transaction.assert_called_once_with(tx_signature)
+        passeur_bridge.submit_signed_transaction.assert_called_once_with(
+            signed_transaction
+        )
         user_repo.update.assert_called_once()
         tx_repo.create.assert_called_once()
 
@@ -117,7 +106,7 @@ class TestInitializeEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # User not found
         user_repo.get_by_id.return_value = None
@@ -126,13 +115,13 @@ class TestInitializeEscrow(LaborantTest):
         use_case = InitializeEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         try:
             await use_case.execute(
                 user_id=uuid4(),
-                tx_signature="tx_sig_123",
+                signed_transaction="base64_signed_transaction",
             )
             assert False, "Should raise EntityNotFoundError"
         except EntityNotFoundError as e:
@@ -152,7 +141,7 @@ class TestInitializeEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # User with existing escrow
         user_id = uuid4()
@@ -165,13 +154,13 @@ class TestInitializeEscrow(LaborantTest):
         use_case = InitializeEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         try:
             await use_case.execute(
                 user_id=user_id,
-                tx_signature="tx_sig_123",
+                signed_transaction="base64_signed_transaction",
             )
             assert False, "Should raise EscrowAlreadyInitializedError"
         except EscrowAlreadyInitializedError as e:
@@ -191,46 +180,38 @@ class TestInitializeEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # Create test data
         user_id = uuid4()
         user = User(id=user_id, wallet_address=self._generate_valid_wallet())
         escrow_account = self._generate_escrow_account()
-
-        verified_tx = VerifiedTransaction(
-            signature="tx_sig_123",
-            is_confirmed=True,
-            sender=user.wallet_address,
-            recipient=None,
-            amount=None,
-            token_mint="SOL",
-            block_time=int(datetime.now().timestamp()),
-            slot=12345,
-        )
+        signed_transaction = "base64_signed_transaction"
+        tx_signature = "5" * 88
 
         user_repo.get_by_id.return_value = user
         user_repo.update.return_value = user
-        verifier.verify_transaction.return_value = verified_tx
+        passeur_bridge.submit_signed_transaction.return_value = tx_signature
         tx_repo.create.return_value = AsyncMock()
 
         # Execute use case
         use_case = InitializeEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         # Mock _derive_escrow_pda
         with patch.object(use_case, "_derive_escrow_pda", return_value=escrow_account):
-            result = await use_case.execute(
+            result_user, result_signature = await use_case.execute(
                 user_id=user_id,
-                tx_signature="tx_sig_123",
+                signed_transaction=signed_transaction,
                 token_mint="SOL",
             )
 
         # Verify custom token
-        assert result.escrow_token_mint == "SOL"
+        assert result_user.escrow_token_mint == "SOL"
+        assert result_signature == tx_signature
         self.reporter.info(
             "Custom token initialization successful",
             context="Test",

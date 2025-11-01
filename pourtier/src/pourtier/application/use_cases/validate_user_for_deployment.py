@@ -14,6 +14,8 @@ from pourtier.domain.repositories.i_subscription_repository import (
     ISubscriptionRepository,
 )
 from pourtier.domain.repositories.i_user_repository import IUserRepository
+from pourtier.domain.services.i_escrow_query_service import IEscrowQueryService
+from pourtier.infrastructure.blockchain.solana_utils import derive_escrow_pda
 
 
 @dataclass
@@ -27,7 +29,7 @@ class UserDeploymentValidation:
     subscription_plan: str | None
     subscription_status: str | None
     has_escrow: bool
-    escrow_account: str | None
+    escrow_account: str
     escrow_balance: Decimal
     can_deploy: bool
     validation_errors: list[str]
@@ -40,8 +42,12 @@ class ValidateUserForDeployment:
     Business rules:
     - User must exist
     - User must have active subscription
-    - User must have initialized escrow
+    - User must have initialized escrow on blockchain
     - User must have balance > 0
+
+    Architecture:
+    - Check blockchain for escrow existence (not DB)
+    - Derive escrow account on-the-fly
 
     This endpoint is called by Chevalier to validate deployment requests.
     """
@@ -50,6 +56,8 @@ class ValidateUserForDeployment:
         self,
         user_repository: IUserRepository,
         subscription_repository: ISubscriptionRepository,
+        escrow_query_service: IEscrowQueryService,
+        program_id: str,
     ):
         """
         Initialize use case with dependencies.
@@ -57,9 +65,13 @@ class ValidateUserForDeployment:
         Args:
             user_repository: Repository for user persistence
             subscription_repository: Repository for subscriptions
+            escrow_query_service: Service for querying blockchain
+            program_id: Escrow program ID for PDA derivation
         """
         self.user_repository = user_repository
         self.subscription_repository = subscription_repository
+        self.escrow_query_service = escrow_query_service
+        self.program_id = program_id
 
     async def execute(self, user_id: UUID) -> UserDeploymentValidation:
         """
@@ -103,19 +115,27 @@ class ValidateUserForDeployment:
         else:
             validation_errors.append("No active subscription found")
 
-        # 3. Check escrow initialization
-        has_escrow = user.escrow_account is not None
+        # 3. Derive escrow account
+        escrow_account, _ = derive_escrow_pda(
+            user.wallet_address,
+            self.program_id,
+        )
+
+        # 4. Check blockchain if escrow exists
+        has_escrow = await self.escrow_query_service.check_escrow_exists(
+            escrow_account
+        )
 
         if not has_escrow:
             validation_errors.append("Escrow not initialized")
 
-        # 4. Check escrow balance
+        # 5. Check escrow balance (from DB cache)
         escrow_balance = user.escrow_balance if has_escrow else Decimal("0")
 
         if has_escrow and escrow_balance <= 0:
             validation_errors.append(f"Insufficient escrow balance: {escrow_balance}")
 
-        # 5. Determine if can deploy
+        # 6. Determine if can deploy
         can_deploy = (
             has_subscription
             and subscription
@@ -124,7 +144,7 @@ class ValidateUserForDeployment:
             and escrow_balance > 0
         )
 
-        # 6. Build validation result
+        # 7. Build validation result
         return UserDeploymentValidation(
             user_id=user_id,
             wallet_address=user.wallet_address,
@@ -133,7 +153,7 @@ class ValidateUserForDeployment:
             subscription_plan=subscription_plan,
             subscription_status=subscription_status_str,
             has_escrow=has_escrow,
-            escrow_account=user.escrow_account,
+            escrow_account=escrow_account,  # Always computed
             escrow_balance=escrow_balance,
             can_deploy=can_deploy,
             validation_errors=validation_errors,

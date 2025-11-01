@@ -6,83 +6,87 @@ Events published by Forge during background job processing.
 
 from typing import Any, Dict, Literal
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from courier.domain.events.base import BaseEvent
 
 
+class ForgeJobStartedData(BaseModel):
+    """Data schema for forge.job.started event."""
+
+    job_id: str = Field(..., description="Job ID")
+    job_type: str = Field(..., description="Job type (e.g., data_sync, backtest)")
+    user_id: str = Field(..., description="User ID")
+    parameters: Dict[str, Any] = Field(..., description="Job parameters")
+
+    class Config:
+        extra = "forbid"  # Strict validation
+
+
+class ForgeJobProgressData(BaseModel):
+    """Data schema for forge.job.progress event."""
+
+    job_id: str = Field(..., description="Job ID")
+    user_id: str = Field(..., description="User ID")
+    progress: float = Field(..., ge=0.0, le=1.0, description="Progress 0-1")
+    stage: str = Field(..., description="Current stage")
+    message: str = Field(..., description="Progress message")
+
+    class Config:
+        extra = "forbid"
+
+
+class ForgeJobCompletedData(BaseModel):
+    """Data schema for forge.job.completed event."""
+
+    job_id: str = Field(..., description="Job ID")
+    user_id: str = Field(..., description="User ID")
+    duration_seconds: int = Field(..., description="Duration in seconds")
+    result: Dict[str, Any] = Field(..., description="Job result")
+
+    class Config:
+        extra = "forbid"
+
+
+class ForgeJobFailedData(BaseModel):
+    """Data schema for forge.job.failed event."""
+
+    job_id: str = Field(..., description="Job ID")
+    user_id: str = Field(..., description="User ID")
+    error_code: str = Field(..., description="Error code")
+    message: str = Field(..., description="Error message")
+    details: str = Field(default="", description="Error details")
+
+    class Config:
+        extra = "forbid"
+
+
 class ForgeJobStartedEvent(BaseEvent):
-    """
-    Background job started.
-    """
+    """Background job started."""
 
     type: Literal["forge.job.started"] = "forge.job.started"
-    data: Dict[str, Any] = Field(
-        ...,
-        description="Job details",
-        example={
-            "job_id": "job_abc123",
-            "job_type": "data_sync",
-            "user_id": "user_123",
-            "parameters": {"source": "birdeye", "symbols": ["SOL/USDC"]},
-        },
-    )
+    data: ForgeJobStartedData = Field(..., description="Job details")
 
 
 class ForgeJobProgressEvent(BaseEvent):
-    """
-    Job progress update.
-    """
+    """Job progress update."""
 
     type: Literal["forge.job.progress"] = "forge.job.progress"
-    data: Dict[str, Any] = Field(
-        ...,
-        description="Progress data",
-        example={
-            "job_id": "job_abc123",
-            "user_id": "user_123",
-            "progress": 0.6,
-            "stage": "syncing",
-            "message": "Synced 60% of data...",
-        },
-    )
+    data: ForgeJobProgressData = Field(..., description="Progress data")
 
 
 class ForgeJobCompletedEvent(BaseEvent):
-    """
-    Job completed successfully.
-    """
+    """Job completed successfully."""
 
     type: Literal["forge.job.completed"] = "forge.job.completed"
-    data: Dict[str, Any] = Field(
-        ...,
-        description="Completion details",
-        example={
-            "job_id": "job_abc123",
-            "user_id": "user_123",
-            "duration_seconds": 120,
-            "result": {"records_synced": 15000},
-        },
-    )
+    data: ForgeJobCompletedData = Field(..., description="Completion details")
 
 
 class ForgeJobFailedEvent(BaseEvent):
-    """
-    Job failed.
-    """
+    """Job failed."""
 
     type: Literal["forge.job.failed"] = "forge.job.failed"
-    data: Dict[str, Any] = Field(
-        ...,
-        description="Failure details",
-        example={
-            "job_id": "job_abc123",
-            "user_id": "user_123",
-            "error_code": "SYNC_FAILED",
-            "message": "Failed to sync data from Birdeye",
-            "details": "API rate limit exceeded",
-        },
-    )
+    data: ForgeJobFailedData = Field(..., description="Failure details")
 
 
 # Union type

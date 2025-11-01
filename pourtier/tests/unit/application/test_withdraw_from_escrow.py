@@ -1,14 +1,13 @@
 """
 Unit tests for WithdrawFromEscrow use case.
 
-Tests withdrawal verification and balance update logic.
+Tests withdrawal submission and balance update logic.
 
 Usage:
     python -m pourtier.tests.unit.application.test_withdraw_from_escrow
     laborant pourtier --unit
 """
 
-from datetime import datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -27,9 +26,6 @@ from pourtier.domain.exceptions import (
     InsufficientEscrowBalanceError,
     InvalidTransactionError,
     ValidationError,
-)
-from pourtier.domain.services.i_blockchain_verifier import (
-    VerifiedTransaction,
 )
 from shared.tests import LaborantTest
 
@@ -66,29 +62,19 @@ class TestWithdrawFromEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # Create test data
         user_id = uuid4()
         wallet = self._generate_valid_wallet()
         escrow_account = self._generate_escrow_account()
         withdraw_amount = Decimal("50.0")
-        tx_signature = "withdraw_tx_sig_123"
+        signed_transaction = "base64_signed_transaction"
+        tx_signature = "5" * 88
 
         user = User(id=user_id, wallet_address=wallet)
         user.initialize_escrow(escrow_account=escrow_account)
         user.update_escrow_balance(Decimal("100.0"))
-
-        verified_tx = VerifiedTransaction(
-            signature=tx_signature,
-            is_confirmed=True,
-            sender=escrow_account,
-            recipient=wallet,
-            amount=withdraw_amount,
-            token_mint="USDC",
-            block_time=int(datetime.now().timestamp()),
-            slot=12345,
-        )
 
         # Create expected transaction
         expected_transaction = EscrowTransaction(
@@ -106,19 +92,19 @@ class TestWithdrawFromEscrow(LaborantTest):
         user_repo.update.return_value = user
         tx_repo.get_by_tx_signature.return_value = None
         tx_repo.create.return_value = expected_transaction
-        verifier.verify_transaction.return_value = verified_tx
+        passeur_bridge.submit_signed_transaction.return_value = tx_signature
 
         # Execute use case
         use_case = WithdrawFromEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         result = await use_case.execute(
             user_id=user_id,
             amount=withdraw_amount,
-            tx_signature=tx_signature,
+            signed_transaction=signed_transaction,
         )
 
         # Verify
@@ -127,7 +113,9 @@ class TestWithdrawFromEscrow(LaborantTest):
         assert result.status == TransactionStatus.CONFIRMED
         assert user.escrow_balance == Decimal("50.0")
         user_repo.get_by_id.assert_called_once_with(user_id)
-        verifier.verify_transaction.assert_called_once_with(tx_signature)
+        passeur_bridge.submit_signed_transaction.assert_called_once_with(
+            signed_transaction
+        )
         user_repo.update.assert_called_once()
         tx_repo.create.assert_called_once()
 
@@ -140,7 +128,7 @@ class TestWithdrawFromEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # User not found
         user_repo.get_by_id.return_value = None
@@ -149,14 +137,14 @@ class TestWithdrawFromEscrow(LaborantTest):
         use_case = WithdrawFromEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         try:
             await use_case.execute(
                 user_id=uuid4(),
                 amount=Decimal("50.0"),
-                tx_signature="tx_sig_123",
+                signed_transaction="base64_signed_transaction",
             )
             assert False, "Should raise EntityNotFoundError"
         except EntityNotFoundError as e:
@@ -176,7 +164,7 @@ class TestWithdrawFromEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # User without escrow
         user_id = uuid4()
@@ -188,14 +176,14 @@ class TestWithdrawFromEscrow(LaborantTest):
         use_case = WithdrawFromEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         try:
             await use_case.execute(
                 user_id=user_id,
                 amount=Decimal("50.0"),
-                tx_signature="tx_sig_123",
+                signed_transaction="base64_signed_transaction",
             )
             assert False, "Should raise ValidationError"
         except ValidationError as e:
@@ -215,7 +203,7 @@ class TestWithdrawFromEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # User with insufficient balance
         user_id = uuid4()
@@ -224,33 +212,20 @@ class TestWithdrawFromEscrow(LaborantTest):
         user.initialize_escrow(escrow_account=self._generate_escrow_account())
         user.update_escrow_balance(Decimal("30.0"))
 
-        verified_tx = VerifiedTransaction(
-            signature="tx_sig_123",
-            is_confirmed=True,
-            sender=user.escrow_account,
-            recipient=wallet,
-            amount=Decimal("50.0"),
-            token_mint="USDC",
-            block_time=int(datetime.now().timestamp()),
-            slot=12345,
-        )
-
         user_repo.get_by_id.return_value = user
-        tx_repo.get_by_tx_signature.return_value = None
-        verifier.verify_transaction.return_value = verified_tx
 
         # Execute use case
         use_case = WithdrawFromEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         try:
             await use_case.execute(
                 user_id=user_id,
                 amount=Decimal("50.0"),
-                tx_signature="tx_sig_123",
+                signed_transaction="base64_signed_transaction",
             )
             assert False, "Should raise InsufficientEscrowBalanceError"
         except InsufficientEscrowBalanceError as e:
@@ -271,7 +246,7 @@ class TestWithdrawFromEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # User with escrow
         user_id = uuid4()
@@ -280,10 +255,11 @@ class TestWithdrawFromEscrow(LaborantTest):
         user.update_escrow_balance(Decimal("100.0"))
 
         # Existing transaction
+        tx_signature = "5" * 88
         existing_tx = EscrowTransaction(
             id=uuid4(),
             user_id=user_id,
-            tx_signature="duplicate_tx_sig",
+            tx_signature=tx_signature,
             transaction_type=TransactionType.WITHDRAW,
             amount=Decimal("50.0"),
             token_mint="USDC",
@@ -291,79 +267,27 @@ class TestWithdrawFromEscrow(LaborantTest):
         )
 
         user_repo.get_by_id.return_value = user
+        passeur_bridge.submit_signed_transaction.return_value = tx_signature
         tx_repo.get_by_tx_signature.return_value = existing_tx
 
         # Execute use case
         use_case = WithdrawFromEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         try:
             await use_case.execute(
                 user_id=user_id,
                 amount=Decimal("50.0"),
-                tx_signature="duplicate_tx_sig",
+                signed_transaction="base64_signed_transaction",
             )
             assert False, "Should raise InvalidTransactionError"
         except InvalidTransactionError as e:
             assert "already processed" in str(e)
             self.reporter.info(
                 "Duplicate transaction error raised correctly",
-                context="Test",
-            )
-
-    async def test_withdraw_amount_mismatch(self):
-        """Test withdrawal fails if amount doesn't match transaction."""
-        self.reporter.info("Testing amount mismatch error", context="Test")
-
-        # Mock dependencies
-        user_repo = AsyncMock()
-        tx_repo = AsyncMock()
-        verifier = AsyncMock()
-
-        # Create test data
-        user_id = uuid4()
-        wallet = self._generate_valid_wallet()
-        user = User(id=user_id, wallet_address=wallet)
-        user.initialize_escrow(escrow_account=self._generate_escrow_account())
-        user.update_escrow_balance(Decimal("100.0"))
-
-        # Transaction with different amount
-        verified_tx = VerifiedTransaction(
-            signature="tx_sig_123",
-            is_confirmed=True,
-            sender=user.escrow_account,
-            recipient=wallet,
-            amount=Decimal("75.0"),  # Different!
-            token_mint="USDC",
-            block_time=int(datetime.now().timestamp()),
-            slot=12345,
-        )
-
-        user_repo.get_by_id.return_value = user
-        tx_repo.get_by_tx_signature.return_value = None
-        verifier.verify_transaction.return_value = verified_tx
-
-        # Execute use case
-        use_case = WithdrawFromEscrow(
-            user_repository=user_repo,
-            escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
-        )
-
-        try:
-            await use_case.execute(
-                user_id=user_id,
-                amount=Decimal("50.0"),  # Expected 50, got 75
-                tx_signature="tx_sig_123",
-            )
-            assert False, "Should raise InvalidTransactionError"
-        except InvalidTransactionError as e:
-            assert "Amount mismatch" in str(e)
-            self.reporter.info(
-                "Amount mismatch error raised correctly",
                 context="Test",
             )
 
@@ -374,7 +298,7 @@ class TestWithdrawFromEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # Create test data
         user_id = uuid4()
@@ -383,34 +307,20 @@ class TestWithdrawFromEscrow(LaborantTest):
         user.initialize_escrow(escrow_account=self._generate_escrow_account())
         user.update_escrow_balance(Decimal("100.0"))
 
-        # Negative amount transaction
-        verified_tx = VerifiedTransaction(
-            signature="tx_sig_123",
-            is_confirmed=True,
-            sender=user.escrow_account,
-            recipient=wallet,
-            amount=Decimal("-10.0"),
-            token_mint="USDC",
-            block_time=int(datetime.now().timestamp()),
-            slot=12345,
-        )
-
         user_repo.get_by_id.return_value = user
-        tx_repo.get_by_tx_signature.return_value = None
-        verifier.verify_transaction.return_value = verified_tx
 
         # Execute use case
         use_case = WithdrawFromEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         try:
             await use_case.execute(
                 user_id=user_id,
                 amount=Decimal("-10.0"),
-                tx_signature="tx_sig_123",
+                signed_transaction="base64_signed_transaction",
             )
             assert False, "Should raise ValidationError"
         except ValidationError as e:
@@ -427,29 +337,19 @@ class TestWithdrawFromEscrow(LaborantTest):
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
-        verifier = AsyncMock()
+        passeur_bridge = AsyncMock()
 
         # Create test data
         user_id = uuid4()
         wallet = self._generate_valid_wallet()
         escrow_account = self._generate_escrow_account()
         total_balance = Decimal("100.0")
-        tx_signature = "withdraw_all_tx_sig"
+        signed_transaction = "base64_signed_transaction"
+        tx_signature = "5" * 88
 
         user = User(id=user_id, wallet_address=wallet)
         user.initialize_escrow(escrow_account=escrow_account)
         user.update_escrow_balance(total_balance)
-
-        verified_tx = VerifiedTransaction(
-            signature=tx_signature,
-            is_confirmed=True,
-            sender=escrow_account,
-            recipient=wallet,
-            amount=total_balance,
-            token_mint="USDC",
-            block_time=int(datetime.now().timestamp()),
-            slot=12345,
-        )
 
         # Create expected transaction
         expected_transaction = EscrowTransaction(
@@ -467,19 +367,19 @@ class TestWithdrawFromEscrow(LaborantTest):
         user_repo.update.return_value = user
         tx_repo.get_by_tx_signature.return_value = None
         tx_repo.create.return_value = expected_transaction
-        verifier.verify_transaction.return_value = verified_tx
+        passeur_bridge.submit_signed_transaction.return_value = tx_signature
 
         # Execute use case
         use_case = WithdrawFromEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
-            blockchain_verifier=verifier,
+            passeur_bridge=passeur_bridge,
         )
 
         result = await use_case.execute(
             user_id=user_id,
             amount=total_balance,
-            tx_signature=tx_signature,
+            signed_transaction=signed_transaction,
         )
 
         # Verify balance is zero
