@@ -21,25 +21,25 @@ depends_on = None
 
 def upgrade() -> None:
     """Remove redundant escrow columns."""
-    # Drop columns that are redundant (derived from wallet_address)
+    # Drop index FIRST (before dropping column)
+    op.drop_index("ix_users_escrow_account", table_name="users", if_exists=True)
+    
+    # Then drop columns
     op.drop_column("users", "escrow_account")
     op.drop_column("users", "escrow_token_mint")
     op.drop_column("users", "escrow_initialized_at")
 
-    # Drop related indexes
-    op.drop_index("ix_users_escrow_account", table_name="users")
-
 
 def downgrade() -> None:
     """Restore removed columns (for rollback)."""
-    # Restore columns
+    # Restore columns first
     op.add_column("users", sa.Column("escrow_account", sa.String(44), nullable=True))
     op.add_column("users", sa.Column("escrow_token_mint", sa.String(44), nullable=True))
     op.add_column(
         "users", sa.Column("escrow_initialized_at", sa.DateTime(), nullable=True)
     )
-
-    # Restore index
+    
+    # Then restore index
     op.create_index(
         "ix_users_escrow_account",
         "users",
