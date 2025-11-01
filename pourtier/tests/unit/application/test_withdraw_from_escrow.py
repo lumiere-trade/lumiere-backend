@@ -4,12 +4,12 @@ Unit tests for WithdrawFromEscrow use case.
 Tests withdrawal submission and balance update logic.
 
 Usage:
-    python -m pourtier.tests.unit.application.test_withdraw_from_escrow
+    python tests/unit/application/test_withdraw_from_escrow.py
     laborant pourtier --unit
 """
 
 from decimal import Decimal
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 from pourtier.application.use_cases.withdraw_from_escrow import (
@@ -41,39 +41,43 @@ class TestWithdrawFromEscrow(LaborantTest):
     # ================================================================
 
     def _generate_valid_wallet(self) -> str:
-        """Generate valid Base58 wallet address (44 chars)."""
-        return "1" * 44
+        """Generate valid Base58 wallet address."""
+        return "kshy5yns5FGGXcFVfjT2fTzVsQLFnbZzL9zuh1ZKR2y"
 
     def _generate_escrow_account(self) -> str:
         """Generate valid escrow PDA address."""
-        return "E" * 44
+        return "EscrowPDA1111111111111111111111111111111111"
 
     # ================================================================
     # Test Methods
     # ================================================================
 
-    async def test_withdraw_from_escrow_success(self):
+    @patch("pourtier.application.use_cases.withdraw_from_escrow.derive_escrow_pda")
+    async def test_withdraw_from_escrow_success(self, mock_derive_pda):
         """Test successful withdrawal from escrow."""
         self.reporter.info(
             "Testing successful withdrawal from escrow",
             context="Test",
         )
 
+        # Mock PDA derivation
+        escrow_account = self._generate_escrow_account()
+        mock_derive_pda.return_value = (escrow_account, 255)
+
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
         passeur_bridge = AsyncMock()
+        escrow_query_service = AsyncMock()
 
         # Create test data
         user_id = uuid4()
         wallet = self._generate_valid_wallet()
-        escrow_account = self._generate_escrow_account()
         withdraw_amount = Decimal("50.0")
         signed_transaction = "base64_signed_transaction"
         tx_signature = "5" * 88
 
         user = User(id=user_id, wallet_address=wallet)
-        user.initialize_escrow(escrow_account=escrow_account)
         user.update_escrow_balance(Decimal("100.0"))
 
         # Create expected transaction
@@ -90,6 +94,7 @@ class TestWithdrawFromEscrow(LaborantTest):
         # Mock repository responses
         user_repo.get_by_id.return_value = user
         user_repo.update.return_value = user
+        escrow_query_service.check_escrow_exists.return_value = True
         tx_repo.get_by_tx_signature.return_value = None
         tx_repo.create.return_value = expected_transaction
         passeur_bridge.submit_signed_transaction.return_value = tx_signature
@@ -99,6 +104,8 @@ class TestWithdrawFromEscrow(LaborantTest):
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
             passeur_bridge=passeur_bridge,
+            escrow_query_service=escrow_query_service,
+            program_id="11111111111111111111111111111111",
         )
 
         result = await use_case.execute(
@@ -113,6 +120,7 @@ class TestWithdrawFromEscrow(LaborantTest):
         assert result.status == TransactionStatus.CONFIRMED
         assert user.escrow_balance == Decimal("50.0")
         user_repo.get_by_id.assert_called_once_with(user_id)
+        escrow_query_service.check_escrow_exists.assert_called_once()
         passeur_bridge.submit_signed_transaction.assert_called_once_with(
             signed_transaction
         )
@@ -129,6 +137,7 @@ class TestWithdrawFromEscrow(LaborantTest):
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
         passeur_bridge = AsyncMock()
+        escrow_query_service = AsyncMock()
 
         # User not found
         user_repo.get_by_id.return_value = None
@@ -138,6 +147,8 @@ class TestWithdrawFromEscrow(LaborantTest):
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
             passeur_bridge=passeur_bridge,
+            escrow_query_service=escrow_query_service,
+            program_id="11111111111111111111111111111111",
         )
 
         try:
@@ -154,29 +165,38 @@ class TestWithdrawFromEscrow(LaborantTest):
                 context="Test",
             )
 
-    async def test_withdraw_escrow_not_initialized(self):
-        """Test withdrawal fails if escrow not initialized."""
+    @patch("pourtier.application.use_cases.withdraw_from_escrow.derive_escrow_pda")
+    async def test_withdraw_escrow_not_initialized(self, mock_derive_pda):
+        """Test withdrawal fails if escrow not initialized on blockchain."""
         self.reporter.info(
             "Testing escrow not initialized error",
             context="Test",
         )
 
+        # Mock PDA derivation
+        escrow_account = self._generate_escrow_account()
+        mock_derive_pda.return_value = (escrow_account, 255)
+
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
         passeur_bridge = AsyncMock()
+        escrow_query_service = AsyncMock()
 
-        # User without escrow
+        # User without escrow on blockchain
         user_id = uuid4()
         user = User(id=user_id, wallet_address=self._generate_valid_wallet())
 
         user_repo.get_by_id.return_value = user
+        escrow_query_service.check_escrow_exists.return_value = False
 
         # Execute use case
         use_case = WithdrawFromEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
             passeur_bridge=passeur_bridge,
+            escrow_query_service=escrow_query_service,
+            program_id="11111111111111111111111111111111",
         )
 
         try:
@@ -193,32 +213,40 @@ class TestWithdrawFromEscrow(LaborantTest):
                 context="Test",
             )
 
-    async def test_withdraw_insufficient_balance(self):
+    @patch("pourtier.application.use_cases.withdraw_from_escrow.derive_escrow_pda")
+    async def test_withdraw_insufficient_balance(self, mock_derive_pda):
         """Test withdrawal fails with insufficient balance."""
         self.reporter.info(
             "Testing insufficient balance error",
             context="Test",
         )
 
+        # Mock PDA derivation
+        escrow_account = self._generate_escrow_account()
+        mock_derive_pda.return_value = (escrow_account, 255)
+
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
         passeur_bridge = AsyncMock()
+        escrow_query_service = AsyncMock()
 
         # User with insufficient balance
         user_id = uuid4()
         wallet = self._generate_valid_wallet()
         user = User(id=user_id, wallet_address=wallet)
-        user.initialize_escrow(escrow_account=self._generate_escrow_account())
         user.update_escrow_balance(Decimal("30.0"))
 
         user_repo.get_by_id.return_value = user
+        escrow_query_service.check_escrow_exists.return_value = True
 
         # Execute use case
         use_case = WithdrawFromEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
             passeur_bridge=passeur_bridge,
+            escrow_query_service=escrow_query_service,
+            program_id="11111111111111111111111111111111",
         )
 
         try:
@@ -236,22 +264,27 @@ class TestWithdrawFromEscrow(LaborantTest):
                 context="Test",
             )
 
-    async def test_withdraw_duplicate_transaction(self):
+    @patch("pourtier.application.use_cases.withdraw_from_escrow.derive_escrow_pda")
+    async def test_withdraw_duplicate_transaction(self, mock_derive_pda):
         """Test withdrawal fails if transaction already processed."""
         self.reporter.info(
             "Testing duplicate transaction error",
             context="Test",
         )
 
+        # Mock PDA derivation
+        escrow_account = self._generate_escrow_account()
+        mock_derive_pda.return_value = (escrow_account, 255)
+
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
         passeur_bridge = AsyncMock()
+        escrow_query_service = AsyncMock()
 
         # User with escrow
         user_id = uuid4()
         user = User(id=user_id, wallet_address=self._generate_valid_wallet())
-        user.initialize_escrow(escrow_account=self._generate_escrow_account())
         user.update_escrow_balance(Decimal("100.0"))
 
         # Existing transaction
@@ -267,6 +300,7 @@ class TestWithdrawFromEscrow(LaborantTest):
         )
 
         user_repo.get_by_id.return_value = user
+        escrow_query_service.check_escrow_exists.return_value = True
         passeur_bridge.submit_signed_transaction.return_value = tx_signature
         tx_repo.get_by_tx_signature.return_value = existing_tx
 
@@ -275,6 +309,8 @@ class TestWithdrawFromEscrow(LaborantTest):
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
             passeur_bridge=passeur_bridge,
+            escrow_query_service=escrow_query_service,
+            program_id="11111111111111111111111111111111",
         )
 
         try:
@@ -291,29 +327,37 @@ class TestWithdrawFromEscrow(LaborantTest):
                 context="Test",
             )
 
-    async def test_withdraw_negative_amount(self):
+    @patch("pourtier.application.use_cases.withdraw_from_escrow.derive_escrow_pda")
+    async def test_withdraw_negative_amount(self, mock_derive_pda):
         """Test withdrawal fails with negative amount."""
         self.reporter.info("Testing negative amount error", context="Test")
+
+        # Mock PDA derivation
+        escrow_account = self._generate_escrow_account()
+        mock_derive_pda.return_value = (escrow_account, 255)
 
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
         passeur_bridge = AsyncMock()
+        escrow_query_service = AsyncMock()
 
         # Create test data
         user_id = uuid4()
         wallet = self._generate_valid_wallet()
         user = User(id=user_id, wallet_address=wallet)
-        user.initialize_escrow(escrow_account=self._generate_escrow_account())
         user.update_escrow_balance(Decimal("100.0"))
 
         user_repo.get_by_id.return_value = user
+        escrow_query_service.check_escrow_exists.return_value = True
 
         # Execute use case
         use_case = WithdrawFromEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
             passeur_bridge=passeur_bridge,
+            escrow_query_service=escrow_query_service,
+            program_id="11111111111111111111111111111111",
         )
 
         try:
@@ -330,25 +374,29 @@ class TestWithdrawFromEscrow(LaborantTest):
                 context="Test",
             )
 
-    async def test_withdraw_all_balance(self):
+    @patch("pourtier.application.use_cases.withdraw_from_escrow.derive_escrow_pda")
+    async def test_withdraw_all_balance(self, mock_derive_pda):
         """Test withdrawing entire balance."""
         self.reporter.info("Testing withdraw all balance", context="Test")
+
+        # Mock PDA derivation
+        escrow_account = self._generate_escrow_account()
+        mock_derive_pda.return_value = (escrow_account, 255)
 
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
         passeur_bridge = AsyncMock()
+        escrow_query_service = AsyncMock()
 
         # Create test data
         user_id = uuid4()
         wallet = self._generate_valid_wallet()
-        escrow_account = self._generate_escrow_account()
         total_balance = Decimal("100.0")
         signed_transaction = "base64_signed_transaction"
         tx_signature = "5" * 88
 
         user = User(id=user_id, wallet_address=wallet)
-        user.initialize_escrow(escrow_account=escrow_account)
         user.update_escrow_balance(total_balance)
 
         # Create expected transaction
@@ -365,6 +413,7 @@ class TestWithdrawFromEscrow(LaborantTest):
         # Mock repository responses
         user_repo.get_by_id.return_value = user
         user_repo.update.return_value = user
+        escrow_query_service.check_escrow_exists.return_value = True
         tx_repo.get_by_tx_signature.return_value = None
         tx_repo.create.return_value = expected_transaction
         passeur_bridge.submit_signed_transaction.return_value = tx_signature
@@ -374,6 +423,8 @@ class TestWithdrawFromEscrow(LaborantTest):
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
             passeur_bridge=passeur_bridge,
+            escrow_query_service=escrow_query_service,
+            program_id="11111111111111111111111111111111",
         )
 
         result = await use_case.execute(
