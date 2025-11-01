@@ -26,12 +26,14 @@ class EscrowBalanceResult:
         escrow_account: Escrow PDA address (computed from wallet)
         balance: Current balance in escrow
         is_initialized: Whether escrow account exists on blockchain
+        token_mint: Token mint address (USDC)
         last_synced_at: When balance was last synced from blockchain
     """
 
     escrow_account: str
     balance: Decimal
     is_initialized: bool
+    token_mint: str
     last_synced_at: Optional[datetime]
 
 
@@ -172,5 +174,6 @@ class GetEscrowBalance:
             is_initialized=(
                 is_initialized if should_check else True
             ),  # From blockchain or assume true
+            token_mint="USDC",  # Hardcoded for now
             last_synced_at=last_synced,
         )

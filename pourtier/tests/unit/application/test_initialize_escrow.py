@@ -4,7 +4,7 @@ Unit tests for InitializeEscrow use case.
 Tests escrow initialization business logic.
 
 Usage:
-    python -m pourtier.tests.unit.application.test_initialize_escrow
+    python tests/unit/application/test_initialize_escrow.py
     laborant pourtier --unit
 """
 
@@ -33,23 +33,28 @@ class TestInitializeEscrow(LaborantTest):
     # ================================================================
 
     def _generate_valid_wallet(self) -> str:
-        """Generate valid Base58 wallet address (44 chars)."""
-        return "1" * 44
+        """Generate valid Base58 wallet address."""
+        return "kshy5yns5FGGXcFVfjT2fTzVsQLFnbZzL9zuh1ZKR2y"
 
     def _generate_escrow_account(self) -> str:
         """Generate valid escrow PDA address."""
-        return "E" * 44
+        return "EscrowPDA1111111111111111111111111111111111"
 
     # ================================================================
     # Test Methods
     # ================================================================
 
-    async def test_initialize_escrow_success(self):
+    @patch("pourtier.application.use_cases.initialize_escrow.derive_escrow_pda")
+    async def test_initialize_escrow_success(self, mock_derive_pda):
         """Test successful escrow initialization."""
         self.reporter.info(
             "Testing successful escrow initialization",
             context="Test",
         )
+
+        # Mock PDA derivation
+        escrow_account = self._generate_escrow_account()
+        mock_derive_pda.return_value = (escrow_account, 255)
 
         # Mock dependencies
         user_repo = AsyncMock()
@@ -59,9 +64,9 @@ class TestInitializeEscrow(LaborantTest):
         # Create test data
         user_id = uuid4()
         wallet = self._generate_valid_wallet()
-        escrow_account = self._generate_escrow_account()
         signed_transaction = "base64_signed_transaction_here"
         tx_signature = "5" * 88  # Valid Solana signature
+        program_id = "11111111111111111111111111111111"
 
         user = User(id=user_id, wallet_address=wallet)
 
@@ -76,21 +81,20 @@ class TestInitializeEscrow(LaborantTest):
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
             passeur_bridge=passeur_bridge,
+            program_id=program_id,
         )
 
-        # Mock _derive_escrow_pda to return expected escrow
-        with patch.object(use_case, "_derive_escrow_pda", return_value=escrow_account):
-            result_user, result_signature = await use_case.execute(
-                user_id=user_id,
-                signed_transaction=signed_transaction,
-                token_mint="USDC",
-            )
+        result_user, result_signature = await use_case.execute(
+            user_id=user_id,
+            signed_transaction=signed_transaction,
+            token_mint="USDC",
+        )
 
         # Verify
-        assert result_user.escrow_account == escrow_account
-        assert result_user.escrow_token_mint == "USDC"
         assert result_signature == tx_signature
+        assert result_user.last_blockchain_check is not None
         user_repo.get_by_id.assert_called_once_with(user_id)
+        mock_derive_pda.assert_called_once_with(wallet, program_id)
         passeur_bridge.submit_signed_transaction.assert_called_once_with(
             signed_transaction
         )
@@ -116,6 +120,7 @@ class TestInitializeEscrow(LaborantTest):
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
             passeur_bridge=passeur_bridge,
+            program_id="11111111111111111111111111111111",
         )
 
         try:
@@ -131,30 +136,39 @@ class TestInitializeEscrow(LaborantTest):
                 context="Test",
             )
 
-    async def test_initialize_escrow_already_initialized(self):
-        """Test initialization fails if escrow already exists."""
+    @patch("pourtier.application.use_cases.initialize_escrow.derive_escrow_pda")
+    async def test_initialize_escrow_already_initialized(self, mock_derive_pda):
+        """Test initialization fails if escrow already exists on blockchain."""
         self.reporter.info(
             "Testing escrow already initialized error",
             context="Test",
         )
+
+        # Mock PDA derivation
+        escrow_account = self._generate_escrow_account()
+        mock_derive_pda.return_value = (escrow_account, 255)
 
         # Mock dependencies
         user_repo = AsyncMock()
         tx_repo = AsyncMock()
         passeur_bridge = AsyncMock()
 
-        # User with existing escrow
+        # User exists
         user_id = uuid4()
         user = User(id=user_id, wallet_address=self._generate_valid_wallet())
-        user.initialize_escrow(escrow_account=self._generate_escrow_account())
 
         user_repo.get_by_id.return_value = user
+        # Blockchain rejects because account already exists
+        passeur_bridge.submit_signed_transaction.side_effect = Exception(
+            "Error: Account already in use"
+        )
 
         # Execute use case
         use_case = InitializeEscrow(
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
             passeur_bridge=passeur_bridge,
+            program_id="11111111111111111111111111111111",
         )
 
         try:
@@ -170,12 +184,17 @@ class TestInitializeEscrow(LaborantTest):
                 context="Test",
             )
 
-    async def test_initialize_escrow_with_custom_token(self):
-        """Test initialization with custom token mint."""
+    @patch("pourtier.application.use_cases.initialize_escrow.derive_escrow_pda")
+    async def test_initialize_escrow_with_custom_token(self, mock_derive_pda):
+        """Test initialization with custom token mint (always USDC now)."""
         self.reporter.info(
-            "Testing initialization with custom token",
+            "Testing initialization with token mint",
             context="Test",
         )
+
+        # Mock PDA derivation
+        escrow_account = self._generate_escrow_account()
+        mock_derive_pda.return_value = (escrow_account, 255)
 
         # Mock dependencies
         user_repo = AsyncMock()
@@ -185,7 +204,6 @@ class TestInitializeEscrow(LaborantTest):
         # Create test data
         user_id = uuid4()
         user = User(id=user_id, wallet_address=self._generate_valid_wallet())
-        escrow_account = self._generate_escrow_account()
         signed_transaction = "base64_signed_transaction"
         tx_signature = "5" * 88
 
@@ -199,21 +217,20 @@ class TestInitializeEscrow(LaborantTest):
             user_repository=user_repo,
             escrow_transaction_repository=tx_repo,
             passeur_bridge=passeur_bridge,
+            program_id="11111111111111111111111111111111",
         )
 
-        # Mock _derive_escrow_pda
-        with patch.object(use_case, "_derive_escrow_pda", return_value=escrow_account):
-            result_user, result_signature = await use_case.execute(
-                user_id=user_id,
-                signed_transaction=signed_transaction,
-                token_mint="SOL",
-            )
+        result_user, result_signature = await use_case.execute(
+            user_id=user_id,
+            signed_transaction=signed_transaction,
+            token_mint="USDC",  # Token mint passed but hardcoded in transaction
+        )
 
-        # Verify custom token
-        assert result_user.escrow_token_mint == "SOL"
+        # Verify
         assert result_signature == tx_signature
+        assert result_user.last_blockchain_check is not None
         self.reporter.info(
-            "Custom token initialization successful",
+            "Initialization successful with token mint",
             context="Test",
         )
 
