@@ -3,11 +3,12 @@ Graceful shutdown handler for microservices.
 
 Handles SIGTERM and SIGINT signals to allow clean service termination.
 """
-import signal
+
 import asyncio
 import logging
-from typing import List, Callable, Optional
+import signal
 from dataclasses import dataclass
+from typing import Callable, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +54,7 @@ class GracefulShutdown:
 
     def _handle_signal(self, signum, frame):
         """Handle shutdown signal."""
-        logger.info(
-            f"Received signal {signum}, initiating graceful shutdown..."
-        )
+        logger.info(f"Received signal {signum}, initiating graceful shutdown...")
         self._shutdown_event.set()
 
     def on_shutdown(self, func: Callable):
@@ -73,23 +72,15 @@ class GracefulShutdown:
 
     async def shutdown(self):
         """Execute all shutdown handlers."""
-        logger.info(
-            f"Running {len(self._shutdown_handlers)} shutdown handlers..."
-        )
+        logger.info(f"Running {len(self._shutdown_handlers)} shutdown handlers...")
 
         for handler in self._shutdown_handlers:
             try:
-                await asyncio.wait_for(
-                    handler(), timeout=self.config.timeout
-                )
+                await asyncio.wait_for(handler(), timeout=self.config.timeout)
             except asyncio.TimeoutError:
-                logger.error(
-                    f"Shutdown handler {handler.__name__} timed out"
-                )
+                logger.error(f"Shutdown handler {handler.__name__} timed out")
             except Exception as e:
-                logger.error(
-                    f"Error in shutdown handler {handler.__name__}: {e}"
-                )
+                logger.error(f"Error in shutdown handler {handler.__name__}: {e}")
 
         logger.info("Graceful shutdown complete")
 

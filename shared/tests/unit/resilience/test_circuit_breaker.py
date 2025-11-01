@@ -9,14 +9,13 @@ Usage:
 
 import time
 
-from shared.tests import LaborantTest
-
 from shared.resilience import (
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerOpenError,
     CircuitBreakerState,
 )
+from shared.tests import LaborantTest
 
 
 class TestCircuitBreaker(LaborantTest):

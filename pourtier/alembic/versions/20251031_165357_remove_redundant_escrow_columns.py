@@ -23,7 +23,7 @@ def upgrade() -> None:
     """Remove redundant escrow columns."""
     # Drop index FIRST (before dropping column)
     op.drop_index("ix_users_escrow_account", table_name="users", if_exists=True)
-    
+
     # Then drop columns
     op.drop_column("users", "escrow_account")
     op.drop_column("users", "escrow_token_mint")
@@ -38,7 +38,7 @@ def downgrade() -> None:
     op.add_column(
         "users", sa.Column("escrow_initialized_at", sa.DateTime(), nullable=True)
     )
-    
+
     # Then restore index
     op.create_index(
         "ix_users_escrow_account",

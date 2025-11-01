@@ -7,7 +7,7 @@ Defines health check interface and status enums.
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, Optional, Protocol
 
 
 class HealthStatus(str, Enum):
@@ -99,3 +99,35 @@ class HealthReport:
     def is_ready(self) -> bool:
         """Check if service is ready (healthy or degraded)."""
         return self.status in (HealthStatus.HEALTHY, HealthStatus.DEGRADED)
+
+
+class HealthChecker(Protocol):
+    """
+    Protocol for health checker implementations.
+
+    Each service should implement this protocol with service-specific checks.
+    """
+
+    def check_liveness(self) -> HealthReport:
+        """
+        Perform liveness check.
+
+        Liveness checks if service is alive and functioning.
+        Failure indicates service needs restart.
+
+        Returns:
+            HealthReport with liveness status
+        """
+        ...
+
+    def check_readiness(self) -> HealthReport:
+        """
+        Perform readiness check.
+
+        Readiness checks if service can handle requests.
+        Failure indicates service should not receive traffic.
+
+        Returns:
+            HealthReport with readiness status
+        """
+        ...

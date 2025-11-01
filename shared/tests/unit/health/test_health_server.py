@@ -12,9 +12,9 @@ from threading import Thread
 from unittest.mock import Mock
 
 import requests
-from shared.tests import LaborantTest
 
 from shared.health import HealthChecker, HealthServer
+from shared.tests import LaborantTest
 
 
 class TestHealthServer(LaborantTest):

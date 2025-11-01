@@ -9,11 +9,11 @@ Usage:
 
 from unittest.mock import Mock, patch
 
-from shared.tests import LaborantTest
-
 from tsdl.domain.exceptions import TSDLParseError
-from shared.resilience import CircuitBreakerState
 from tsdl.infrastructure.tsdl_engine import TSDLEngine
+
+from shared.resilience import CircuitBreakerState
+from shared.tests import LaborantTest
 
 
 class TestCircuitBreakerIntegration(LaborantTest):

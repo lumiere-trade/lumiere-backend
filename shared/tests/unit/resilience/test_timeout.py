@@ -10,11 +10,11 @@ Usage:
 import time
 from unittest.mock import Mock, patch
 
-from shared.tests import LaborantTest
-
 from tsdl.config import Settings, override_settings, reset_settings
 from tsdl.domain.exceptions import TSDLParseError
+
 from shared.resilience.timeout import TimeoutContext, TimeoutError, timeout
+from shared.tests import LaborantTest
 
 
 class TestTimeoutContext(LaborantTest):
