@@ -8,7 +8,7 @@ Usage:
     laborant pourtier --unit
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
