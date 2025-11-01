@@ -122,9 +122,7 @@ class ValidateUserForDeployment:
         )
 
         # 4. Check blockchain if escrow exists
-        has_escrow = await self.escrow_query_service.check_escrow_exists(
-            escrow_account
-        )
+        has_escrow = await self.escrow_query_service.check_escrow_exists(escrow_account)
 
         if not has_escrow:
             validation_errors.append("Escrow not initialized")

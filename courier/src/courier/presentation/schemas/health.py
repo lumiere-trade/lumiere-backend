@@ -11,7 +11,9 @@ from pydantic import BaseModel, Field
 class ComponentHealth(BaseModel):
     """Health status for individual component."""
 
-    status: str = Field(..., description="Component status (healthy, degraded, unhealthy)")
+    status: str = Field(
+        ..., description="Component status (healthy, degraded, unhealthy)"
+    )
     message: Optional[str] = Field(None, description="Status message")
     details: Optional[Dict[str, Any]] = Field(None, description="Additional details")
 

@@ -121,9 +121,7 @@ class PasseurQueryService(IEscrowQueryService):
         """
         try:
             client = await self._ensure_client()
-            response = await client.get(
-                f"{self.bridge_url}/escrow/{escrow_account}"
-            )
+            response = await client.get(f"{self.bridge_url}/escrow/{escrow_account}")
 
             # 404 = account doesn't exist (normal case)
             if response.status_code == 404:
@@ -141,7 +139,9 @@ class PasseurQueryService(IEscrowQueryService):
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 return False
-            raise BlockchainError(f"Failed to check escrow existence: {e.response.text}")
+            raise BlockchainError(
+                f"Failed to check escrow existence: {e.response.text}"
+            )
         except httpx.RequestError as e:
             raise BlockchainError(f"Network error checking escrow: {e}")
 

@@ -4,7 +4,7 @@ Retrieves user's escrow balance with blockchain sync.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID
@@ -168,7 +168,9 @@ class GetEscrowBalance:
         # 5. Return result (escrow_account always computed)
         return EscrowBalanceResult(
             escrow_account=escrow_account,  # Computed (always correct)
-            balance=user.escrow_balance,    # Cached (may be stale)
-            is_initialized=is_initialized if should_check else True,  # From blockchain or assume true
+            balance=user.escrow_balance,  # Cached (may be stale)
+            is_initialized=(
+                is_initialized if should_check else True
+            ),  # From blockchain or assume true
             last_synced_at=last_synced,
         )
