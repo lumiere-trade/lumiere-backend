@@ -1,10 +1,10 @@
 """
 Unit tests for User entity.
 
-Tests user creation, validation, and escrow operations.
+Tests user creation, validation, and balance operations.
 
 Usage:
-    python -m pourtier.tests.unit.domain.entities.test_user
+    python tests/unit/domain/entities/test_user.py
     laborant pourtier --unit
 """
 
@@ -107,67 +107,18 @@ class TestUser(LaborantTest):
         self.reporter.info("44-char wallet accepted", context="Test")
 
     # ================================================================
-    # Escrow tests
+    # Balance tests (escrow balance cached in DB)
     # ================================================================
 
     def test_user_default_escrow_fields(self):
-        """Test User has default escrow fields."""
-        self.reporter.info("Testing default escrow fields", context="Test")
+        """Test User has default balance field."""
+        self.reporter.info("Testing default balance field", context="Test")
 
         user = User(wallet_address="A" * 44)
 
-        assert user.escrow_account is None
         assert user.escrow_balance == Decimal("0")
-        assert user.escrow_token_mint is None
-        assert user.escrow_initialized_at is None
-        self.reporter.info("Default escrow fields correct", context="Test")
-
-    def test_initialize_escrow(self):
-        """Test initialize_escrow() sets escrow account and timestamp."""
-        self.reporter.info("Testing initialize_escrow()", context="Test")
-
-        user = User(wallet_address="A" * 44)
-        escrow_pda = "EscrowPDA123456789012345678901234"
-
-        user.initialize_escrow(escrow_account=escrow_pda)
-
-        assert user.escrow_account == escrow_pda
-        assert user.escrow_token_mint == "USDC"
-        assert user.escrow_initialized_at is not None
-        assert isinstance(user.escrow_initialized_at, datetime)
-        self.reporter.info("Escrow initialized successfully", context="Test")
-
-    def test_initialize_escrow_with_custom_token(self):
-        """Test initialize_escrow() with custom token mint."""
-        self.reporter.info(
-            "Testing initialize_escrow() with custom token", context="Test"
-        )
-
-        user = User(wallet_address="A" * 44)
-        escrow_pda = "EscrowPDA123456789012345678901234"
-
-        user.initialize_escrow(escrow_account=escrow_pda, token_mint="SOL")
-
-        assert user.escrow_account == escrow_pda
-        assert user.escrow_token_mint == "SOL"
-        assert user.escrow_initialized_at is not None
-        self.reporter.info("Escrow initialized with custom token", context="Test")
-
-    def test_reject_reinitialize_escrow(self):
-        """Test initialize_escrow() rejects if already initialized."""
-        self.reporter.info(
-            "Testing rejection of escrow reinitialization", context="Test"
-        )
-
-        user = User(wallet_address="A" * 44)
-        user.initialize_escrow(escrow_account="EscrowPDA123456789012345678901234")
-
-        try:
-            user.initialize_escrow(escrow_account="NewEscrow123456789012345678901234")
-            assert False, "Should have raised ValueError"
-        except ValueError as e:
-            assert "Escrow already initialized" in str(e)
-            self.reporter.info("Reinitialization correctly rejected", context="Test")
+        assert user.last_blockchain_check is None
+        self.reporter.info("Default balance field correct", context="Test")
 
     def test_update_escrow_balance(self):
         """Test update_escrow_balance() updates balance."""
@@ -205,6 +156,22 @@ class TestUser(LaborantTest):
         assert user.has_sufficient_balance(Decimal("150.0")) is False
         self.reporter.info("Balance check working correctly", context="Test")
 
+    def test_update_blockchain_check_timestamp(self):
+        """Test update_blockchain_check_timestamp() sets timestamp."""
+        self.reporter.info(
+            "Testing update_blockchain_check_timestamp()", context="Test"
+        )
+
+        user = User(wallet_address="A" * 44)
+
+        assert user.last_blockchain_check is None
+
+        user.update_blockchain_check_timestamp()
+
+        assert user.last_blockchain_check is not None
+        assert isinstance(user.last_blockchain_check, datetime)
+        self.reporter.info("Blockchain check timestamp updated", context="Test")
+
     # ================================================================
     # Serialization tests
     # ================================================================
@@ -222,11 +189,8 @@ class TestUser(LaborantTest):
         assert result["wallet_address"] == wallet
         assert "created_at" in result
         assert "updated_at" in result
-        assert result["escrow_account"] is None
         assert result["escrow_balance"] == "0"
-        assert result["escrow_token_mint"] is None
-        assert result["escrow_initialized_at"] is None
-        assert len(result) == 8
+        assert result["last_blockchain_check"] is None
         self.reporter.info("to_dict() serialization correct", context="Test")
 
     def test_to_dict_timestamps_iso_format(self):
@@ -243,26 +207,21 @@ class TestUser(LaborantTest):
         assert "T" in result["updated_at"]
         self.reporter.info("Timestamps in ISO format", context="Test")
 
-    def test_to_dict_with_initialized_escrow(self):
-        """Test to_dict() includes initialized escrow data."""
-        self.reporter.info("Testing to_dict() with escrow data", context="Test")
+    def test_to_dict_with_balance(self):
+        """Test to_dict() includes balance data."""
+        self.reporter.info("Testing to_dict() with balance", context="Test")
 
         user = User(wallet_address="A" * 44)
-        user.initialize_escrow(
-            escrow_account="EscrowPDA123456789012345678901234",
-            token_mint="SOL",
-        )
         user.update_escrow_balance(Decimal("250.75"))
+        user.update_blockchain_check_timestamp()
 
         result = user.to_dict()
 
-        assert result["escrow_account"] == "EscrowPDA123456789012345678901234"
         assert result["escrow_balance"] == "250.75"
-        assert result["escrow_token_mint"] == "SOL"
-        assert result["escrow_initialized_at"] is not None
-        assert isinstance(result["escrow_initialized_at"], str)
-        assert "T" in result["escrow_initialized_at"]
-        self.reporter.info("to_dict() includes escrow data", context="Test")
+        assert result["last_blockchain_check"] is not None
+        assert isinstance(result["last_blockchain_check"], str)
+        assert "T" in result["last_blockchain_check"]
+        self.reporter.info("to_dict() includes balance data", context="Test")
 
     # ================================================================
     # Misc tests
