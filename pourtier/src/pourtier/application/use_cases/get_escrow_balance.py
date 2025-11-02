@@ -105,9 +105,7 @@ class GetEscrowBalance:
         # 4. Query blockchain for balance if initialized
         balance = Decimal("0")
         if is_initialized:
-            balance = await self.escrow_query_service.get_escrow_balance(
-                escrow_account
-            )
+            balance = await self.escrow_query_service.get_escrow_balance(escrow_account)
 
         # 5. Return result (all data from blockchain)
         return EscrowBalanceResult(

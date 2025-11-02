@@ -88,16 +88,18 @@ class TestGetEscrowBalance(LaborantTest):
         assert result.is_initialized is True
         assert result.token_mint == "USDC"
         assert result.last_synced_at is not None
-        
+
         # Verify blockchain was queried
         user_repo.get_by_id.assert_called_once_with(user_id)
         query_service.check_escrow_exists.assert_called_once_with(escrow_account)
         query_service.get_escrow_balance.assert_called_once_with(escrow_account)
-        
+
         # User is immutable - no update
         user_repo.update.assert_not_called()
 
-        self.reporter.info("Balance retrieved from blockchain successfully", context="Test")
+        self.reporter.info(
+            "Balance retrieved from blockchain successfully", context="Test"
+        )
 
     async def test_get_balance_user_not_found(self):
         """Test balance retrieval fails if user not found."""
@@ -165,10 +167,10 @@ class TestGetEscrowBalance(LaborantTest):
         assert result.is_initialized is False
         assert result.escrow_account == escrow_account
         query_service.check_escrow_exists.assert_called_once()
-        
+
         # No user update - User is immutable
         user_repo.update.assert_not_called()
-        
+
         self.reporter.info(
             "Escrow not initialized status returned correctly",
             context="Test",
@@ -213,8 +215,10 @@ class TestGetEscrowBalance(LaborantTest):
         assert result.is_initialized is True
         query_service.check_escrow_exists.assert_called_once()
         query_service.get_escrow_balance.assert_called_once()
-        
-        self.reporter.info("Zero balance retrieved correctly from blockchain", context="Test")
+
+        self.reporter.info(
+            "Zero balance retrieved correctly from blockchain", context="Test"
+        )
 
     @patch("pourtier.application.use_cases.get_escrow_balance.derive_escrow_pda")
     async def test_get_balance_large_amount(self, mock_derive_pda):
@@ -259,8 +263,10 @@ class TestGetEscrowBalance(LaborantTest):
         assert result.is_initialized is True
         query_service.check_escrow_exists.assert_called_once()
         query_service.get_escrow_balance.assert_called_once()
-        
-        self.reporter.info("Large balance retrieved correctly from blockchain", context="Test")
+
+        self.reporter.info(
+            "Large balance retrieved correctly from blockchain", context="Test"
+        )
 
 
 if __name__ == "__main__":

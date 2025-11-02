@@ -106,7 +106,7 @@ class TestValidateUserForDeployment(LaborantTest):
         assert result.escrow_account == escrow_account
         assert result.escrow_balance == Decimal("100.0")
         assert len(result.validation_errors) == 0
-        
+
         # Verify blockchain was queried
         escrow_query_service.get_escrow_balance.assert_called_once_with(escrow_account)
 
@@ -341,7 +341,7 @@ class TestValidateUserForDeployment(LaborantTest):
         assert any(
             "Insufficient escrow balance" in err for err in result.validation_errors
         )
-        
+
         # Verify blockchain was queried
         escrow_query_service.get_escrow_balance.assert_called_once_with(escrow_account)
 
@@ -441,7 +441,7 @@ class TestValidateUserForDeployment(LaborantTest):
         assert result.is_valid is True
         assert result.can_deploy is True
         assert result.subscription_plan == "free"
-        
+
         # Verify blockchain was queried
         escrow_query_service.get_escrow_balance.assert_called_once_with(escrow_account)
 

@@ -119,7 +119,7 @@ class TestUser(LaborantTest):
         assert user.id == original_id
         assert user.wallet_address == original_wallet
         assert user.created_at == original_created
-        
+
         self.reporter.info("User core identity is immutable", context="Test")
 
     # ================================================================
@@ -138,12 +138,12 @@ class TestUser(LaborantTest):
         assert result["id"] == str(user.id)
         assert result["wallet_address"] == wallet
         assert "created_at" in result
-        
+
         # No balance or blockchain check fields
         assert "escrow_balance" not in result
         assert "last_blockchain_check" not in result
         assert "updated_at" not in result
-        
+
         self.reporter.info("to_dict() serialization correct", context="Test")
 
     def test_to_dict_timestamp_iso_format(self):
@@ -182,13 +182,13 @@ class TestUser(LaborantTest):
         assert hasattr(user, "id")
         assert hasattr(user, "wallet_address")
         assert hasattr(user, "created_at")
-        
+
         # User does NOT have escrow fields (queried from blockchain)
         assert not hasattr(user, "escrow_balance")
         assert not hasattr(user, "escrow_account")
         assert not hasattr(user, "last_blockchain_check")
         assert not hasattr(user, "updated_at")
-        
+
         self.reporter.info("User is minimal Web3 identity", context="Test")
 
 

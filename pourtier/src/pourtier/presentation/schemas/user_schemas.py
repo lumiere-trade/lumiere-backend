@@ -1,6 +1,7 @@
 """
 User API schemas.
 """
+
 from datetime import datetime
 from typing import List
 
@@ -23,7 +24,7 @@ class CreateUserRequest(BaseModel):
 class UserResponse(BaseModel):
     """
     User response - minimal immutable identity.
-    
+
     Architecture decision:
     - User entity is minimal Web3 identity
     - Escrow data queried separately via GET /escrow/balance

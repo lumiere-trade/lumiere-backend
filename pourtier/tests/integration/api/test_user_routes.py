@@ -7,10 +7,9 @@ Usage:
     laborant test pourtier --integration
 """
 
-import base58
 import os
-from decimal import Decimal
 
+import base58
 import httpx
 from sqlalchemy import text
 
@@ -123,7 +122,7 @@ class TestUserRoutes(LaborantTest):
         This generates a valid Base58 string that can be used for PDA derivation.
         """
         random_bytes = os.urandom(32)
-        return base58.b58encode(random_bytes).decode('ascii')
+        return base58.b58encode(random_bytes).decode("ascii")
 
     async def _create_test_user(self) -> User:
         """Create test user in database (immutable, no balance)."""
@@ -168,7 +167,7 @@ class TestUserRoutes(LaborantTest):
         assert "created_at" in data
         assert "pending_documents" in data
         assert isinstance(data["pending_documents"], list)
-        
+
         # User entity does not include escrow_balance (queried separately)
         assert "escrow_balance" not in data
         assert "updated_at" not in data
@@ -237,7 +236,7 @@ class TestUserRoutes(LaborantTest):
         assert isinstance(data["pending_documents"], list)
         # User hasn't accepted docs, so should have pending
         assert len(data["pending_documents"]) > 0
-        
+
         # User entity does not include escrow_balance (queried via /balance endpoint)
         assert "escrow_balance" not in data
 
@@ -355,7 +354,7 @@ class TestUserRoutes(LaborantTest):
 
         data = response.json()
         assert "pending_documents" in data
-        
+
         # User entity does not include escrow_balance field
         assert "escrow_balance" not in data
         assert "updated_at" not in data

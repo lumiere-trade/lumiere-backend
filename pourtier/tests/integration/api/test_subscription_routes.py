@@ -7,12 +7,11 @@ Usage:
     laborant pourtier --integration
 """
 
-import base58
 import os
 from decimal import Decimal
 from unittest.mock import AsyncMock
-from uuid import uuid4
 
+import base58
 import httpx
 from sqlalchemy import delete
 
@@ -68,9 +67,7 @@ class TestSubscriptionRoutes(LaborantTest):
 
         # Create mock escrow query service - sufficient balance by default
         TestSubscriptionRoutes.mock_escrow_query = AsyncMock()
-        TestSubscriptionRoutes.mock_escrow_query.check_escrow_exists.return_value = (
-            True
-        )
+        TestSubscriptionRoutes.mock_escrow_query.check_escrow_exists.return_value = True
         TestSubscriptionRoutes.mock_escrow_query.get_escrow_balance.return_value = (
             Decimal("500.0")
         )
@@ -150,7 +147,7 @@ class TestSubscriptionRoutes(LaborantTest):
         This generates a valid Base58 string that can be used for PDA derivation.
         """
         random_bytes = os.urandom(32)
-        return base58.b58encode(random_bytes).decode('ascii')
+        return base58.b58encode(random_bytes).decode("ascii")
 
     async def _create_test_user(self):
         """Create test user (immutable, no balance)."""

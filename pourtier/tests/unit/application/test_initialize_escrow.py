@@ -99,7 +99,7 @@ class TestInitializeEscrow(LaborantTest):
             signed_transaction
         )
         tx_repo.create.assert_called_once()
-        
+
         # User is immutable - no update
         user_repo.update.assert_not_called()
 
@@ -230,10 +230,10 @@ class TestInitializeEscrow(LaborantTest):
         # Verify
         assert result_signature == tx_signature
         assert result_user == user  # Same user returned (immutable)
-        
+
         # User is immutable - no update
         user_repo.update.assert_not_called()
-        
+
         self.reporter.info(
             "Initialization successful with token mint",
             context="Test",
