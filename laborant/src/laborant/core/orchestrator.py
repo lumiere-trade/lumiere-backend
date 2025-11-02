@@ -424,8 +424,8 @@ class Laborant:
                 self.console.print(test_panel)
                 self.console.print()  # Blank line after panel
 
-                # Print error details if failed and verbose
-                if not result.success and self.verbose:
+                # Print error details if failed (ALWAYS, not just verbose)
+                if not result.success:
                     for test in result.tests:
                         if test.error:
                             self.reporter.error(
