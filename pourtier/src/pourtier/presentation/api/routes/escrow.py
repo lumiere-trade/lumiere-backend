@@ -19,6 +19,7 @@ from pourtier.application.use_cases.prepare_initialize_escrow import (
     PrepareInitializeEscrow,
 )
 from pourtier.application.use_cases.withdraw_from_escrow import WithdrawFromEscrow
+from pourtier.config.settings import get_settings
 from pourtier.di.dependencies import (
     get_db_session,
     get_deposit_to_escrow,
@@ -38,6 +39,7 @@ from pourtier.domain.exceptions import (
     InvalidTransactionError,
     ValidationError,
 )
+from pourtier.infrastructure.blockchain.solana_utils import derive_escrow_pda
 from pourtier.infrastructure.persistence.repositories.escrow_transaction_repository import (
     EscrowTransactionRepository,
 )
@@ -142,10 +144,17 @@ async def initialize_escrow(
             token_mint=request.token_mint,
         )
 
+        # Derive escrow account (not stored in User entity)
+        settings = get_settings()
+        escrow_account, _ = derive_escrow_pda(
+            user.wallet_address,
+            settings.ESCROW_PROGRAM_ID,
+        )
+
         return EscrowAccountResponse(
-            escrow_account=user.escrow_account,
+            escrow_account=escrow_account,
             balance=user.escrow_balance,
-            token_mint=user.escrow_token_mint,
+            token_mint=request.token_mint,  # Use request token_mint
             tx_signature=tx_signature,
         )
 
@@ -365,7 +374,7 @@ async def get_escrow_balance(
             balance=result.balance,
             token_mint=result.token_mint,
             is_initialized=result.is_initialized,
-            initialized_at=result.initialized_at,
+            initialized_at=None,  # No longer stored
             synced_from_blockchain=sync,
             last_synced_at=result.last_synced_at,
         )

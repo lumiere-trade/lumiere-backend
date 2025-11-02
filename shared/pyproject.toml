@@ -29,26 +29,11 @@ dev = [
     "mypy>=1.0.0",
 ]
 
-[tool.setuptools]
-packages = [
-    "shared",
-    "shared.blockchain",
-    "shared.indicators",
-    "shared.reporter",
-    "shared.reporter.emojis",
-    "shared.strategy",
-    "shared.resilience",
-    "shared.health",
-    "shared.lifecycle",
-    "shared.observability",
-    "shared.tests",
-]
-
-[tool.setuptools.package-dir]
-shared = "."
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools.package-data]
-"shared.blockchain" = ["keypairs/**/*.json"]
+"shared.blockchain.keypairs" = ["**/*.json"]
 
 [tool.black]
 line-length = 88

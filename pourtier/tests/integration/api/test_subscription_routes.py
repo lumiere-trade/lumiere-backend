@@ -8,6 +8,7 @@ Usage:
 """
 
 from decimal import Decimal
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import httpx
@@ -15,7 +16,7 @@ from sqlalchemy import delete
 
 from pourtier.config.settings import get_settings
 from pourtier.di.container import get_container
-from pourtier.di.dependencies import get_db_session
+from pourtier.di.dependencies import get_db_session, get_escrow_query_service
 from pourtier.domain.entities.user import User
 from pourtier.infrastructure.persistence.database import Database
 from pourtier.infrastructure.persistence.models import (
@@ -39,6 +40,7 @@ class TestSubscriptionRoutes(LaborantTest):
     client: httpx.AsyncClient = None
     test_user: User = None
     test_token: str = None
+    mock_escrow_query: AsyncMock = None
 
     async def async_setup(self):
         """Setup test database and API client."""
@@ -62,20 +64,29 @@ class TestSubscriptionRoutes(LaborantTest):
             await container.cache_client.connect()
             self.reporter.info("Redis cache connected", context="Setup")
 
+        # Create mock escrow query service
+        TestSubscriptionRoutes.mock_escrow_query = AsyncMock()
+        TestSubscriptionRoutes.mock_escrow_query.check_escrow_exists.return_value = True
+        TestSubscriptionRoutes.mock_escrow_query.get_escrow_balance.return_value = Decimal("500.0")
+
         app = create_app(settings)
 
         async def override_get_db_session():
             async with TestSubscriptionRoutes.db.session() as session:
                 yield session
 
+        def override_get_escrow_query():
+            return TestSubscriptionRoutes.mock_escrow_query
+
         app.dependency_overrides[get_db_session] = override_get_db_session
-        self.reporter.info("Database dependency overridden", context="Setup")
+        app.dependency_overrides[get_escrow_query_service] = override_get_escrow_query
+        self.reporter.info("Dependencies overridden", context="Setup")
 
         TestSubscriptionRoutes.client = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         )
 
-        await self._create_test_user_with_escrow()
+        await self._create_test_user()
         TestSubscriptionRoutes.test_token = self._generate_test_token()
 
         self.reporter.info("Subscription API tests ready", context="Setup")
@@ -113,8 +124,9 @@ class TestSubscriptionRoutes(LaborantTest):
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             user = await user_repo.get_by_id(self.test_user.id)
-            user.escrow_balance = Decimal("500.0")
+            user.update_escrow_balance(Decimal("500.0"))
             await user_repo.update(user)
+            await session.commit()
 
         settings = get_settings()
         if settings.REDIS_ENABLED:
@@ -131,15 +143,11 @@ class TestSubscriptionRoutes(LaborantTest):
         unique_id = str(uuid4()).replace("-", "")
         return unique_id.ljust(44, "0")
 
-    async def _create_test_user_with_escrow(self):
-        """Create test user with escrow and balance."""
+    async def _create_test_user(self):
+        """Create test user with balance."""
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             user = User(wallet_address=self._generate_unique_wallet())
-            user.initialize_escrow(
-                escrow_account="3aV1Pbb5bT4x7dPdKj2fhgrXM2kPGMsTs4zB7CMkKfki",
-                token_mint="USDC",
-            )
             user.update_escrow_balance(Decimal("500.0"))
             TestSubscriptionRoutes.test_user = await user_repo.create(user)
 
@@ -187,8 +195,9 @@ class TestSubscriptionRoutes(LaborantTest):
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             user = await user_repo.get_by_id(self.test_user.id)
-            user.escrow_balance = Decimal("5.0")
+            user.update_escrow_balance(Decimal("5.0"))
             await user_repo.update(user)
+            await session.commit()
 
         response = await self.client.post(
             "/api/subscriptions/",
@@ -369,10 +378,6 @@ class TestSubscriptionRoutes(LaborantTest):
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             other_user = User(wallet_address=self._generate_unique_wallet())
-            other_user.initialize_escrow(
-                escrow_account="4bW2Qcc6cU5y8sT3nZ4yK8pL9rN6mO8hP7qR5sT4uV3w",
-                token_mint="USDC",
-            )
             other_user = await user_repo.create(other_user)
 
         from pourtier.infrastructure.auth.jwt_handler import create_access_token
