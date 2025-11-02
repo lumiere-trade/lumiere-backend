@@ -147,7 +147,9 @@ class TestEscrowPrepareDeposit(LaborantTest):
             mock_bridge.__get__ = lambda *args: mock_instance
 
             # Mock escrow query service to return True
-            with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+            with patch(
+                "pourtier.di.container.DIContainer.escrow_query_service"
+            ) as mock_query:
                 mock_query_instance = AsyncMock()
                 mock_query_instance.check_escrow_exists.return_value = True
                 mock_query.__get__ = lambda *args: mock_query_instance
@@ -220,7 +222,9 @@ class TestEscrowPrepareDeposit(LaborantTest):
         )
 
         # Mock escrow query service to return False (not initialized)
-        with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+        with patch(
+            "pourtier.di.container.DIContainer.escrow_query_service"
+        ) as mock_query:
             mock_query_instance = AsyncMock()
             mock_query_instance.check_escrow_exists.return_value = False
             mock_query.__get__ = lambda *args: mock_query_instance
@@ -294,13 +298,17 @@ class TestEscrowPrepareDeposit(LaborantTest):
         from pourtier.domain.exceptions.blockchain import BlockchainError
 
         # Mock escrow query service
-        with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+        with patch(
+            "pourtier.di.container.DIContainer.escrow_query_service"
+        ) as mock_query:
             mock_query_instance = AsyncMock()
             mock_query_instance.check_escrow_exists.return_value = True
             mock_query.__get__ = lambda *args: mock_query_instance
 
             # Mock Passeur Bridge to raise error
-            with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
+            with patch(
+                "pourtier.di.container.DIContainer.passeur_bridge"
+            ) as mock_bridge:
                 mock_instance = AsyncMock()
                 mock_instance.prepare_deposit.side_effect = BlockchainError(
                     message="Bridge service unavailable"
@@ -330,13 +338,17 @@ class TestEscrowPrepareDeposit(LaborantTest):
         mock_derive_pda.return_value = (self.escrow_account, 255)
 
         # Mock escrow query service
-        with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+        with patch(
+            "pourtier.di.container.DIContainer.escrow_query_service"
+        ) as mock_query:
             mock_query_instance = AsyncMock()
             mock_query_instance.check_escrow_exists.return_value = True
             mock_query.__get__ = lambda *args: mock_query_instance
 
             # Mock Passeur Bridge
-            with patch("pourtier.di.container.DIContainer.passeur_bridge") as mock_bridge:
+            with patch(
+                "pourtier.di.container.DIContainer.passeur_bridge"
+            ) as mock_bridge:
                 mock_instance = AsyncMock()
                 mock_instance.prepare_deposit.return_value = "fake_base64_large_tx"
                 mock_bridge.__get__ = lambda *args: mock_instance

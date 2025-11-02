@@ -194,11 +194,10 @@ class TestEscrowRoutes(LaborantTest):
         # Mock PDA derivation
         mock_derive_pda.return_value = (self.escrow_account, 255)
 
-        sig = self._generate_valid_signature("reinit")
+        self._generate_valid_signature("reinit")
         signed_tx = self._generate_valid_signed_tx("reinit")
 
         # Mock passeur bridge to throw error (account already exists)
-        from pourtier.domain.exceptions import EscrowAlreadyInitializedError
 
         self.mock_passeur.submit_signed_transaction.side_effect = Exception(
             "Error: Account already in use"
@@ -238,7 +237,9 @@ class TestEscrowRoutes(LaborantTest):
         self.mock_passeur.submit_signed_transaction.return_value = sig
 
         # Mock escrow query service
-        with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+        with patch(
+            "pourtier.di.container.DIContainer.escrow_query_service"
+        ) as mock_query:
             mock_query_instance = AsyncMock()
             mock_query_instance.check_escrow_exists.return_value = True
             mock_query.__get__ = lambda *args: mock_query_instance
@@ -295,7 +296,9 @@ class TestEscrowRoutes(LaborantTest):
         self.mock_passeur.submit_signed_transaction.return_value = sig
 
         # Mock escrow query service
-        with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+        with patch(
+            "pourtier.di.container.DIContainer.escrow_query_service"
+        ) as mock_query:
             mock_query_instance = AsyncMock()
             mock_query_instance.check_escrow_exists.return_value = True
             mock_query.__get__ = lambda *args: mock_query_instance
@@ -333,7 +336,9 @@ class TestEscrowRoutes(LaborantTest):
         self.mock_passeur.submit_signed_transaction.return_value = sig
 
         # Mock escrow query service
-        with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+        with patch(
+            "pourtier.di.container.DIContainer.escrow_query_service"
+        ) as mock_query:
             mock_query_instance = AsyncMock()
             mock_query_instance.check_escrow_exists.return_value = True
             mock_query.__get__ = lambda *args: mock_query_instance
@@ -363,7 +368,9 @@ class TestEscrowRoutes(LaborantTest):
         mock_derive_pda.return_value = (self.escrow_account, 255)
 
         # Mock escrow query service (both methods needed)
-        with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+        with patch(
+            "pourtier.di.container.DIContainer.escrow_query_service"
+        ) as mock_query:
             mock_query_instance = AsyncMock()
             mock_query_instance.check_escrow_exists.return_value = True
             mock_query_instance.get_escrow_balance.return_value = Decimal("500.0")
@@ -394,7 +401,9 @@ class TestEscrowRoutes(LaborantTest):
         mock_derive_pda.return_value = (self.escrow_account, 255)
 
         # Mock escrow query service
-        with patch("pourtier.di.container.DIContainer.escrow_query_service") as mock_query:
+        with patch(
+            "pourtier.di.container.DIContainer.escrow_query_service"
+        ) as mock_query:
             mock_query_instance = AsyncMock()
             mock_query_instance.check_escrow_exists.return_value = True
             mock_query_instance.get_escrow_balance.return_value = Decimal("600.0")

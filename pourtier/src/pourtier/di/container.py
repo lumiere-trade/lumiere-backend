@@ -74,16 +74,16 @@ from pourtier.infrastructure.event_bus.courier_publisher import (
     CourierPublisher,
 )
 from pourtier.infrastructure.persistence.database import Database
-from pourtier.infrastructure.persistence.repositories.escrow_transaction_repository import (  # noqa: E501
+from pourtier.infrastructure.persistence.repositories.escrow_transaction_repository import (
     EscrowTransactionRepository,
 )
-from pourtier.infrastructure.persistence.repositories.legal_document_repository import (  # noqa: E501
+from pourtier.infrastructure.persistence.repositories.legal_document_repository import (
     LegalDocumentRepository,
 )
-from pourtier.infrastructure.persistence.repositories.subscription_repository import (  # noqa: E501
+from pourtier.infrastructure.persistence.repositories.subscription_repository import (
     SubscriptionRepository,
 )
-from pourtier.infrastructure.persistence.repositories.user_legal_acceptance_repository import (  # noqa: E501
+from pourtier.infrastructure.persistence.repositories.user_legal_acceptance_repository import (
     UserLegalAcceptanceRepository,
 )
 from pourtier.infrastructure.persistence.repositories.user_repository import (
@@ -437,6 +437,8 @@ class DIContainer:
         return CreateSubscription(
             subscription_repository=subscription_repo,
             user_repository=user_repo,
+            escrow_query_service=self.escrow_query_service,
+            program_id=get_settings().ESCROW_PROGRAM_ID,
         )
 
     def get_check_subscription_status(self) -> CheckSubscriptionStatus:
