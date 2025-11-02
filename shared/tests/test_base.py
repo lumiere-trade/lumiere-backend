@@ -17,6 +17,7 @@ import asyncio
 import inspect
 import sys
 import time
+import traceback
 from abc import ABC
 from datetime import datetime
 from pathlib import Path
@@ -349,19 +350,24 @@ class LaborantTest(ABC):
             )
 
         except AssertionError as e:
+            # Capture full traceback for better debugging
+            tb = traceback.format_exc()
+            error_msg = str(e) or "Assertion failed"
             return IndividualTestResult(
                 name=test_name,
                 status=TestStatus.FAIL.value,
                 duration=time.time() - start_time,
-                error=str(e) or "Assertion failed",
+                error=f"{error_msg}\n\nTraceback:\n{tb}",
             )
 
         except Exception as e:
+            # Capture full traceback for errors
+            tb = traceback.format_exc()
             return IndividualTestResult(
                 name=test_name,
                 status=TestStatus.ERROR.value,
                 duration=time.time() - start_time,
-                error=f"{type(e).__name__}: {str(e)}",
+                error=f"{type(e).__name__}: {str(e)}\n\nTraceback:\n{tb}",
             )
 
     # ================================================================
@@ -406,19 +412,24 @@ class LaborantTest(ABC):
             )
 
         except AssertionError as e:
+            # Capture full traceback for better debugging
+            tb = traceback.format_exc()
+            error_msg = str(e) or "Assertion failed"
             return IndividualTestResult(
                 name=test_name,
                 status=TestStatus.FAIL.value,
                 duration=time.time() - start_time,
-                error=str(e) or "Assertion failed",
+                error=f"{error_msg}\n\nTraceback:\n{tb}",
             )
 
         except Exception as e:
+            # Capture full traceback for errors
+            tb = traceback.format_exc()
             return IndividualTestResult(
                 name=test_name,
                 status=TestStatus.ERROR.value,
                 duration=time.time() - start_time,
-                error=f"{type(e).__name__}: {str(e)}",
+                error=f"{type(e).__name__}: {str(e)}\n\nTraceback:\n{tb}",
             )
 
     # ================================================================
