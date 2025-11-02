@@ -37,11 +37,12 @@ class WithdrawFromEscrow:
     - User must have initialized escrow on blockchain
     - Signed transaction must be submitted to blockchain
     - Amount must be positive
-    - User must have sufficient balance
+    - User must have sufficient blockchain balance
     - Transaction must not be duplicate (by signature)
 
     Architecture:
-    - Check blockchain for escrow existence (not DB)
+    - Query blockchain for current balance (source of truth)
+    - No user balance updates (blockchain updates automatically)
     """
 
     def __init__(
@@ -124,19 +125,24 @@ class WithdrawFromEscrow:
                 reason="Withdrawal amount must be positive",
             )
 
-        # 5. Check sufficient balance
-        if not user.has_sufficient_balance(amount):
+        # 5. Query blockchain for current balance (source of truth)
+        current_balance = await self.escrow_query_service.get_escrow_balance(
+            escrow_account
+        )
+
+        # 6. Check sufficient balance
+        if current_balance < amount:
             raise InsufficientEscrowBalanceError(
                 required=str(amount),
-                available=str(user.escrow_balance),
+                available=str(current_balance),
             )
 
-        # 6. Submit signed transaction to blockchain via Passeur
+        # 7. Submit signed transaction to blockchain via Passeur
         tx_signature = await self.passeur_bridge.submit_signed_transaction(
             signed_transaction
         )
 
-        # 7. Check for duplicate transaction
+        # 8. Check for duplicate transaction
         existing_tx = await self.escrow_transaction_repository.get_by_tx_signature(
             tx_signature
         )
@@ -146,14 +152,8 @@ class WithdrawFromEscrow:
                 tx_signature=tx_signature,
             )
 
-        # 8. Update user escrow balance
-        new_balance = user.escrow_balance - amount
-        user.update_escrow_balance(new_balance)
-
-        # 9. Save user to database
-        await self.user_repository.update(user)
-
-        # 10. Create escrow transaction record
+        # 9. Create escrow transaction record
+        # Note: Balance updates automatically on blockchain, no user update needed
         transaction = EscrowTransaction(
             id=uuid4(),
             user_id=user_id,

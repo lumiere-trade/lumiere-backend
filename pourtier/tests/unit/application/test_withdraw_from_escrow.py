@@ -1,7 +1,7 @@
 """
 Unit tests for WithdrawFromEscrow use case.
 
-Tests withdrawal submission and balance update logic.
+Tests withdrawal submission and transaction recording logic.
 
 Usage:
     python tests/unit/application/test_withdraw_from_escrow.py
@@ -77,8 +77,8 @@ class TestWithdrawFromEscrow(LaborantTest):
         signed_transaction = "base64_signed_transaction"
         tx_signature = "5" * 88
 
+        # User entity (immutable, no balance)
         user = User(id=user_id, wallet_address=wallet)
-        user.update_escrow_balance(Decimal("100.0"))
 
         # Create expected transaction
         expected_transaction = EscrowTransaction(
@@ -91,10 +91,10 @@ class TestWithdrawFromEscrow(LaborantTest):
             status=TransactionStatus.CONFIRMED,
         )
 
-        # Mock repository responses
+        # Mock repository responses - blockchain balance
         user_repo.get_by_id.return_value = user
-        user_repo.update.return_value = user
         escrow_query_service.check_escrow_exists.return_value = True
+        escrow_query_service.get_escrow_balance.return_value = Decimal("100.0")
         tx_repo.get_by_tx_signature.return_value = None
         tx_repo.create.return_value = expected_transaction
         passeur_bridge.submit_signed_transaction.return_value = tx_signature
@@ -114,18 +114,22 @@ class TestWithdrawFromEscrow(LaborantTest):
             signed_transaction=signed_transaction,
         )
 
-        # Verify
+        # Verify transaction created correctly
         assert result.transaction_type == TransactionType.WITHDRAW
         assert result.amount == withdraw_amount
         assert result.status == TransactionStatus.CONFIRMED
-        assert user.escrow_balance == Decimal("50.0")
+        
+        # Verify calls
         user_repo.get_by_id.assert_called_once_with(user_id)
         escrow_query_service.check_escrow_exists.assert_called_once()
+        escrow_query_service.get_escrow_balance.assert_called_once_with(escrow_account)
         passeur_bridge.submit_signed_transaction.assert_called_once_with(
             signed_transaction
         )
-        user_repo.update.assert_called_once()
         tx_repo.create.assert_called_once()
+        
+        # User is immutable - no update
+        user_repo.update.assert_not_called()
 
         self.reporter.info("Withdrawal successful", context="Test")
 
@@ -215,7 +219,7 @@ class TestWithdrawFromEscrow(LaborantTest):
 
     @patch("pourtier.application.use_cases.withdraw_from_escrow.derive_escrow_pda")
     async def test_withdraw_insufficient_balance(self, mock_derive_pda):
-        """Test withdrawal fails with insufficient balance."""
+        """Test withdrawal fails with insufficient balance from blockchain."""
         self.reporter.info(
             "Testing insufficient balance error",
             context="Test",
@@ -231,14 +235,14 @@ class TestWithdrawFromEscrow(LaborantTest):
         passeur_bridge = AsyncMock()
         escrow_query_service = AsyncMock()
 
-        # User with insufficient balance
+        # User with insufficient balance on blockchain
         user_id = uuid4()
         wallet = self._generate_valid_wallet()
         user = User(id=user_id, wallet_address=wallet)
-        user.update_escrow_balance(Decimal("30.0"))
 
         user_repo.get_by_id.return_value = user
         escrow_query_service.check_escrow_exists.return_value = True
+        escrow_query_service.get_escrow_balance.return_value = Decimal("30.0")
 
         # Execute use case
         use_case = WithdrawFromEscrow(
@@ -285,7 +289,6 @@ class TestWithdrawFromEscrow(LaborantTest):
         # User with escrow
         user_id = uuid4()
         user = User(id=user_id, wallet_address=self._generate_valid_wallet())
-        user.update_escrow_balance(Decimal("100.0"))
 
         # Existing transaction
         tx_signature = "5" * 88
@@ -301,6 +304,7 @@ class TestWithdrawFromEscrow(LaborantTest):
 
         user_repo.get_by_id.return_value = user
         escrow_query_service.check_escrow_exists.return_value = True
+        escrow_query_service.get_escrow_balance.return_value = Decimal("100.0")
         passeur_bridge.submit_signed_transaction.return_value = tx_signature
         tx_repo.get_by_tx_signature.return_value = existing_tx
 
@@ -346,10 +350,10 @@ class TestWithdrawFromEscrow(LaborantTest):
         user_id = uuid4()
         wallet = self._generate_valid_wallet()
         user = User(id=user_id, wallet_address=wallet)
-        user.update_escrow_balance(Decimal("100.0"))
 
         user_repo.get_by_id.return_value = user
         escrow_query_service.check_escrow_exists.return_value = True
+        escrow_query_service.get_escrow_balance.return_value = Decimal("100.0")
 
         # Execute use case
         use_case = WithdrawFromEscrow(
@@ -396,8 +400,8 @@ class TestWithdrawFromEscrow(LaborantTest):
         signed_transaction = "base64_signed_transaction"
         tx_signature = "5" * 88
 
+        # User entity (immutable)
         user = User(id=user_id, wallet_address=wallet)
-        user.update_escrow_balance(total_balance)
 
         # Create expected transaction
         expected_transaction = EscrowTransaction(
@@ -410,10 +414,10 @@ class TestWithdrawFromEscrow(LaborantTest):
             status=TransactionStatus.CONFIRMED,
         )
 
-        # Mock repository responses
+        # Mock repository responses - blockchain has full balance
         user_repo.get_by_id.return_value = user
-        user_repo.update.return_value = user
         escrow_query_service.check_escrow_exists.return_value = True
+        escrow_query_service.get_escrow_balance.return_value = total_balance
         tx_repo.get_by_tx_signature.return_value = None
         tx_repo.create.return_value = expected_transaction
         passeur_bridge.submit_signed_transaction.return_value = tx_signature
@@ -433,9 +437,16 @@ class TestWithdrawFromEscrow(LaborantTest):
             signed_transaction=signed_transaction,
         )
 
-        # Verify balance is zero
-        assert user.escrow_balance == Decimal("0")
+        # Verify transaction for full amount
         assert result.amount == total_balance
+        assert result.transaction_type == TransactionType.WITHDRAW
+        
+        # Verify blockchain was queried
+        escrow_query_service.get_escrow_balance.assert_called_once_with(escrow_account)
+        
+        # User is immutable - no update
+        user_repo.update.assert_not_called()
+        
         self.reporter.info("Withdraw all balance successful", context="Test")
 
 

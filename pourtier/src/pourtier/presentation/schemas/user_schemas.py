@@ -1,10 +1,8 @@
 """
 User API schemas.
 """
-
 from datetime import datetime
-from decimal import Decimal
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel, Field
 
@@ -23,7 +21,14 @@ class CreateUserRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
-    """User response with all details."""
+    """
+    User response - minimal immutable identity.
+    
+    Architecture decision:
+    - User entity is minimal Web3 identity
+    - Escrow data queried separately via GET /escrow/balance
+    - Clean separation: User routes = user data, Escrow routes = escrow data
+    """
 
     id: str
     wallet_address: str
@@ -31,11 +36,7 @@ class UserResponse(BaseModel):
         default="Unknown",
         description="Wallet application type (Phantom, Solflare, etc.)",
     )
-    escrow_account: Optional[str] = None
-    escrow_balance: Decimal
-    escrow_token_mint: Optional[str] = None
     created_at: datetime
-    updated_at: datetime
     pending_documents: List[LegalDocumentResponse] = Field(
         default=[],
         description="Legal documents user hasn't accepted yet",

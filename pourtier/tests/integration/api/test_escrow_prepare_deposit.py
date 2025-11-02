@@ -105,11 +105,10 @@ class TestEscrowPrepareDeposit(LaborantTest):
         return unique_id.ljust(44, "0")
 
     async def _create_test_user(self):
-        """Create test user."""
+        """Create test user (immutable, no balance)."""
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             user = User(wallet_address=self._generate_unique_wallet())
-            user.update_escrow_balance(Decimal("0.0"))
             TestEscrowPrepareDeposit.test_user = await user_repo.create(user)
 
     def _generate_test_token(self) -> str:
@@ -205,7 +204,7 @@ class TestEscrowPrepareDeposit(LaborantTest):
         # Mock PDA derivation
         mock_derive_pda.return_value = (self.escrow_account, 255)
 
-        # Create user without escrow
+        # Create user without escrow (immutable)
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             new_user = User(wallet_address=self._generate_unique_wallet())

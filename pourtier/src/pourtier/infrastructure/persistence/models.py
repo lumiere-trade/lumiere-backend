@@ -29,14 +29,7 @@ class UserModel(Base):
     wallet_address: Mapped[str] = mapped_column(
         String(44), unique=True, index=True, nullable=False
     )
-    escrow_balance: Mapped[Decimal] = mapped_column(
-        DECIMAL(precision=18, scale=6), default=Decimal("0")
-    )
-    last_blockchain_check: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now, onupdate=datetime.now
-    )
 
     # Relationships
     subscriptions: Mapped[list["SubscriptionModel"]] = relationship(

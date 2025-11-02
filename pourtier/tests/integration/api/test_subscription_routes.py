@@ -7,6 +7,8 @@ Usage:
     laborant pourtier --integration
 """
 
+import base58
+import os
 from decimal import Decimal
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -64,10 +66,14 @@ class TestSubscriptionRoutes(LaborantTest):
             await container.cache_client.connect()
             self.reporter.info("Redis cache connected", context="Setup")
 
-        # Create mock escrow query service
+        # Create mock escrow query service - sufficient balance by default
         TestSubscriptionRoutes.mock_escrow_query = AsyncMock()
-        TestSubscriptionRoutes.mock_escrow_query.check_escrow_exists.return_value = True
-        TestSubscriptionRoutes.mock_escrow_query.get_escrow_balance.return_value = Decimal("500.0")
+        TestSubscriptionRoutes.mock_escrow_query.check_escrow_exists.return_value = (
+            True
+        )
+        TestSubscriptionRoutes.mock_escrow_query.get_escrow_balance.return_value = (
+            Decimal("500.0")
+        )
 
         app = create_app(settings)
 
@@ -113,6 +119,7 @@ class TestSubscriptionRoutes(LaborantTest):
         """Setup before each test - ensure clean state."""
         self.reporter.info("Cleaning test state...", context="Test")
 
+        # Clean subscriptions
         async with self.db.session() as session:
             await session.execute(
                 delete(SubscriptionModel).where(
@@ -121,13 +128,10 @@ class TestSubscriptionRoutes(LaborantTest):
             )
             await session.commit()
 
-        async with self.db.session() as session:
-            user_repo = UserRepository(session)
-            user = await user_repo.get_by_id(self.test_user.id)
-            user.update_escrow_balance(Decimal("500.0"))
-            await user_repo.update(user)
-            await session.commit()
+        # Reset mock to sufficient balance (default for most tests)
+        self.mock_escrow_query.get_escrow_balance.return_value = Decimal("500.0")
 
+        # Clear cache if enabled
         settings = get_settings()
         if settings.REDIS_ENABLED:
             container = get_container()
@@ -139,16 +143,20 @@ class TestSubscriptionRoutes(LaborantTest):
         self.reporter.info("Clean state ready", context="Test")
 
     def _generate_unique_wallet(self) -> str:
-        """Generate unique 44-character wallet address."""
-        unique_id = str(uuid4()).replace("-", "")
-        return unique_id.ljust(44, "0")
+        """
+        Generate valid Solana wallet address.
+
+        Solana wallet addresses are 32 bytes encoded as Base58.
+        This generates a valid Base58 string that can be used for PDA derivation.
+        """
+        random_bytes = os.urandom(32)
+        return base58.b58encode(random_bytes).decode('ascii')
 
     async def _create_test_user(self):
-        """Create test user with balance."""
+        """Create test user (immutable, no balance)."""
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             user = User(wallet_address=self._generate_unique_wallet())
-            user.update_escrow_balance(Decimal("500.0"))
             TestSubscriptionRoutes.test_user = await user_repo.create(user)
 
     def _generate_test_token(self) -> str:
@@ -174,7 +182,9 @@ class TestSubscriptionRoutes(LaborantTest):
             headers=self._auth_headers(),
         )
 
-        assert response.status_code == 201
+        assert (
+            response.status_code == 201
+        ), f"Expected 201, got {response.status_code}: {response.text}"
 
         data = response.json()
         assert "id" in data
@@ -187,17 +197,13 @@ class TestSubscriptionRoutes(LaborantTest):
         self.reporter.info("Subscription created successfully", context="Test")
 
     async def test_create_subscription_insufficient_balance(self):
-        """Test subscription creation with insufficient balance."""
+        """Test subscription creation with insufficient balance from blockchain."""
         self.reporter.info(
             "Testing create subscription (insufficient balance)", context="Test"
         )
 
-        async with self.db.session() as session:
-            user_repo = UserRepository(session)
-            user = await user_repo.get_by_id(self.test_user.id)
-            user.update_escrow_balance(Decimal("5.0"))
-            await user_repo.update(user)
-            await session.commit()
+        # Mock insufficient blockchain balance for this test
+        self.mock_escrow_query.get_escrow_balance.return_value = Decimal("5.0")
 
         response = await self.client.post(
             "/api/subscriptions/",

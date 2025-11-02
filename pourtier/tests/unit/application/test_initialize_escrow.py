@@ -68,11 +68,11 @@ class TestInitializeEscrow(LaborantTest):
         tx_signature = "5" * 88  # Valid Solana signature
         program_id = "11111111111111111111111111111111"
 
+        # User entity (immutable)
         user = User(id=user_id, wallet_address=wallet)
 
         # Mock responses
         user_repo.get_by_id.return_value = user
-        user_repo.update.return_value = user
         passeur_bridge.submit_signed_transaction.return_value = tx_signature
         tx_repo.create.return_value = AsyncMock()
 
@@ -92,14 +92,16 @@ class TestInitializeEscrow(LaborantTest):
 
         # Verify
         assert result_signature == tx_signature
-        assert result_user.last_blockchain_check is not None
+        assert result_user == user  # Same user returned (immutable)
         user_repo.get_by_id.assert_called_once_with(user_id)
         mock_derive_pda.assert_called_once_with(wallet, program_id)
         passeur_bridge.submit_signed_transaction.assert_called_once_with(
             signed_transaction
         )
-        user_repo.update.assert_called_once()
         tx_repo.create.assert_called_once()
+        
+        # User is immutable - no update
+        user_repo.update.assert_not_called()
 
         self.reporter.info("Escrow initialized successfully", context="Test")
 
@@ -208,7 +210,6 @@ class TestInitializeEscrow(LaborantTest):
         tx_signature = "5" * 88
 
         user_repo.get_by_id.return_value = user
-        user_repo.update.return_value = user
         passeur_bridge.submit_signed_transaction.return_value = tx_signature
         tx_repo.create.return_value = AsyncMock()
 
@@ -228,7 +229,11 @@ class TestInitializeEscrow(LaborantTest):
 
         # Verify
         assert result_signature == tx_signature
-        assert result_user.last_blockchain_check is not None
+        assert result_user == user  # Same user returned (immutable)
+        
+        # User is immutable - no update
+        user_repo.update.assert_not_called()
+        
         self.reporter.info(
             "Initialization successful with token mint",
             context="Test",

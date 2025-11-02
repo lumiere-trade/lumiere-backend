@@ -1,7 +1,7 @@
 """
 Deposit to Escrow use case.
 
-Handles deposit submission and balance updates.
+Handles deposit submission and transaction recording.
 """
 
 from datetime import datetime
@@ -40,10 +40,9 @@ class DepositToEscrow:
     - Transaction must not be duplicate (by signature)
 
     Architecture:
-    - Check blockchain for escrow existence (not DB)
-    - Optimistic update for INSTANT UX
-    - Background job syncs real balance periodically
-    - No polling - Solana-style fast finality
+    - Blockchain is single source of truth for balances
+    - No balance caching (query real-time instead)
+    - Fast Solana finality (~400ms) means no need for optimistic updates
     """
 
     def __init__(
@@ -79,11 +78,11 @@ class DepositToEscrow:
         """
         Execute deposit to escrow.
 
-        FAST APPROACH - Optimistic update:
+        Simple approach:
         1. Submit signed transaction to blockchain
         2. Trust amount (user signed transaction cryptographically)
-        3. Update balance immediately - INSTANT UX
-        4. Background job reconciles later (eventual consistency)
+        3. Record transaction for audit trail
+        4. Balance updates automatically on blockchain
 
         Args:
             user_id: User unique identifier
@@ -132,7 +131,7 @@ class DepositToEscrow:
             )
 
         # 5. Submit signed transaction to blockchain via Passeur
-        # This is CRITICAL - ensures transaction is real and user signed it
+        # This ensures transaction is real and user signed it
         tx_signature = await self.passeur_bridge.submit_signed_transaction(
             signed_transaction
         )
@@ -147,18 +146,8 @@ class DepositToEscrow:
                 tx_signature=tx_signature,
             )
 
-        # 7. Update user balance immediately (INSTANT UX!)
-        # We trust the amount because:
-        # - Transaction is cryptographically signed by user
-        # - Transaction is confirmed on blockchain
-        # - User cannot fake a signed transaction
-        new_balance = user.escrow_balance + amount
-        user.update_escrow_balance(new_balance)
-
-        # 8. Save user to database
-        await self.user_repository.update(user)
-
-        # 9. Create escrow transaction record
+        # 7. Create escrow transaction record
+        # Note: Balance updates automatically on blockchain, no user update needed
         transaction = EscrowTransaction(
             id=uuid4(),
             user_id=user_id,

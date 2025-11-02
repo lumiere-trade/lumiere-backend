@@ -1,7 +1,7 @@
 """
 Unit tests for DepositToEscrow use case.
 
-Tests deposit submission and balance update logic.
+Tests deposit submission and transaction recording logic.
 
 Usage:
     python tests/unit/application/test_deposit_to_escrow.py
@@ -79,8 +79,8 @@ class TestDepositToEscrow(LaborantTest):
         tx_signature = "5" * 88
         program_id = "11111111111111111111111111111111"
 
+        # User entity (immutable, no balance)
         user = User(id=user_id, wallet_address=wallet)
-        user.update_escrow_balance(Decimal("50.0"))
 
         # Create expected transaction
         expected_transaction = EscrowTransaction(
@@ -95,7 +95,6 @@ class TestDepositToEscrow(LaborantTest):
 
         # Mock repository responses
         user_repo.get_by_id.return_value = user
-        user_repo.update.return_value = user
         escrow_query_service.check_escrow_exists.return_value = True
         tx_repo.get_by_tx_signature.return_value = None
         tx_repo.create.return_value = expected_transaction
@@ -116,19 +115,22 @@ class TestDepositToEscrow(LaborantTest):
             signed_transaction=signed_transaction,
         )
 
-        # Verify
+        # Verify transaction created correctly
         assert result.transaction_type == TransactionType.DEPOSIT
         assert result.amount == deposit_amount
         assert result.status == TransactionStatus.CONFIRMED
-        assert user.escrow_balance == Decimal("150.0")
+        
+        # Verify calls
         user_repo.get_by_id.assert_called_once_with(user_id)
         mock_derive_pda.assert_called_once_with(wallet, program_id)
         escrow_query_service.check_escrow_exists.assert_called_once_with(escrow_account)
         passeur_bridge.submit_signed_transaction.assert_called_once_with(
             signed_transaction
         )
-        user_repo.update.assert_called_once()
         tx_repo.create.assert_called_once()
+        
+        # User is immutable - no update call
+        user_repo.update.assert_not_called()
 
         self.reporter.info("Deposit successful", context="Test")
 
