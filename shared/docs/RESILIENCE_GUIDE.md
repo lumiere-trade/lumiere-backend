@@ -1,7 +1,7 @@
 # Lumière Resilience & Observability Guide
 
 **Version:** 1.0  
-**Package:** shared v0.2.4  
+**Package:** shared v0.2.5  
 **Last Updated:** November 1, 2025  
 **Author:** Vladimir Mitev
 
@@ -16,6 +16,7 @@
    - [Timeout Protection](#timeout-protection)
    - [Retry Pattern](#retry-pattern)
    - [Rate Limiting](#rate-limiting)
+   - [Idempotency](#idempotency)
 4. [Infrastructure Patterns](#infrastructure-patterns)
    - [Health Checks](#health-checks)
    - [Graceful Shutdown](#graceful-shutdown)
@@ -35,17 +36,17 @@ The Lumière shared package provides production-ready resilience and observabili
 
 ### Key Statistics
 
-- **Package Version:** 0.2.4
-- **Total Tests:** 105 (100% passing)
+- **Package Version:** 0.2.5
+- **Total Tests:** 130 (100% passing)
 - **Test Coverage:** 98%+
-- **Patterns Implemented:** 6 resilience + 2 observability
+- **Patterns Implemented:** 7 resilience + 2 observability
 - **Services Using:** TSDL (migrated), Prophet/Pourtier/Chevalier (ready)
 
 ### Quick Start
 ```bash
 pip install --index-url http://localhost:9001/simple/ \
     --trusted-host localhost \
-    shared==0.2.4
+    shared==0.2.5
 ```
 ```python
 from shared.resilience import CircuitBreaker, with_timeout, Retry
@@ -456,6 +457,195 @@ registry.remove_limiter("user_123")
 
 ---
 
+
+---
+
+### Idempotency
+
+**Purpose:** Ensure operations execute exactly once, even with retries or duplicate requests.
+
+**Pattern:** Store operation results keyed by idempotency key to prevent duplicate execution.
+
+**Critical for:**
+- User-initiated operations (deposits, withdrawals, strategy creation)
+- Autonomous trade execution (prevent double trades)
+- Cross-chain operations (prevent double bridge)
+- Event processing (prevent duplicate handling)
+
+#### Key Generation
+```python
+from shared.resilience import IdempotencyKey
+
+# User-initiated operations
+key = IdempotencyKey.from_user_request(
+    user_id="user123",
+    operation="deposit",
+    amount=1000,
+    token="USDC"
+)
+# Returns SHA256 hash
+
+# Autonomous trades
+trade_id = IdempotencyKey.from_trade(
+    strategy_id="strat_456",
+    signal_hash="abc123",
+    timestamp=1730500000
+)
+# Returns: "trade_strat_456_1730500000_abc123"
+
+# Blockchain transactions
+key = IdempotencyKey.from_blockchain_tx(
+    operation="bridge",
+    chain="solana",
+    params_hash="def789"
+)
+# Returns: "blockchain_bridge_solana_def789"
+
+# Event processing
+key = IdempotencyKey.from_event("evt_12345")
+# Returns: "event_evt_12345"
+```
+
+#### Storage
+```python
+from shared.resilience import (
+    IdempotencyStore,
+    InMemoryIdempotencyStore
+)
+
+# In-memory store (for testing only)
+store = InMemoryIdempotencyStore()
+
+# Production: Use Redis or Database
+# Implement IdempotencyStore protocol:
+class RedisIdempotencyStore:
+    def __init__(self, redis_client):
+        self.redis = redis_client
+    
+    async def get_async(self, key: str):
+        return await self.redis.get(f"idempotency:{key}")
+    
+    async def set_async(self, key: str, value: Any, ttl: int):
+        await self.redis.setex(f"idempotency:{key}", ttl, value)
+    
+    async def exists_async(self, key: str) -> bool:
+        return await self.redis.exists(f"idempotency:{key}")
+```
+
+#### Decorator Usage
+```python
+from shared.resilience import idempotent
+
+# User-initiated operation
+@idempotent(key_param="idempotency_key", store=redis_store, ttl=86400)
+async def create_strategy(
+    user_id: str,
+    prompt: str,
+    idempotency_key: str
+):
+    # This executes only once per idempotency_key
+    strategy = await generate_strategy(user_id, prompt)
+    return strategy
+
+# First call - executes
+result1 = await create_strategy(
+    "user123",
+    "Create momentum strategy",
+    idempotency_key="req_001"
+)
+
+# Second call - returns cached result
+result2 = await create_strategy(
+    "user123",
+    "Create momentum strategy",
+    idempotency_key="req_001"
+)
+
+assert result1 == result2  # Same result
+```
+
+#### Manual Check Pattern
+```python
+# Autonomous trade execution
+async def execute_trade(strategy_id: str, signal: Signal):
+    # Generate internal idempotency key
+    trade_id = IdempotencyKey.from_trade(
+        strategy_id=strategy_id,
+        signal_hash=hash_signal(signal),
+        timestamp=int(time.time())
+    )
+    
+    # Check if already executed
+    if await store.exists_async(trade_id):
+        logger.info(f"Trade {trade_id} already executed")
+        return await store.get_async(trade_id)
+    
+    # Execute trade
+    result = await blockchain.execute_trade(signal)
+    
+    # Store result
+    await store.set_async(trade_id, result, ttl=86400)
+    
+    return result
+```
+
+#### Use Cases
+
+**User-Initiated Operations:**
+- Prophet: Strategy generation (prevent duplicate AI calls)
+- Architect: Strategy deployment (prevent duplicate deployments)
+- Pourtier: Deposits/Withdrawals (CRITICAL - prevent double charges)
+
+**Autonomous Operations:**
+- Chevalier: Trade execution (prevent duplicate trades)
+- Passeur: Bridge operations (prevent double bridging)
+
+**Event Processing:**
+- Courier: Event handlers (prevent duplicate processing)
+
+#### Best Practices
+
+1. **Always use for financial operations** (deposits, withdrawals, trades)
+2. **Generate keys client-side** for user operations (UUID + params)
+3. **Generate keys server-side** for autonomous operations (deterministic)
+4. **Use Redis for production** (persistent, distributed)
+5. **Set appropriate TTL** (24h default, longer for critical operations)
+6. **Log all idempotency hits** for monitoring
+7. **Handle DuplicateRequestError** if using raise_on_duplicate
+
+#### Error Handling
+```python
+from shared.resilience import DuplicateRequestError
+
+@idempotent(
+    key_param="request_id",
+    store=store,
+    raise_on_duplicate=True  # Raise on duplicate detection
+)
+def process_payment(amount: float, request_id: str):
+    return execute_payment(amount)
+
+try:
+    result = process_payment(1000, request_id="req_001")
+except DuplicateRequestError as e:
+    logger.warning(f"Duplicate request: {e.key}")
+    return e.cached_result  # Return cached result
+```
+
+#### Monitoring
+```python
+# Track idempotency hits
+idempotency_hits = Counter(
+    'idempotency_hits_total',
+    'Idempotent operations returning cached results',
+    ['operation']
+)
+
+if await store.exists_async(key):
+    idempotency_hits.labels(operation='create_strategy').inc()
+    return await store.get_async(key)
+```
+
 ## Infrastructure Patterns
 
 ### Health Checks
@@ -860,7 +1050,7 @@ Features:
 ```bash
 pip install --index-url http://localhost:9001/simple/ \
     --trusted-host localhost \
-    shared==0.2.4
+    shared==0.2.5
 ```
 
 #### Step 2: Add Circuit Breaker
@@ -1027,11 +1217,12 @@ tracer = setup_tracing(tracing_config)
 | Timeout | 14 | 97% |
 | Retry | 18 | 99% |
 | Rate Limiting | 13 | 98% |
+| Idempotency | 25 | 99% |
 | Health Checks | 12 | 96% |
 | Graceful Shutdown | 8 | 95% |
 | Metrics Server | 7 | 97% |
 | Tracing | 13 | 98% |
-| **Total** | **105** | **98%** |
+| **Total** | **130** | **98%** |
 
 ### Running Tests
 ```bash
@@ -1115,7 +1306,7 @@ WORKDIR /app
 # Install shared package
 RUN pip install --index-url http://pypi.lumiere.internal/simple/ \
     --trusted-host pypi.lumiere.internal \
-    shared==0.2.4
+    shared==0.2.5
 
 # Copy application
 COPY . .
@@ -1289,7 +1480,7 @@ METRICS_PORT=9090
 | 0.2.1 | Nov 1 | Retry pattern with exponential backoff |
 | 0.2.2 | Nov 1 | Rate limiting (Token Bucket) |
 | 0.2.3 | Nov 1 | Prometheus Metrics Server |
-| 0.2.4 | Nov 1 | OpenTelemetry distributed tracing |
+| 0.2.5 | Nov 1 | OpenTelemetry distributed tracing |
 
 ### Migration from TSDL
 
@@ -1304,7 +1495,7 @@ METRICS_PORT=9090
 - Better testing and quality
 
 **Services Migrated:**
-- ✅ TSDL v2.1.0 (using shared v0.2.4)
+- ✅ TSDL v2.1.0 (using shared v0.2.5)
 
 **Services Ready:**
 - Prophet v1.5.0
@@ -1325,6 +1516,7 @@ from shared.resilience import (
     with_timeout, TimeoutError,
     Retry, RetryConfig, BackoffStrategy,
     TokenBucket, RateLimitConfig, RateLimiterRegistry,
+    IdempotencyKey, idempotent, IdempotencyStore,
 )
 
 # Health
@@ -1502,5 +1694,5 @@ logging.getLogger("opentelemetry").setLevel(logging.DEBUG)
 **END OF DOCUMENT**
 
 **Status:** Production Ready  
-**Version:** 0.2.4  
+**Version:** 0.2.5  
 **Last Updated:** November 1, 2025
