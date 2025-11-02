@@ -6,6 +6,7 @@ This module provides production-ready resilience patterns including:
 - Timeout Protection: Prevents hanging operations
 - Retry: Automatic retry with exponential backoff
 - Rate Limiting: Token bucket rate limiter
+- Idempotency: Exactly-once execution guarantee
 """
 
 from shared.resilience.circuit_breaker import (
@@ -35,6 +36,14 @@ from shared.resilience.rate_limiter import (
     RateLimitExceeded,
     RateLimiterRegistry,
 )
+from shared.resilience.idempotency import (
+    IdempotencyStore,
+    InMemoryIdempotencyStore,
+    IdempotencyKey,
+    IdempotencyError,
+    DuplicateRequestError,
+    idempotent,
+)
 
 __all__ = [
     # Circuit Breaker
@@ -58,4 +67,11 @@ __all__ = [
     "RateLimitConfig",
     "RateLimitExceeded",
     "RateLimiterRegistry",
+    # Idempotency
+    "IdempotencyStore",
+    "InMemoryIdempotencyStore",
+    "IdempotencyKey",
+    "IdempotencyError",
+    "DuplicateRequestError",
+    "idempotent",
 ]
