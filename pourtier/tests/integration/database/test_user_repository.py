@@ -7,10 +7,10 @@ Usage:
     laborant pourtier --integration
 """
 
-import base58
 import os
 from uuid import uuid4
 
+import base58
 from sqlalchemy.exc import IntegrityError
 
 from pourtier.config.settings import get_settings
@@ -65,7 +65,7 @@ class TestUserRepository(LaborantTest):
         Solana wallet addresses are 32 bytes encoded as Base58.
         """
         random_bytes = os.urandom(32)
-        return base58.b58encode(random_bytes).decode('ascii')
+        return base58.b58encode(random_bytes).decode("ascii")
 
     async def test_create_user(self):
         """Test creating a new user."""

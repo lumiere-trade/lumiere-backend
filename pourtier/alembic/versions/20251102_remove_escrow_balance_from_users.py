@@ -10,9 +10,9 @@ Revision ID: remove_escrow_balance
 Revises: remove_escrow_columns
 Create Date: 2025-11-02
 """
+
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "remove_escrow_balance"

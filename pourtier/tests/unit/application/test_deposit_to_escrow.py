@@ -119,7 +119,7 @@ class TestDepositToEscrow(LaborantTest):
         assert result.transaction_type == TransactionType.DEPOSIT
         assert result.amount == deposit_amount
         assert result.status == TransactionStatus.CONFIRMED
-        
+
         # Verify calls
         user_repo.get_by_id.assert_called_once_with(user_id)
         mock_derive_pda.assert_called_once_with(wallet, program_id)
@@ -128,7 +128,7 @@ class TestDepositToEscrow(LaborantTest):
             signed_transaction
         )
         tx_repo.create.assert_called_once()
-        
+
         # User is immutable - no update call
         user_repo.update.assert_not_called()
 

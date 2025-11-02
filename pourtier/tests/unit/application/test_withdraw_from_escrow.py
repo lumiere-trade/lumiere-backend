@@ -118,7 +118,7 @@ class TestWithdrawFromEscrow(LaborantTest):
         assert result.transaction_type == TransactionType.WITHDRAW
         assert result.amount == withdraw_amount
         assert result.status == TransactionStatus.CONFIRMED
-        
+
         # Verify calls
         user_repo.get_by_id.assert_called_once_with(user_id)
         escrow_query_service.check_escrow_exists.assert_called_once()
@@ -127,7 +127,7 @@ class TestWithdrawFromEscrow(LaborantTest):
             signed_transaction
         )
         tx_repo.create.assert_called_once()
-        
+
         # User is immutable - no update
         user_repo.update.assert_not_called()
 
@@ -440,13 +440,13 @@ class TestWithdrawFromEscrow(LaborantTest):
         # Verify transaction for full amount
         assert result.amount == total_balance
         assert result.transaction_type == TransactionType.WITHDRAW
-        
+
         # Verify blockchain was queried
         escrow_query_service.get_escrow_balance.assert_called_once_with(escrow_account)
-        
+
         # User is immutable - no update
         user_repo.update.assert_not_called()
-        
+
         self.reporter.info("Withdraw all balance successful", context="Test")
 
 
