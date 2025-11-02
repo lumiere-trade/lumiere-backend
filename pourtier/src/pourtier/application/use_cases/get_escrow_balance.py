@@ -1,12 +1,11 @@
 """
 Get Escrow Balance use case.
-Retrieves user's escrow balance with blockchain sync.
+Retrieves user's escrow balance from blockchain (real-time).
 """
 
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
 from uuid import UUID
 
 from pourtier.domain.exceptions import EntityNotFoundError
@@ -24,37 +23,34 @@ class EscrowBalanceResult:
 
     Attributes:
         escrow_account: Escrow PDA address (computed from wallet)
-        balance: Current balance in escrow
+        balance: Current balance from blockchain
         is_initialized: Whether escrow account exists on blockchain
         token_mint: Token mint address (USDC)
-        last_synced_at: When balance was last synced from blockchain
+        last_synced_at: When balance was queried (always now)
     """
 
     escrow_account: str
     balance: Decimal
     is_initialized: bool
     token_mint: str
-    last_synced_at: Optional[datetime]
+    last_synced_at: datetime
 
 
 class GetEscrowBalance:
     """
-    Get user's escrow balance.
+    Get user's escrow balance from blockchain.
 
     Business rules:
     - User must exist
     - Escrow account is computed from wallet (not stored)
-    - Blockchain is source of truth
-    - DB caches balance for performance
+    - Blockchain is source of truth (no caching)
+    - Always query real-time balance
 
     Architecture:
-    - Blockchain = source of truth (always correct)
-    - DB = performance cache (may be stale)
-    - Auto-heal: Sync DB from blockchain when needed
+    - Blockchain = single source of truth
+    - No caching = always current data
+    - Fast enough for real-time queries (~200-300ms)
     """
-
-    # Cache blockchain checks for 2 minutes
-    BLOCKCHAIN_CHECK_CACHE_SECONDS = 120
 
     def __init__(
         self,
@@ -74,49 +70,15 @@ class GetEscrowBalance:
         self.escrow_query_service = escrow_query_service
         self.program_id = program_id
 
-    def _should_check_blockchain(
-        self,
-        last_check: Optional[datetime],
-        force_sync: bool,
-    ) -> bool:
+    async def execute(self, user_id: UUID) -> EscrowBalanceResult:
         """
-        Determine if we should check blockchain.
-
-        Check blockchain if:
-        1. User explicitly requests sync (force_sync=True)
-        2. Never checked before (last_check=None)
-        3. Cache expired (>2 min since last check)
-
-        Args:
-            last_check: Timestamp of last blockchain check
-            force_sync: Force blockchain sync
-
-        Returns:
-            True if should check blockchain
-        """
-        if force_sync:
-            return True
-
-        if last_check is None:
-            return True
-
-        cache_age = datetime.now() - last_check
-        return cache_age.total_seconds() > self.BLOCKCHAIN_CHECK_CACHE_SECONDS
-
-    async def execute(
-        self,
-        user_id: UUID,
-        sync_from_blockchain: bool = False,
-    ) -> EscrowBalanceResult:
-        """
-        Execute get escrow balance.
+        Execute get escrow balance from blockchain.
 
         Args:
             user_id: User unique identifier
-            sync_from_blockchain: If True, fetch from blockchain and update
 
         Returns:
-            EscrowBalanceResult with balance and initialization status
+            EscrowBalanceResult with current blockchain balance
 
         Raises:
             EntityNotFoundError: If user not found
@@ -129,51 +91,29 @@ class GetEscrowBalance:
                 entity_id=str(user_id),
             )
 
-        # 2. Derive escrow account (always correct, ~0.01ms)
+        # 2. Derive escrow account from wallet (always computed)
         escrow_account, _ = derive_escrow_pda(
             user.wallet_address,
             self.program_id,
         )
 
-        # 3. Determine if we should check blockchain
-        should_check = self._should_check_blockchain(
-            user.last_blockchain_check,
-            sync_from_blockchain,
+        # 3. Query blockchain for initialization status
+        is_initialized = await self.escrow_query_service.check_escrow_exists(
+            escrow_account
         )
 
-        last_synced = None
-        is_initialized = False
-
-        # 4. Check blockchain if needed
-        if should_check:
-            # Check if escrow exists on blockchain
-            is_initialized = await self.escrow_query_service.check_escrow_exists(
+        # 4. Query blockchain for balance if initialized
+        balance = Decimal("0")
+        if is_initialized:
+            balance = await self.escrow_query_service.get_escrow_balance(
                 escrow_account
             )
 
-            # If escrow exists, sync balance
-            if is_initialized:
-                blockchain_balance = await self.escrow_query_service.get_escrow_balance(
-                    escrow_account
-                )
-
-                # Update balance if different
-                if blockchain_balance != user.escrow_balance:
-                    user.update_escrow_balance(blockchain_balance)
-
-                last_synced = datetime.utcnow()
-
-            # Update check timestamp
-            user.update_blockchain_check_timestamp()
-            await self.user_repository.update(user)
-
-        # 5. Return result (escrow_account always computed)
+        # 5. Return result (all data from blockchain)
         return EscrowBalanceResult(
-            escrow_account=escrow_account,  # Computed (always correct)
-            balance=user.escrow_balance,  # Cached (may be stale)
-            is_initialized=(
-                is_initialized if should_check else True
-            ),  # From blockchain or assume true
+            escrow_account=escrow_account,  # Computed from wallet
+            balance=balance,  # From blockchain (always current)
+            is_initialized=is_initialized,  # From blockchain
             token_mint="USDC",  # Hardcoded for now
-            last_synced_at=last_synced,
+            last_synced_at=datetime.utcnow(),  # Just queried now
         )

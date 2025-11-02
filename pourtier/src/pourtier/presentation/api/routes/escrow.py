@@ -4,6 +4,7 @@ Escrow API routes.
 Handles escrow initialization, deposits, withdrawals, and balance queries.
 """
 
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -151,10 +152,11 @@ async def initialize_escrow(
             settings.ESCROW_PROGRAM_ID,
         )
 
+        # Balance is 0 after initialization (no deposits yet)
         return EscrowAccountResponse(
             escrow_account=escrow_account,
-            balance=user.escrow_balance,
-            token_mint=request.token_mint,  # Use request token_mint
+            balance=Decimal("0"),  # Just initialized, no balance yet
+            token_mint=request.token_mint,
             tx_signature=tx_signature,
         )
 
@@ -348,26 +350,23 @@ async def withdraw_from_escrow(
     "/balance",
     response_model=BalanceResponse,
     summary="Get escrow balance",
-    description="Get current escrow balance with optional blockchain sync",
+    description="Get current escrow balance from blockchain (real-time)",
 )
 async def get_escrow_balance(
-    sync: bool = False,
     current_user: User = Depends(get_current_user),
     use_case: GetEscrowBalance = Depends(get_get_escrow_balance),
 ):
     """
-    Get current escrow balance.
+    Get current escrow balance from blockchain.
+
+    Always returns real-time balance from blockchain (no caching).
+    Fast Solana finality (~400ms) means no need for cached values.
 
     Returns balance and initialization status - never errors if not initialized.
-
-    Query params:
-    - sync: If true, sync balance from blockchain before returning
     """
     try:
-        result = await use_case.execute(
-            user_id=current_user.id,
-            sync_from_blockchain=sync,
-        )
+        # Always query blockchain (no sync parameter needed)
+        result = await use_case.execute(user_id=current_user.id)
 
         return BalanceResponse(
             escrow_account=result.escrow_account,
@@ -375,7 +374,7 @@ async def get_escrow_balance(
             token_mint=result.token_mint,
             is_initialized=result.is_initialized,
             initialized_at=None,  # No longer stored
-            synced_from_blockchain=sync,
+            synced_from_blockchain=True,  # Always from blockchain
             last_synced_at=result.last_synced_at,
         )
 

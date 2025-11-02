@@ -53,10 +53,7 @@ class UserRepository(IUserRepository):
         model = UserModel(
             id=user.id,
             wallet_address=user.wallet_address,
-            escrow_balance=user.escrow_balance,
-            last_blockchain_check=user.last_blockchain_check,
             created_at=user.created_at,
-            updated_at=user.updated_at,
         )
 
         self.session.add(model)
@@ -177,21 +174,6 @@ class UserRepository(IUserRepository):
         model = result.scalar_one_or_none()
         return self._to_entity(model) if model else None
 
-    async def list_all_with_balance(self) -> list[User]:
-        """
-        List all users with escrow balance > 0.
-
-        Not cached - bulk query.
-
-        Returns:
-            List of users who have escrow balance
-        """
-        stmt = select(UserModel).where(UserModel.escrow_balance > 0)
-        result = await self.session.execute(stmt)
-        models = result.scalars().all()
-
-        return [self._to_entity(model) for model in models]
-
     async def update(self, user: User) -> User:
         """
         Update existing user.
@@ -209,11 +191,8 @@ class UserRepository(IUserRepository):
         if not model:
             raise ValueError(f"User {user.id} not found")
 
-        # Update fields
+        # Update fields (only wallet_address is mutable, but practically immutable)
         model.wallet_address = user.wallet_address
-        model.escrow_balance = user.escrow_balance
-        model.last_blockchain_check = user.last_blockchain_check
-        model.updated_at = user.updated_at
 
         await self.session.flush()
         await self.session.refresh(model)
@@ -280,8 +259,5 @@ class UserRepository(IUserRepository):
         return User(
             id=model.id,
             wallet_address=model.wallet_address,
-            escrow_balance=model.escrow_balance,
-            last_blockchain_check=model.last_blockchain_check,
             created_at=model.created_at,
-            updated_at=model.updated_at,
         )

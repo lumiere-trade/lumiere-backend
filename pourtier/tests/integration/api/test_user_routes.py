@@ -7,8 +7,9 @@ Usage:
     laborant test pourtier --integration
 """
 
+import base58
+import os
 from decimal import Decimal
-from uuid import uuid4
 
 import httpx
 from sqlalchemy import text
@@ -115,23 +116,20 @@ class TestUserRoutes(LaborantTest):
         self.reporter.info("Legal documents seeded", context="Setup")
 
     def _generate_unique_wallet(self) -> str:
-        """Generate unique 44-character wallet address."""
-        unique_id = str(uuid4()).replace("-", "")
-        return unique_id.ljust(44, "0")
+        """
+        Generate valid Solana wallet address.
 
-    async def _create_test_user(self, with_escrow: bool = False) -> User:
-        """Create test user in database."""
+        Solana wallet addresses are 32 bytes encoded as Base58.
+        This generates a valid Base58 string that can be used for PDA derivation.
+        """
+        random_bytes = os.urandom(32)
+        return base58.b58encode(random_bytes).decode('ascii')
+
+    async def _create_test_user(self) -> User:
+        """Create test user in database (immutable, no balance)."""
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             user = User(wallet_address=self._generate_unique_wallet())
-
-            if with_escrow:
-                user.initialize_escrow(
-                    escrow_account="3aV1Pbb5bT4x7dPdKj2fhgrXM2kPGMsTs4zB7CMkKfki",
-                    token_mint="USDC",
-                )
-                user.update_escrow_balance(Decimal("100.0"))
-
             return await user_repo.create(user)
 
     def _generate_test_token(self, user: User, wallet_type: str = "Phantom") -> str:
@@ -159,18 +157,21 @@ class TestUserRoutes(LaborantTest):
             json={"wallet_address": wallet},
         )
 
-        assert response.status_code == 201
+        assert (
+            response.status_code == 201
+        ), f"Expected 201, got {response.status_code}: {response.text}"
 
         data = response.json()
         assert "id" in data
         assert data["wallet_address"] == wallet
         assert data["wallet_type"] == "Unknown"
-        assert data["escrow_account"] is None
-        assert Decimal(data["escrow_balance"]) == Decimal("0")
         assert "created_at" in data
-        assert "updated_at" in data
         assert "pending_documents" in data
         assert isinstance(data["pending_documents"], list)
+        
+        # User entity does not include escrow_balance (queried separately)
+        assert "escrow_balance" not in data
+        assert "updated_at" not in data
 
         self.reporter.info("User created successfully", context="Test")
 
@@ -183,7 +184,9 @@ class TestUserRoutes(LaborantTest):
             "/api/users/",
             json={"wallet_address": wallet},
         )
-        assert response1.status_code == 201
+        assert (
+            response1.status_code == 201
+        ), f"Expected 201, got {response1.status_code}: {response1.text}"
 
         response2 = await self.client.post(
             "/api/users/",
@@ -216,7 +219,7 @@ class TestUserRoutes(LaborantTest):
         """Test getting current authenticated user profile."""
         self.reporter.info("Testing get current user (success)", context="Test")
 
-        user = await self._create_test_user(with_escrow=True)
+        user = await self._create_test_user()
         token = self._generate_test_token(user, wallet_type="Phantom")
 
         response = await self.client.get(
@@ -230,12 +233,13 @@ class TestUserRoutes(LaborantTest):
         assert data["id"] == str(user.id)
         assert data["wallet_address"] == user.wallet_address
         assert data["wallet_type"] == "Phantom"
-        assert data["escrow_account"] == user.escrow_account
-        assert Decimal(data["escrow_balance"]) == Decimal("100.0")
         assert "pending_documents" in data
         assert isinstance(data["pending_documents"], list)
         # User hasn't accepted docs, so should have pending
         assert len(data["pending_documents"]) > 0
+        
+        # User entity does not include escrow_balance (queried via /balance endpoint)
+        assert "escrow_balance" not in data
 
         self.reporter.info("Current user retrieved successfully", context="Test")
 
@@ -266,7 +270,7 @@ class TestUserRoutes(LaborantTest):
         """Test getting user by ID."""
         self.reporter.info("Testing get user by ID (success)", context="Test")
 
-        user = await self._create_test_user(with_escrow=True)
+        user = await self._create_test_user()
 
         response = await self.client.get(f"/api/users/{user.id}")
 
@@ -276,7 +280,6 @@ class TestUserRoutes(LaborantTest):
         assert data["id"] == str(user.id)
         assert data["wallet_address"] == user.wallet_address
         assert data["wallet_type"] == "Unknown"
-        assert data["escrow_account"] == user.escrow_account
         assert "pending_documents" in data
 
         self.reporter.info("User retrieved by ID successfully", context="Test")
@@ -308,7 +311,7 @@ class TestUserRoutes(LaborantTest):
         """Test getting user by wallet address."""
         self.reporter.info("Testing get user by wallet (success)", context="Test")
 
-        user = await self._create_test_user(with_escrow=True)
+        user = await self._create_test_user()
 
         response = await self.client.get(f"/api/users/wallet/{user.wallet_address}")
 
@@ -318,7 +321,6 @@ class TestUserRoutes(LaborantTest):
         assert data["id"] == str(user.id)
         assert data["wallet_address"] == user.wallet_address
         assert data["wallet_type"] == "Unknown"
-        assert data["escrow_account"] == user.escrow_account
         assert "pending_documents" in data
 
         self.reporter.info("User retrieved by wallet successfully", context="Test")
@@ -337,8 +339,8 @@ class TestUserRoutes(LaborantTest):
         self.reporter.info("Not found error returned", context="Test")
 
     async def test_create_user_without_escrow(self):
-        """Test that newly created user has no escrow initialized."""
-        self.reporter.info("Testing user creation without escrow", context="Test")
+        """Test that newly created user has minimal identity (no balance field)."""
+        self.reporter.info("Testing user creation (minimal identity)", context="Test")
 
         wallet = self._generate_unique_wallet()
 
@@ -347,15 +349,18 @@ class TestUserRoutes(LaborantTest):
             json={"wallet_address": wallet},
         )
 
-        assert response.status_code == 201
+        assert (
+            response.status_code == 201
+        ), f"Expected 201, got {response.status_code}: {response.text}"
 
         data = response.json()
-        assert data["escrow_account"] is None
-        assert Decimal(data["escrow_balance"]) == Decimal("0")
-        assert data["escrow_token_mint"] is None
         assert "pending_documents" in data
+        
+        # User entity does not include escrow_balance field
+        assert "escrow_balance" not in data
+        assert "updated_at" not in data
 
-        self.reporter.info("User created without escrow", context="Test")
+        self.reporter.info("User created as minimal identity", context="Test")
 
     async def test_get_user_profile_complete_flow(self):
         """Test complete flow: create user, authenticate, get profile."""
@@ -366,7 +371,9 @@ class TestUserRoutes(LaborantTest):
             "/api/users/",
             json={"wallet_address": wallet},
         )
-        assert create_response.status_code == 201
+        assert (
+            create_response.status_code == 201
+        ), f"Expected 201, got {create_response.status_code}: {create_response.text}"
         user_id = create_response.json()["id"]
 
         get_response = await self.client.get(f"/api/users/{user_id}")

@@ -43,11 +43,12 @@ class ValidateUserForDeployment:
     - User must exist
     - User must have active subscription
     - User must have initialized escrow on blockchain
-    - User must have balance > 0
+    - User must have balance > 0 (from blockchain)
 
     Architecture:
-    - Check blockchain for escrow existence (not DB)
+    - Query blockchain for real-time balance (no caching)
     - Derive escrow account on-the-fly
+    - Blockchain is source of truth for all checks
 
     This endpoint is called by Chevalier to validate deployment requests.
     """
@@ -127,8 +128,12 @@ class ValidateUserForDeployment:
         if not has_escrow:
             validation_errors.append("Escrow not initialized")
 
-        # 5. Check escrow balance (from DB cache)
-        escrow_balance = user.escrow_balance if has_escrow else Decimal("0")
+        # 5. Query blockchain for current balance (source of truth)
+        escrow_balance = Decimal("0")
+        if has_escrow:
+            escrow_balance = await self.escrow_query_service.get_escrow_balance(
+                escrow_account
+            )
 
         if has_escrow and escrow_balance <= 0:
             validation_errors.append(f"Insufficient escrow balance: {escrow_balance}")
@@ -152,7 +157,7 @@ class ValidateUserForDeployment:
             subscription_status=subscription_status_str,
             has_escrow=has_escrow,
             escrow_account=escrow_account,  # Always computed
-            escrow_balance=escrow_balance,
+            escrow_balance=escrow_balance,  # From blockchain
             can_deploy=can_deploy,
             validation_errors=validation_errors,
         )

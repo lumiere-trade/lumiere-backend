@@ -41,12 +41,14 @@ class CreateSubscription:
     1. Validate plan type
     2. Check user doesn't have active subscription
     3. Check user has initialized escrow on blockchain
-    4. Check sufficient escrow balance for first payment
-    5. Create subscription entity
-    6. Return subscription (billing handled separately by cron)
+    4. Query blockchain for current balance (source of truth)
+    5. Check sufficient escrow balance for first payment
+    6. Create subscription entity
+    7. Return subscription (billing handled separately by cron)
 
     Architecture:
-    - Check blockchain for escrow existence (not DB)
+    - Query blockchain for real-time balance (no caching)
+    - Blockchain is source of truth
     """
 
     def __init__(
@@ -120,12 +122,17 @@ class CreateSubscription:
         if not escrow_exists:
             raise ValueError("User must initialize escrow before subscribing")
 
+        # Query blockchain for current balance (source of truth)
+        current_balance = await self.escrow_query_service.get_escrow_balance(
+            escrow_account
+        )
+
         # Check sufficient balance for first payment
-        if user.escrow_balance < plan_details.price:
+        if current_balance < plan_details.price:
             raise InsufficientFundsError(
                 f"Insufficient escrow balance. Required: "
                 f"{plan_details.price} USDC, "
-                f"Available: {user.escrow_balance} USDC"
+                f"Available: {current_balance} USDC"
             )
 
         # Calculate expiration date

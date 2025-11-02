@@ -6,6 +6,8 @@ Provides endpoints for user management:
 - GET /users/me - Get current authenticated user
 - GET /users/{user_id} - Get user by ID
 - GET /users/wallet/{wallet_address} - Get user by wallet address
+
+Note: Escrow data (balance, account) available via GET /escrow/balance
 """
 
 from uuid import UUID
@@ -79,11 +81,7 @@ async def create_user(
             id=str(user.id),
             wallet_address=user.wallet_address,
             wallet_type="Unknown",
-            escrow_account=user.escrow_account,
-            escrow_balance=user.escrow_balance,
-            escrow_token_mint=user.escrow_token_mint,
             created_at=user.created_at,
-            updated_at=user.updated_at,
             pending_documents=[],
         )
 
@@ -157,11 +155,7 @@ async def get_current_user_profile(
         id=str(current_user.id),
         wallet_address=current_user.wallet_address,
         wallet_type=wallet_type,
-        escrow_account=current_user.escrow_account,
-        escrow_balance=current_user.escrow_balance,
-        escrow_token_mint=current_user.escrow_token_mint,
         created_at=current_user.created_at,
-        updated_at=current_user.updated_at,
         pending_documents=pending_docs_response,
     )
 
@@ -200,11 +194,7 @@ async def get_user_profile(
             id=str(user.id),
             wallet_address=user.wallet_address,
             wallet_type="Unknown",
-            escrow_account=user.escrow_account,
-            escrow_balance=user.escrow_balance,
-            escrow_token_mint=user.escrow_token_mint,
             created_at=user.created_at,
-            updated_at=user.updated_at,
             pending_documents=[],
         )
 
@@ -254,11 +244,7 @@ async def get_user_by_wallet(
             id=str(user.id),
             wallet_address=user.wallet_address,
             wallet_type="Unknown",
-            escrow_account=user.escrow_account,
-            escrow_balance=user.escrow_balance,
-            escrow_token_mint=user.escrow_token_mint,
             created_at=user.created_at,
-            updated_at=user.updated_at,
             pending_documents=[],
         )
 

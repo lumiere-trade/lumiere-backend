@@ -67,10 +67,9 @@ class TestValidateUserForDeployment(LaborantTest):
         subscription_repo = AsyncMock()
         escrow_query_service = AsyncMock()
 
-        # Create valid user
+        # Create valid user (immutable, no balance)
         user_id = uuid4()
         user = User(id=user_id, wallet_address=self._generate_valid_wallet())
-        user.update_escrow_balance(Decimal("100.0"))
 
         # Create active subscription
         subscription = Subscription(
@@ -81,10 +80,11 @@ class TestValidateUserForDeployment(LaborantTest):
             expires_at=datetime.now() + timedelta(days=30),
         )
 
-        # Mock responses
+        # Mock responses - balance comes from blockchain
         user_repo.get_by_id.return_value = user
         subscription_repo.get_active_by_user.return_value = subscription
         escrow_query_service.check_escrow_exists.return_value = True
+        escrow_query_service.get_escrow_balance.return_value = Decimal("100.0")
 
         # Execute use case
         use_case = ValidateUserForDeployment(
@@ -106,6 +106,9 @@ class TestValidateUserForDeployment(LaborantTest):
         assert result.escrow_account == escrow_account
         assert result.escrow_balance == Decimal("100.0")
         assert len(result.validation_errors) == 0
+        
+        # Verify blockchain was queried
+        escrow_query_service.get_escrow_balance.assert_called_once_with(escrow_account)
 
         self.reporter.info("User validation successful", context="Test")
 
@@ -152,15 +155,15 @@ class TestValidateUserForDeployment(LaborantTest):
         subscription_repo = AsyncMock()
         escrow_query_service = AsyncMock()
 
-        # User with escrow but no subscription
+        # User with escrow but no subscription (immutable)
         user_id = uuid4()
         user = User(id=user_id, wallet_address=self._generate_valid_wallet())
-        user.update_escrow_balance(Decimal("100.0"))
 
         # No subscription
         user_repo.get_by_id.return_value = user
         subscription_repo.get_active_by_user.return_value = None
         escrow_query_service.check_escrow_exists.return_value = True
+        escrow_query_service.get_escrow_balance.return_value = Decimal("100.0")
 
         # Execute use case
         use_case = ValidateUserForDeployment(
@@ -197,10 +200,9 @@ class TestValidateUserForDeployment(LaborantTest):
         subscription_repo = AsyncMock()
         escrow_query_service = AsyncMock()
 
-        # User with escrow
+        # User with escrow (immutable)
         user_id = uuid4()
         user = User(id=user_id, wallet_address=self._generate_valid_wallet())
-        user.update_escrow_balance(Decimal("100.0"))
 
         # Expired subscription
         subscription = Subscription(
@@ -214,6 +216,7 @@ class TestValidateUserForDeployment(LaborantTest):
         user_repo.get_by_id.return_value = user
         subscription_repo.get_active_by_user.return_value = subscription
         escrow_query_service.check_escrow_exists.return_value = True
+        escrow_query_service.get_escrow_balance.return_value = Decimal("100.0")
 
         # Execute use case
         use_case = ValidateUserForDeployment(
@@ -290,7 +293,7 @@ class TestValidateUserForDeployment(LaborantTest):
         "pourtier.application.use_cases.validate_user_for_deployment.derive_escrow_pda"
     )
     async def test_validate_user_insufficient_balance(self, mock_derive_pda):
-        """Test validation with zero escrow balance."""
+        """Test validation with zero escrow balance from blockchain."""
         self.reporter.info("Testing insufficient balance", context="Test")
 
         # Mock PDA derivation
@@ -302,10 +305,9 @@ class TestValidateUserForDeployment(LaborantTest):
         subscription_repo = AsyncMock()
         escrow_query_service = AsyncMock()
 
-        # User with escrow but zero balance
+        # User with escrow (immutable, no balance in entity)
         user_id = uuid4()
         user = User(id=user_id, wallet_address=self._generate_valid_wallet())
-        user.update_escrow_balance(Decimal("0"))
 
         # Active subscription
         subscription = Subscription(
@@ -319,6 +321,7 @@ class TestValidateUserForDeployment(LaborantTest):
         user_repo.get_by_id.return_value = user
         subscription_repo.get_active_by_user.return_value = subscription
         escrow_query_service.check_escrow_exists.return_value = True
+        escrow_query_service.get_escrow_balance.return_value = Decimal("0")
 
         # Execute use case
         use_case = ValidateUserForDeployment(
@@ -338,6 +341,9 @@ class TestValidateUserForDeployment(LaborantTest):
         assert any(
             "Insufficient escrow balance" in err for err in result.validation_errors
         )
+        
+        # Verify blockchain was queried
+        escrow_query_service.get_escrow_balance.assert_called_once_with(escrow_account)
 
         self.reporter.info("Insufficient balance detected", context="Test")
 
@@ -404,10 +410,9 @@ class TestValidateUserForDeployment(LaborantTest):
         subscription_repo = AsyncMock()
         escrow_query_service = AsyncMock()
 
-        # User with escrow
+        # User with escrow (immutable)
         user_id = uuid4()
         user = User(id=user_id, wallet_address=self._generate_valid_wallet())
-        user.update_escrow_balance(Decimal("50.0"))
 
         # FREE subscription (no expires_at needed)
         subscription = Subscription(
@@ -420,6 +425,7 @@ class TestValidateUserForDeployment(LaborantTest):
         user_repo.get_by_id.return_value = user
         subscription_repo.get_active_by_user.return_value = subscription
         escrow_query_service.check_escrow_exists.return_value = True
+        escrow_query_service.get_escrow_balance.return_value = Decimal("50.0")
 
         # Execute use case
         use_case = ValidateUserForDeployment(
@@ -435,6 +441,9 @@ class TestValidateUserForDeployment(LaborantTest):
         assert result.is_valid is True
         assert result.can_deploy is True
         assert result.subscription_plan == "free"
+        
+        # Verify blockchain was queried
+        escrow_query_service.get_escrow_balance.assert_called_once_with(escrow_account)
 
         self.reporter.info("FREE plan validated successfully", context="Test")
 

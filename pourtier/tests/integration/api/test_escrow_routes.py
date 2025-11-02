@@ -117,11 +117,10 @@ class TestEscrowRoutes(LaborantTest):
         return base64.b64encode(data.encode()).decode()
 
     async def _create_test_user(self):
-        """Create test user with balance."""
+        """Create test user (immutable, no balance)."""
         async with self.db.session() as session:
             user_repo = UserRepository(session)
             user = User(wallet_address=self._generate_unique_wallet())
-            user.update_escrow_balance(Decimal("500.0"))
             TestEscrowRoutes.test_user = await user_repo.create(user)
 
     def _generate_test_token(self) -> str:
@@ -198,7 +197,6 @@ class TestEscrowRoutes(LaborantTest):
         signed_tx = self._generate_valid_signed_tx("reinit")
 
         # Mock passeur bridge to throw error (account already exists)
-
         self.mock_passeur.submit_signed_transaction.side_effect = Exception(
             "Error: Account already in use"
         )
@@ -295,12 +293,13 @@ class TestEscrowRoutes(LaborantTest):
         # Mock passeur bridge response
         self.mock_passeur.submit_signed_transaction.return_value = sig
 
-        # Mock escrow query service
+        # Mock escrow query service - sufficient balance
         with patch(
             "pourtier.di.container.DIContainer.escrow_query_service"
         ) as mock_query:
             mock_query_instance = AsyncMock()
             mock_query_instance.check_escrow_exists.return_value = True
+            mock_query_instance.get_escrow_balance.return_value = Decimal("500.0")
             mock_query.__get__ = lambda *args: mock_query_instance
 
             response = await self.client.post(
@@ -323,7 +322,7 @@ class TestEscrowRoutes(LaborantTest):
 
     @patch("pourtier.application.use_cases.withdraw_from_escrow.derive_escrow_pda")
     async def test_withdraw_insufficient_balance(self, mock_derive_pda):
-        """Test withdrawal with insufficient balance."""
+        """Test withdrawal with insufficient balance from blockchain."""
         self.reporter.info("Testing withdraw (insufficient balance)", context="Test")
 
         # Mock PDA derivation
@@ -335,12 +334,13 @@ class TestEscrowRoutes(LaborantTest):
         # Mock passeur bridge response
         self.mock_passeur.submit_signed_transaction.return_value = sig
 
-        # Mock escrow query service
+        # Mock escrow query service - insufficient blockchain balance
         with patch(
             "pourtier.di.container.DIContainer.escrow_query_service"
         ) as mock_query:
             mock_query_instance = AsyncMock()
             mock_query_instance.check_escrow_exists.return_value = True
+            mock_query_instance.get_escrow_balance.return_value = Decimal("50.0")
             mock_query.__get__ = lambda *args: mock_query_instance
 
             response = await self.client.post(
@@ -361,7 +361,7 @@ class TestEscrowRoutes(LaborantTest):
 
     @patch("pourtier.application.use_cases.get_escrow_balance.derive_escrow_pda")
     async def test_get_balance_success(self, mock_derive_pda):
-        """Test getting escrow balance without blockchain sync."""
+        """Test getting escrow balance from blockchain."""
         self.reporter.info("Testing get balance (success)", context="Test")
 
         # Mock PDA derivation

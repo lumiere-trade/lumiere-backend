@@ -39,6 +39,7 @@ class InitializeEscrow:
     - Escrow account is NOT stored in DB
     - Only transaction record is stored for audit trail
     - Blockchain is source of truth for initialization status
+    - User entity is immutable (no updates after initialization)
     """
 
     def __init__(
@@ -128,8 +129,5 @@ class InitializeEscrow:
 
         await self.escrow_transaction_repository.create(transaction)
 
-        # 6. Update user's blockchain check timestamp
-        user.update_blockchain_check_timestamp()
-        updated_user = await self.user_repository.update(user)
-
-        return updated_user, tx_signature
+        # 6. Return user (immutable) and transaction signature
+        return user, tx_signature
