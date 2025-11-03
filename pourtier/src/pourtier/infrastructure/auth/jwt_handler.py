@@ -70,24 +70,35 @@ def decode_access_token(token: str) -> Dict[str, str]:
         >>> payload["wallet_address"]
         >>> payload["wallet_type"]
     """
+    print(f"[JWT-DEBUG] Attempting to decode token: {token[:50]}...")
+    print(f"[JWT-DEBUG] JWT_SECRET_KEY: {get_settings().JWT_SECRET_KEY}")
+    print(f"[JWT-DEBUG] JWT_ALGORITHM: {get_settings().JWT_ALGORITHM}")
+    
     try:
         payload = jwt.decode(
             token,
             get_settings().JWT_SECRET_KEY,
             algorithms=[get_settings().JWT_ALGORITHM],
         )
+        print(f"[JWT-DEBUG] Token decoded successfully: {payload}")
+        
         user_id = payload.get("sub")
         wallet = payload.get("wallet")
+        
         if not user_id or not wallet:
+            print(f"[JWT-DEBUG] Missing fields - user_id: {user_id}, wallet: {wallet}")
             raise InvalidTokenError()
+            
         return {
             "user_id": user_id,
             "wallet_address": wallet,
             "wallet_type": payload.get("wallet_type", "Unknown"),
         }
-    except jwt.ExpiredSignatureError:
+    except jwt.ExpiredSignatureError as e:
+        print(f"[JWT-DEBUG] Token expired: {e}")
         raise ExpiredTokenError()
-    except JWTError:
+    except JWTError as e:
+        print(f"[JWT-DEBUG] JWT decode error: {type(e).__name__}: {e}")
         raise InvalidTokenError()
 
 
