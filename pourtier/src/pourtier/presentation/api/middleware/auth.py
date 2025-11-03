@@ -37,7 +37,11 @@ async def get_current_user(
     Raises:
         HTTPException: 401 if token invalid, expired, or user not found
     """
+    print(f"[AUTH-DEBUG] get_current_user called!")
+    print(f"[AUTH-DEBUG] credentials: {credentials}")
+    
     token = credentials.credentials
+    print(f"[AUTH-DEBUG] token: {token[:50]}...")
 
     try:
         # Decode JWT token
