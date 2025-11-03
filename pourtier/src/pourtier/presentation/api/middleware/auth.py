@@ -1,7 +1,7 @@
 """
 Authentication middleware for JWT token validation.
 """
-
+import traceback
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
@@ -60,8 +60,10 @@ async def get_current_user(
 
         return user
 
-    except ValueError:
+    except ValueError as e:
         # Invalid UUID or token format
+        print(f"[AUTH-DEBUG] ValueError: {e}")
+        print(f"[AUTH-DEBUG] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token format",
@@ -70,8 +72,10 @@ async def get_current_user(
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
-    except Exception:
+    except Exception as e:
         # Unexpected errors
+        print(f"[AUTH-DEBUG] Unexpected error: {type(e).__name__}: {e}")
+        print(f"[AUTH-DEBUG] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication failed",
