@@ -116,6 +116,7 @@ class InitializeEscrow:
 
         # 5. Create escrow transaction record (INITIALIZE type)
         # This is our audit trail - blockchain is source of truth
+        now = datetime.now()
         transaction = EscrowTransaction(
             id=uuid4(),
             user_id=user_id,
@@ -124,7 +125,8 @@ class InitializeEscrow:
             amount=0,  # No amount for initialization
             token_mint=token_mint,
             status=TransactionStatus.CONFIRMED,
-            confirmed_at=datetime.now(),
+            created_at=now,
+            confirmed_at=now,
         )
 
         await self.escrow_transaction_repository.create(transaction)
