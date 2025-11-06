@@ -8,7 +8,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from pourtier.domain.exceptions.base import EntityNotFoundError, ValidationError
-from pourtier.domain.exceptions.payment import InsufficientEscrowBalanceError
+from pourtier.domain.exceptions.blockchain import InsufficientEscrowBalanceError
 from pourtier.domain.repositories.i_user_repository import IUserRepository
 from pourtier.domain.services.i_escrow_query_service import IEscrowQueryService
 from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
