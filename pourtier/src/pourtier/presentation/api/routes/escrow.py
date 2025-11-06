@@ -19,6 +19,9 @@ from pourtier.application.use_cases.prepare_deposit_to_escrow import (
 from pourtier.application.use_cases.prepare_initialize_escrow import (
     PrepareInitializeEscrow,
 )
+from pourtier.application.use_cases.prepare_withdraw_from_escrow import (
+    PrepareWithdrawFromEscrow,
+)
 from pourtier.application.use_cases.withdraw_from_escrow import WithdrawFromEscrow
 from pourtier.config.settings import get_settings
 from pourtier.di.dependencies import (
@@ -28,6 +31,7 @@ from pourtier.di.dependencies import (
     get_initialize_escrow,
     get_prepare_deposit_to_escrow,
     get_prepare_initialize_escrow,
+    get_prepare_withdraw_from_escrow,
     get_withdraw_from_escrow,
 )
 from pourtier.domain.entities.escrow_transaction import TransactionType
@@ -53,6 +57,8 @@ from pourtier.presentation.schemas.escrow_schemas import (
     PrepareDepositRequest,
     PrepareDepositResponse,
     PrepareInitializeResponse,
+    PrepareWithdrawRequest,
+    PrepareWithdrawResponse,
     TransactionListResponse,
     TransactionResponse,
     WithdrawRequest,
@@ -285,6 +291,70 @@ async def deposit_to_escrow(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Blockchain error: {str(e)}",
+        )
+
+
+# ================================================================
+# Prepare Withdraw
+# ================================================================
+
+
+@router.post(
+    "/prepare-withdraw",
+    response_model=PrepareWithdrawResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Prepare withdraw transaction",
+    description="Generate unsigned withdraw transaction for user to sign",
+)
+async def prepare_withdraw(
+    request: PrepareWithdrawRequest,
+    current_user: User = Depends(get_current_user),
+    use_case: PrepareWithdrawFromEscrow = Depends(get_prepare_withdraw_from_escrow),
+):
+    """
+    Prepare withdraw transaction for user signing.
+
+    Returns unsigned transaction (base64) for user to sign in wallet.
+    After signing, user calls POST /api/escrow/withdraw with signed transaction.
+
+    Flow:
+    1. User calls this endpoint with amount
+    2. Backend validates sufficient escrow balance
+    3. Backend generates unsigned transaction via Passeur
+    4. User signs transaction in wallet (frontend)
+    5. User calls POST /api/escrow/withdraw with signed tx
+    """
+    try:
+        result = await use_case.execute(
+            user_id=current_user.id,
+            amount=request.amount,
+        )
+
+        return PrepareWithdrawResponse(
+            transaction=result.transaction,
+            escrow_account=result.escrow_account,
+            amount=result.amount,
+        )
+
+    except EntityNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except InsufficientEscrowBalanceError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except BlockchainError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to prepare withdraw: {str(e)}",
         )
 
 

@@ -291,6 +291,28 @@ def get_prepare_deposit_to_escrow(
     )
 
 
+def get_prepare_withdraw_from_escrow(
+    session: AsyncSession = Depends(get_db_session),
+    passeur_bridge=Depends(get_passeur_bridge),
+    escrow_query_service=Depends(get_escrow_query_service),
+    program_id: str = Depends(get_program_id),
+):
+    """Get PrepareWithdrawFromEscrow use case dependency."""
+    from pourtier.application.use_cases.prepare_withdraw_from_escrow import (
+        PrepareWithdrawFromEscrow,
+    )
+
+    container = get_container()
+    user_repo = container.get_user_repository(session)
+
+    return PrepareWithdrawFromEscrow(
+        user_repository=user_repo,
+        passeur_bridge=passeur_bridge,
+        escrow_query_service=escrow_query_service,
+        program_id=program_id,
+    )
+
+
 def get_create_subscription(
     session: AsyncSession = Depends(get_db_session),
     escrow_query_service=Depends(get_escrow_query_service),
