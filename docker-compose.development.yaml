@@ -41,7 +41,10 @@ services:
 
   # -------------------------------------------
   # Pourtier (Database Service)
-  # Development: External 9000 → Internal 9000
+  # Development: 
+  #   - External 9000 → Internal 9000 (Main API)
+  #   - External 9090 → Internal 9090 (Prometheus Metrics)
+  #   - External 9091 → Internal 9091 (Health Check Server)
   # -------------------------------------------
   pourtier:
     image: pourtier:development
@@ -59,6 +62,8 @@ services:
       COURIER_URL: http://lumiere-dev-courier:9765
     ports:
       - "${POURTIER_PORT:-9000}:9000"
+      - "9090:9090"
+      - "9091:9091"
     depends_on:
       postgres:
         condition: service_healthy

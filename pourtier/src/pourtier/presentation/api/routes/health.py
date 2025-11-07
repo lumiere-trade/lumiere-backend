@@ -17,7 +17,7 @@ health_check = PourtierHealthCheck()
 
 
 @router.get("/live", status_code=status.HTTP_200_OK)
-async def liveness_probe(response: Response):
+def liveness_probe(response: Response):
     """
     Liveness probe endpoint.
 
@@ -27,16 +27,16 @@ async def liveness_probe(response: Response):
     Returns:
         Health status dict
     """
-    result = await health_check.check_liveness()
+    report = health_check.check_liveness()
 
-    if result["status"] != "healthy":
+    if not report.is_healthy:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
-    return result
+    return report.to_dict()
 
 
 @router.get("/ready", status_code=status.HTTP_200_OK)
-async def readiness_probe(response: Response):
+def readiness_probe(response: Response):
     """
     Readiness probe endpoint.
 
@@ -52,20 +52,20 @@ async def readiness_probe(response: Response):
     Returns:
         Health status dict with dependency checks
     """
-    result = await health_check.check_readiness()
+    report = health_check.check_readiness()
 
-    if result["status"] in ("unhealthy", "degraded"):
+    if not report.is_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
-    return result
+    return report.to_dict()
 
 
 @router.get("", status_code=status.HTTP_200_OK)
-async def health_check_endpoint(response: Response):
+def health_check_endpoint(response: Response):
     """
     General health check endpoint (alias for readiness).
 
     Returns:
         Health status dict
     """
-    return await readiness_probe(response)
+    return readiness_probe(response)

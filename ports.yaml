@@ -2,64 +2,103 @@
 #
 # Architecture: Each environment uses different container ports
 # - Production: 8xxx
-# - Development: 9xxx  
+# - Development: 9xxx
 # - Test: 7xxx
 #
+# Port allocation pattern per service:
+# - Main API: x000
+# - Metrics (Prometheus): x090
+# - Health Check: x091
+#
 # Docker port mappings are 1:1 (host:container same port)
-
-version: "1.0"
-last_updated: "2025-01-20"
+version: "1.1"
+last_updated: "2025-11-07"
 
 # Port allocation by environment
 environments:
   production:
     pourtier:
-      port: 8000
-      mapping: "8000:8000"
+      api_port: 8000
+      api_mapping: "8000:8000"
+      metrics_port: 8090
+      metrics_mapping: "8090:8090"
+      health_port: 8091
+      health_mapping: "8091:8091"
     courier:
-      port: 8765
-      mapping: "8765:8765"
+      api_port: 8765
+      api_mapping: "8765:8765"
+      metrics_port: 8790
+      metrics_mapping: "8790:8790"
+      health_port: 8791
+      health_mapping: "8791:8791"
     passeur:
-      port: 8766
-      mapping: "8766:8766"
-      
+      api_port: 8766
+      api_mapping: "8766:8766"
+      metrics_port: 8790
+      metrics_mapping: "8792:8792"
+      health_port: 8793
+      health_mapping: "8793:8793"
+
   development:
     pourtier:
-      port: 9000
-      mapping: "9000:9000"
+      api_port: 9000
+      api_mapping: "9000:9000"
+      metrics_port: 9090
+      metrics_mapping: "9090:9090"
+      health_port: 9091
+      health_mapping: "9091:9091"
     courier:
-      port: 9765
-      mapping: "9765:9765"
+      api_port: 9765
+      api_mapping: "9765:9765"
+      metrics_port: 9790
+      metrics_mapping: "9790:9790"
+      health_port: 9791
+      health_mapping: "9791:9791"
     passeur:
-      port: 9766
-      mapping: "9766:9766"
-      
+      api_port: 9766
+      api_mapping: "9766:9766"
+      metrics_port: 9792
+      metrics_mapping: "9792:9792"
+      health_port: 9793
+      health_mapping: "9793:9793"
+
   test:
     pourtier:
-      port: 7000
-      mapping: "7000:7000"
+      api_port: 7000
+      api_mapping: "7000:7000"
+      metrics_port: 7090
+      metrics_mapping: "7090:7090"
+      health_port: 7091
+      health_mapping: "7091:7091"
     courier:
-      port: 7765
-      mapping: "7765:7765"
+      api_port: 7765
+      api_mapping: "7765:7765"
+      metrics_port: 7790
+      metrics_mapping: "7790:7790"
+      health_port: 7791
+      health_mapping: "7791:7791"
     passeur:
-      port: 7766
-      mapping: "7766:7766"
+      api_port: 7766
+      api_mapping: "7766:7766"
+      metrics_port: 7792
+      metrics_mapping: "7792:7792"
+      health_port: 7793
+      health_mapping: "7793:7793"
     postgres:
       port: 5432
       mapping: "5433:5432"
 
 # Service discovery URLs (Docker DNS)
+# Note: Internal services use container ports, not exposed ports
 service_discovery:
   production:
     pourtier: "http://pourtier:8000"
     courier: "http://courier:8765"
     passeur: "http://passeur:8766"
-    
   development:
     pourtier: "http://pourtier:9000"
     courier: "http://courier:9765"
     passeur: "http://passeur:9766"
-    
   test:
     pourtier: "http://pourtier:7000"
     courier: "http://courier:7765"
@@ -74,6 +113,8 @@ infrastructure:
 
 # Health check endpoints
 health_endpoints:
-  pourtier: "/health"
-  courier: "/health"
-  passeur: "/health"
+  main_api: "/health"
+  dedicated_health: "/health"
+  liveness: "/health/live"
+  readiness: "/health/ready"
+  metrics: "/metrics"

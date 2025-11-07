@@ -98,7 +98,7 @@ class PasseurBridgeClient(IPasseurBridge):
             max_attempts=max_retries,
             initial_delay=1.0,
             max_delay=10.0,
-            exponential_base=2.0,
+            backoff_multiplier=2.0,
             jitter=True,
             backoff_strategy=BackoffStrategy.EXPONENTIAL,
             retry_on=(aiohttp.ClientError, asyncio.TimeoutError),

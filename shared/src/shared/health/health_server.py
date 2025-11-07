@@ -136,8 +136,13 @@ class HealthServer:
             self.server = HTTPServer((self.host, self.port), HealthRequestHandler)
             logger.info(f"Health server listening on {self.host}:{self.port}")
 
-            signal.signal(signal.SIGTERM, self._signal_handler)
-            signal.signal(signal.SIGINT, self._signal_handler)
+            # Try to register signal handlers (only works in main thread)
+            try:
+                signal.signal(signal.SIGTERM, self._signal_handler)
+                signal.signal(signal.SIGINT, self._signal_handler)
+            except ValueError:
+                # Signal handlers only work in main thread, skip silently
+                logger.debug("Skipping signal handlers (not in main thread)")
 
             self.server.serve_forever()
 
@@ -152,6 +157,10 @@ class HealthServer:
             self.server.shutdown()
             self.server.server_close()
             logger.info("Health server stopped")
+
+    def shutdown(self):
+        """Alias for stop() for compatibility."""
+        self.stop()
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""

@@ -1,10 +1,10 @@
 """
 Main FastAPI application entry point.
 
-Uses Application Factory Pattern for proper dependency injection
-and testability.
+Uses Application Factory Pattern with dedicated monitoring servers.
 """
 
+import threading
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -13,6 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
+from shared.health import HealthServer
+from shared.observability import MetricsServer
+
 from pourtier.config.settings import Settings, get_settings
 from pourtier.di import get_container, initialize_container, shutdown_container
 from pourtier.domain.exceptions import PourtierException
@@ -20,6 +23,9 @@ from pourtier.infrastructure.cache import ResponseCache
 from pourtier.infrastructure.monitoring import get_logger, setup_logging
 from pourtier.infrastructure.monitoring.graceful_shutdown import (
     PourtierGracefulShutdown,
+)
+from pourtier.infrastructure.monitoring.pourtier_health_checker import (
+    PourtierHealthChecker,
 )
 from pourtier.presentation.api.middleware import (
     pourtier_exception_handler,
@@ -65,9 +71,15 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
 
     logger.info(f"Creating Pourtier application (ENV={settings.ENV})")
 
+    # Background monitoring servers
+    metrics_server: Optional[MetricsServer] = None
+    health_server: Optional[HealthServer] = None
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        """Application lifespan manager."""
+        """Application lifespan manager with monitoring servers."""
+        nonlocal metrics_server, health_server
+
         # Startup
         logger.info("Starting Pourtier application...")
         await initialize_container()
@@ -90,12 +102,58 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         app.state.shutdown_handler = shutdown_handler
         logger.info("Graceful shutdown handler initialized")
 
+        # Start Metrics Server (port 9090)
+        if settings.METRICS_ENABLED:
+            metrics_server = MetricsServer(
+                host=settings.METRICS_HOST,
+                port=settings.METRICS_PORT,
+            )
+            metrics_thread = threading.Thread(
+                target=metrics_server.start,
+                daemon=True,
+                name="MetricsServer",
+            )
+            metrics_thread.start()
+            logger.info(
+                f"Metrics server started on "
+                f"http://{settings.METRICS_HOST}:{settings.METRICS_PORT}/metrics"
+            )
+
+        # Start Health Server (port 9091)
+        if settings.HEALTH_CHECK_ENABLED:
+            health_checker = PourtierHealthChecker()
+            health_server = HealthServer(
+                host=settings.HEALTH_HOST,
+                port=settings.HEALTH_PORT,
+                health_checker=health_checker,
+            )
+            health_thread = threading.Thread(
+                target=health_server.start,
+                daemon=True,
+                name="HealthServer",
+            )
+            health_thread.start()
+            logger.info(
+                f"Health server started on "
+                f"http://{settings.HEALTH_HOST}:{settings.HEALTH_PORT}/health"
+            )
+
         logger.info("Pourtier application started successfully")
 
         yield
 
         # Shutdown
         logger.info("Shutting down Pourtier application...")
+
+        # Shutdown monitoring servers
+        if metrics_server:
+            metrics_server.shutdown()
+            logger.info("Metrics server shut down")
+
+        if health_server:
+            health_server.shutdown()
+            logger.info("Health server shut down")
+
         await shutdown_container()
         logger.info("Pourtier application shutdown complete")
 
@@ -212,6 +270,14 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
                 },
             },
             "timestamp": "now",
+            "monitoring": {
+                "metrics_server": f"http://{settings.METRICS_HOST}:{settings.METRICS_PORT}/metrics"
+                if settings.METRICS_ENABLED
+                else "disabled",
+                "health_server": f"http://{settings.HEALTH_HOST}:{settings.HEALTH_PORT}/health"
+                if settings.HEALTH_CHECK_ENABLED
+                else "disabled",
+            },
         }
 
     @app.get("/metrics", tags=["Monitoring"])

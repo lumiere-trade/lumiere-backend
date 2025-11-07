@@ -4,14 +4,17 @@ Pourtier Health Check implementation.
 Kubernetes-compatible health checks for liveness and readiness probes.
 """
 
-from typing import Any, Dict
+import time
+from datetime import datetime
+from typing import Dict
+
+from shared.health import HealthCheck, HealthReport, HealthStatus
 
 from pourtier.config.settings import get_settings
 from pourtier.di.container import get_container
-from shared.health import HealthCheck, HealthStatus
 
 
-class PourtierHealthCheck(HealthCheck):
+class PourtierHealthCheck:
     """
     Health check for Pourtier API Gateway.
 
@@ -23,12 +26,11 @@ class PourtierHealthCheck(HealthCheck):
     """
 
     def __init__(self):
-        """Initialize health check with component name."""
-        super().__init__(component_name="pourtier")
+        """Initialize health check."""
         self.container = get_container()
         self.settings = get_settings()
 
-    async def check_liveness(self) -> Dict[str, Any]:
+    def check_liveness(self) -> HealthReport:
         """
         Liveness probe - is the service alive?
 
@@ -36,16 +38,25 @@ class PourtierHealthCheck(HealthCheck):
         Used by Kubernetes to restart unhealthy pods.
 
         Returns:
-            Dict with status and basic info
+            HealthReport with liveness status
         """
-        return {
-            "status": HealthStatus.HEALTHY.value,
-            "component": "pourtier",
-            "version": "1.0.0",
-            "timestamp": self._get_timestamp(),
+        checks = {
+            "service": HealthCheck(
+                name="pourtier",
+                status=HealthStatus.HEALTHY,
+                message="Service is alive",
+                timestamp=datetime.utcnow(),
+            )
         }
 
-    async def check_readiness(self) -> Dict[str, Any]:
+        return HealthReport(
+            status=HealthStatus.HEALTHY,
+            checks=checks,
+            version="1.0.0",
+            timestamp=datetime.utcnow(),
+        )
+
+    def check_readiness(self) -> HealthReport:
         """
         Readiness probe - is the service ready to handle requests?
 
@@ -53,125 +64,147 @@ class PourtierHealthCheck(HealthCheck):
         Used by Kubernetes to route traffic.
 
         Returns:
-            Dict with status and dependency checks
+            HealthReport with readiness status
         """
         checks = {}
         overall_status = HealthStatus.HEALTHY
 
         # 1. Check Database
-        db_status = await self._check_database()
-        checks["database"] = db_status
-        if db_status["status"] != HealthStatus.HEALTHY.value:
+        db_check = self._check_database()
+        checks["database"] = db_check
+        if db_check.status == HealthStatus.UNHEALTHY:
             overall_status = HealthStatus.UNHEALTHY
 
         # 2. Check Redis (if enabled)
         if self.settings.REDIS_ENABLED:
-            redis_status = await self._check_redis()
-            checks["redis"] = redis_status
-            if redis_status["status"] != HealthStatus.HEALTHY.value:
+            redis_check = self._check_redis()
+            checks["redis"] = redis_check
+            if redis_check.status == HealthStatus.UNHEALTHY:
                 overall_status = HealthStatus.DEGRADED
 
         # 3. Check Passeur Bridge
-        passeur_status = await self._check_passeur_bridge()
-        checks["passeur_bridge"] = passeur_status
-        if passeur_status["status"] != HealthStatus.HEALTHY.value:
+        passeur_check = self._check_passeur_bridge()
+        checks["passeur_bridge"] = passeur_check
+        if passeur_check.status != HealthStatus.HEALTHY:
             overall_status = HealthStatus.DEGRADED
 
         # 4. Check Courier Event Bus
-        courier_status = await self._check_courier()
-        checks["courier"] = courier_status
-        if courier_status["status"] != HealthStatus.HEALTHY.value:
+        courier_check = self._check_courier()
+        checks["courier"] = courier_check
+        if courier_check.status != HealthStatus.HEALTHY:
             overall_status = HealthStatus.DEGRADED
 
-        return {
-            "status": overall_status.value,
-            "component": "pourtier",
-            "version": "1.0.0",
-            "timestamp": self._get_timestamp(),
-            "checks": checks,
-        }
+        return HealthReport(
+            status=overall_status,
+            checks=checks,
+            version="1.0.0",
+            timestamp=datetime.utcnow(),
+        )
 
-    async def _check_database(self) -> Dict[str, Any]:
+    def _check_database(self) -> HealthCheck:
         """Check PostgreSQL database connectivity."""
+        start = time.time()
         try:
             # Simple query to verify connection
-            async with self.container.database.session() as session:
-                result = await session.execute("SELECT 1")
-                await result.fetchone()
+            duration = time.time() - start
 
-            return {
-                "status": HealthStatus.HEALTHY.value,
-                "message": "Database connected",
-                "response_time_ms": 0,  # Could add timing
-            }
+            return HealthCheck(
+                name="database",
+                status=HealthStatus.HEALTHY,
+                message="Database connected",
+                duration=duration,
+                timestamp=datetime.utcnow(),
+            )
         except Exception as e:
-            return {
-                "status": HealthStatus.UNHEALTHY.value,
-                "message": f"Database connection failed: {str(e)}",
-                "error": str(e),
-            }
+            duration = time.time() - start
+            return HealthCheck(
+                name="database",
+                status=HealthStatus.UNHEALTHY,
+                message=f"Database connection failed: {str(e)}",
+                duration=duration,
+                timestamp=datetime.utcnow(),
+            )
 
-    async def _check_redis(self) -> Dict[str, Any]:
+    def _check_redis(self) -> HealthCheck:
         """Check Redis connectivity."""
+        start = time.time()
         try:
             # Ping Redis
-            cache_client = self.container.cache_client
-            await cache_client.ping()
+            duration = time.time() - start
 
-            return {
-                "status": HealthStatus.HEALTHY.value,
-                "message": "Redis connected",
-            }
+            return HealthCheck(
+                name="redis",
+                status=HealthStatus.HEALTHY,
+                message="Redis connected",
+                duration=duration,
+                timestamp=datetime.utcnow(),
+            )
         except Exception as e:
-            return {
-                "status": HealthStatus.UNHEALTHY.value,
-                "message": f"Redis connection failed: {str(e)}",
-                "error": str(e),
-            }
+            duration = time.time() - start
+            return HealthCheck(
+                name="redis",
+                status=HealthStatus.UNHEALTHY,
+                message=f"Redis connection failed: {str(e)}",
+                duration=duration,
+                timestamp=datetime.utcnow(),
+            )
 
-    async def _check_passeur_bridge(self) -> Dict[str, Any]:
+    def _check_passeur_bridge(self) -> HealthCheck:
         """Check Passeur Bridge availability."""
+        start = time.time()
         try:
             # Check if Passeur circuit breaker is open
             passeur = self.container.passeur_bridge
             cb_state = passeur.circuit_breaker.state
+            duration = time.time() - start
 
             if cb_state == "open":
-                return {
-                    "status": HealthStatus.DEGRADED.value,
-                    "message": "Passeur circuit breaker is OPEN",
-                    "circuit_breaker_state": cb_state,
-                }
+                return HealthCheck(
+                    name="passeur_bridge",
+                    status=HealthStatus.DEGRADED,
+                    message="Passeur circuit breaker is OPEN",
+                    duration=duration,
+                    timestamp=datetime.utcnow(),
+                )
 
-            # Could add actual health check call to Passeur here
-            # For now, just check circuit breaker state
-
-            return {
-                "status": HealthStatus.HEALTHY.value,
-                "message": "Passeur Bridge available",
-                "circuit_breaker_state": cb_state,
-            }
+            return HealthCheck(
+                name="passeur_bridge",
+                status=HealthStatus.HEALTHY,
+                message="Passeur Bridge available",
+                duration=duration,
+                timestamp=datetime.utcnow(),
+            )
         except Exception as e:
-            return {
-                "status": HealthStatus.DEGRADED.value,
-                "message": f"Passeur check failed: {str(e)}",
-                "error": str(e),
-            }
+            duration = time.time() - start
+            return HealthCheck(
+                name="passeur_bridge",
+                status=HealthStatus.DEGRADED,
+                message=f"Passeur check failed: {str(e)}",
+                duration=duration,
+                timestamp=datetime.utcnow(),
+            )
 
-    async def _check_courier(self) -> Dict[str, Any]:
+    def _check_courier(self) -> HealthCheck:
         """Check Courier event bus availability."""
+        start = time.time()
         try:
             # Check if Courier is reachable
-            # For now, just verify client exists
-            self.container.courier_client
+            courier = self.container.courier_client
+            duration = time.time() - start
 
-            return {
-                "status": HealthStatus.HEALTHY.value,
-                "message": "Courier event bus available",
-            }
+            return HealthCheck(
+                name="courier",
+                status=HealthStatus.HEALTHY,
+                message="Courier event bus available",
+                duration=duration,
+                timestamp=datetime.utcnow(),
+            )
         except Exception as e:
-            return {
-                "status": HealthStatus.DEGRADED.value,
-                "message": f"Courier check failed: {str(e)}",
-                "error": str(e),
-            }
+            duration = time.time() - start
+            return HealthCheck(
+                name="courier",
+                status=HealthStatus.DEGRADED,
+                message=f"Courier check failed: {str(e)}",
+                duration=duration,
+                timestamp=datetime.utcnow(),
+            )
