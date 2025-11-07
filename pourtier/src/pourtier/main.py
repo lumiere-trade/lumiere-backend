@@ -115,7 +115,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     app.add_middleware(MetricsMiddleware)
 
     # 3. Rate limiting middleware (if Redis enabled)
-    if settings.REDIS_ENABLED and settings.RATE_LIMITING_ENABLED:
+    if settings.REDIS_ENABLED and settings.RATE_LIMIT_ENABLED:
         app.add_middleware(RateLimitMiddleware)
         logger.info("Rate limiting enabled")
 
