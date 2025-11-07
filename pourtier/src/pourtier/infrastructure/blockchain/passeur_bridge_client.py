@@ -103,7 +103,7 @@ class PasseurBridgeClient(IPasseurBridge):
             backoff_strategy=BackoffStrategy.EXPONENTIAL,
             retry_on=(aiohttp.ClientError, asyncio.TimeoutError),
         )
-        self.retry = Retry("passeur_bridge", self.retry_config)
+        self.retry = Retry(self.retry_config)
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create HTTP session with optimized settings."""
