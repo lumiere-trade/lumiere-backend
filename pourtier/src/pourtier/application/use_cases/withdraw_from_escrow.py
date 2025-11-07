@@ -2,11 +2,14 @@
 Withdraw from Escrow use case.
 
 Handles withdrawal submission and balance updates.
+CRITICAL: Idempotent to prevent double withdrawals.
 """
 
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
+
+from shared.resilience import IdempotencyKey
 
 from pourtier.domain.entities.escrow_transaction import (
     EscrowTransaction,
@@ -43,6 +46,7 @@ class WithdrawFromEscrow:
     Architecture:
     - Query blockchain for current balance (source of truth)
     - No user balance updates (blockchain updates automatically)
+    - IDEMPOTENT: Same idempotency_key prevents double withdrawal
     """
 
     def __init__(
@@ -52,6 +56,7 @@ class WithdrawFromEscrow:
         passeur_bridge: IPasseurBridge,
         escrow_query_service: IEscrowQueryService,
         program_id: str,
+        idempotency_store=None,
     ):
         """
         Initialize use case with dependencies.
@@ -62,26 +67,30 @@ class WithdrawFromEscrow:
             passeur_bridge: Bridge for blockchain submission
             escrow_query_service: Service for querying blockchain
             program_id: Escrow program ID for PDA derivation
+            idempotency_store: Store for idempotency keys (Redis/InMemory)
         """
         self.user_repository = user_repository
         self.escrow_transaction_repository = escrow_transaction_repository
         self.passeur_bridge = passeur_bridge
         self.escrow_query_service = escrow_query_service
         self.program_id = program_id
+        self.idempotency_store = idempotency_store
 
     async def execute(
         self,
         user_id: UUID,
         amount: Decimal,
         signed_transaction: str,
+        idempotency_key: str = None,
     ) -> EscrowTransaction:
         """
-        Execute withdrawal from escrow.
+        Execute withdrawal from escrow with idempotency protection.
 
         Args:
             user_id: User unique identifier
             amount: Withdrawal amount
             signed_transaction: Base64-encoded signed transaction from wallet
+            idempotency_key: Client-provided idempotency key (REQUIRED)
 
         Returns:
             Created EscrowTransaction entity
@@ -93,6 +102,39 @@ class WithdrawFromEscrow:
             BridgeError: If blockchain submission fails
             InvalidTransactionError: If duplicate transaction
         """
+        # Generate idempotency key if not provided
+        if idempotency_key is None:
+            idempotency_key = IdempotencyKey.from_user_request(
+                user_id=str(user_id),
+                operation="withdraw",
+                amount=str(amount),
+                token="USDC",
+            )
+
+        # Check idempotency before execution
+        if self.idempotency_store:
+            cached = await self.idempotency_store.get_async(idempotency_key)
+            if cached:
+                return cached
+
+        # Execute withdrawal
+        result = await self._execute_withdrawal(user_id, amount, signed_transaction)
+
+        # Store result for idempotency
+        if self.idempotency_store:
+            await self.idempotency_store.set_async(
+                idempotency_key, result, ttl=86400
+            )
+
+        return result
+
+    async def _execute_withdrawal(
+        self,
+        user_id: UUID,
+        amount: Decimal,
+        signed_transaction: str,
+    ) -> EscrowTransaction:
+        """Internal execution logic (called after idempotency check)."""
         # 1. Get user
         user = await self.user_repository.get_by_id(user_id)
         if not user:
@@ -152,21 +194,28 @@ class WithdrawFromEscrow:
                 tx_signature=tx_signature,
             )
 
-        # 9. Create escrow transaction record
-        # Note: Balance updates automatically on blockchain, no user update needed
+        # 9. Create escrow transaction record as PENDING first
         transaction = EscrowTransaction(
             id=uuid4(),
             user_id=user_id,
             tx_signature=tx_signature,
             transaction_type=TransactionType.WITHDRAW,
             amount=amount,
-            token_mint="USDC",  # Hardcoded for now
-            status=TransactionStatus.CONFIRMED,
-            confirmed_at=datetime.now(),
+            token_mint="USDC",
+            status=TransactionStatus.PENDING,
         )
 
+        # 10. Persist to generate created_at timestamp
         created_transaction = await self.escrow_transaction_repository.create(
             transaction
         )
 
-        return created_transaction
+        # 11. Confirm transaction (sets confirmed_at AFTER created_at)
+        created_transaction.confirm()
+
+        # 12. Update with confirmation
+        confirmed_transaction = await self.escrow_transaction_repository.update(
+            created_transaction
+        )
+
+        return confirmed_transaction

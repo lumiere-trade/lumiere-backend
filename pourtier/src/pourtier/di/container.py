@@ -7,6 +7,7 @@ Manages all service instances and their dependencies.
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from shared.resilience import CircuitBreakerConfig, IdempotencyStore
 
 from pourtier.application.use_cases.authenticate_wallet import (
     AuthenticateWallet,
@@ -18,9 +19,14 @@ from pourtier.application.use_cases.create_subscription import (
     CreateSubscription,
 )
 from pourtier.application.use_cases.create_user import CreateUser
+from pourtier.application.use_cases.deposit_to_escrow import DepositToEscrow
 from pourtier.application.use_cases.get_user_profile import GetUserProfile
+from pourtier.application.use_cases.initialize_escrow import InitializeEscrow
 from pourtier.application.use_cases.update_user_profile import (
     UpdateUserProfile,
+)
+from pourtier.application.use_cases.withdraw_from_escrow import (
+    WithdrawFromEscrow,
 )
 from pourtier.config.settings import get_settings
 from pourtier.domain.repositories.i_escrow_transaction_repository import (
@@ -70,6 +76,9 @@ from pourtier.infrastructure.cache.multi_layer_cache import MultiLayerCache
 from pourtier.infrastructure.cache.redis_cache_client import (
     RedisCacheClient,
 )
+from pourtier.infrastructure.cache.redis_idempotency_store import (
+    RedisIdempotencyStore,
+)
 from pourtier.infrastructure.event_bus.courier_publisher import (
     CourierPublisher,
 )
@@ -107,6 +116,7 @@ class DIContainer:
         self._courier_client: Optional[CourierClient] = None
         self._cache_client: Optional[ICacheClient] = None
         self._multi_layer_cache: Optional[MultiLayerCache] = None
+        self._idempotency_store: Optional[IdempotencyStore] = None
 
         # Domain Services - Blockchain
         self._passeur_bridge: Optional[IPasseurBridge] = None
@@ -218,17 +228,50 @@ class DIContainer:
             )
         return self._multi_layer_cache
 
+    @property
+    def idempotency_store(self) -> Optional[IdempotencyStore]:
+        """
+        Get idempotency store instance.
+
+        Returns None if idempotency or Redis is disabled.
+        """
+        settings = get_settings()
+
+        if not settings.IDEMPOTENCY_ENABLED:
+            return None
+
+        if not settings.REDIS_ENABLED:
+            return None
+
+        if self._idempotency_store is None:
+            self._idempotency_store = RedisIdempotencyStore(
+                redis_client=self.cache_client._client,
+                key_prefix="idempotency:",
+            )
+
+        return self._idempotency_store
+
     # Domain Service Getters - Blockchain Services
 
     @property
     def passeur_bridge(self) -> IPasseurBridge:
-        """Get Passeur Bridge client instance."""
+        """Get Passeur Bridge client instance with resilience patterns."""
         if self._passeur_bridge is None:
+            settings = get_settings()
+
+            # Circuit Breaker config from settings
+            cb_config = CircuitBreakerConfig(
+                failure_threshold=settings.CB_FAILURE_THRESHOLD,
+                success_threshold=settings.CB_SUCCESS_THRESHOLD,
+                timeout=settings.CB_TIMEOUT_SECONDS,
+            )
+
             self._passeur_bridge = PasseurBridgeClient(
-                bridge_url=get_settings().PASSEUR_URL,
-                total_timeout=30,
-                connect_timeout=10,
-                max_retries=3,
+                bridge_url=settings.PASSEUR_URL,
+                total_timeout=settings.PASSEUR_TIMEOUT,
+                connect_timeout=settings.PASSEUR_TIMEOUT / 3,
+                max_retries=settings.RETRY_MAX_ATTEMPTS,
+                circuit_breaker_config=cb_config,
             )
         return self._passeur_bridge
 
@@ -409,6 +452,76 @@ class DIContainer:
         return AuthenticateWallet(
             user_repository=user_repository,
             wallet_authenticator=self.wallet_authenticator,
+        )
+
+    def get_initialize_escrow(self, session: AsyncSession) -> InitializeEscrow:
+        """
+        Get initialize escrow use case with idempotency protection.
+
+        Args:
+            session: Active database session
+
+        Returns:
+            InitializeEscrow use case instance
+        """
+        cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
+        user_repo = UserRepository(session, cache=cache)
+        escrow_tx_repo = EscrowTransactionRepository(session)
+
+        return InitializeEscrow(
+            user_repository=user_repo,
+            escrow_transaction_repository=escrow_tx_repo,
+            passeur_bridge=self.passeur_bridge,
+            program_id=get_settings().ESCROW_PROGRAM_ID,
+            idempotency_store=self.idempotency_store,
+        )
+
+    def get_deposit_to_escrow(self, session: AsyncSession) -> DepositToEscrow:
+        """
+        Get deposit to escrow use case with idempotency protection.
+
+        Args:
+            session: Active database session
+
+        Returns:
+            DepositToEscrow use case instance
+        """
+        cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
+        user_repo = UserRepository(session, cache=cache)
+        escrow_tx_repo = EscrowTransactionRepository(session)
+
+        return DepositToEscrow(
+            user_repository=user_repo,
+            escrow_transaction_repository=escrow_tx_repo,
+            passeur_bridge=self.passeur_bridge,
+            escrow_query_service=self.escrow_query_service,
+            program_id=get_settings().ESCROW_PROGRAM_ID,
+            idempotency_store=self.idempotency_store,
+        )
+
+    def get_withdraw_from_escrow(
+        self, session: AsyncSession
+    ) -> WithdrawFromEscrow:
+        """
+        Get withdraw from escrow use case with idempotency protection.
+
+        Args:
+            session: Active database session
+
+        Returns:
+            WithdrawFromEscrow use case instance
+        """
+        cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
+        user_repo = UserRepository(session, cache=cache)
+        escrow_tx_repo = EscrowTransactionRepository(session)
+
+        return WithdrawFromEscrow(
+            user_repository=user_repo,
+            escrow_transaction_repository=escrow_tx_repo,
+            passeur_bridge=self.passeur_bridge,
+            escrow_query_service=self.escrow_query_service,
+            program_id=get_settings().ESCROW_PROGRAM_ID,
+            idempotency_store=self.idempotency_store,
         )
 
     def get_create_user(self) -> CreateUser:
