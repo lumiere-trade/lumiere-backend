@@ -4,7 +4,7 @@ Rate Limiting Middleware for FastAPI.
 Applies rate limits per user/IP and adds rate limit headers to responses.
 """
 
-from fastapi import Request, Response, status
+from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -66,10 +66,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             Response with rate limit headers
         """
         # Skip if rate limiting disabled or endpoint exempt
-        if (
-            not self.rate_limiter
-            or request.url.path in self.exempt_endpoints
-        ):
+        if not self.rate_limiter or request.url.path in self.exempt_endpoints:
             return await call_next(request)
 
         # Get identifier (user_id or IP)
@@ -169,7 +166,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         for segment in segments:
             # Check if segment looks like UUID or numeric ID
             if (
-                len(segment) == 36 and segment.count("-") == 4  # UUID
+                len(segment) == 36
+                and segment.count("-") == 4  # UUID
                 or segment.isdigit()  # Numeric ID
             ):
                 normalized.append(":id")

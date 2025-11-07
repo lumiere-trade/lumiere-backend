@@ -8,9 +8,8 @@ import asyncio
 import signal
 from typing import Callable, List
 
-from shared.reporter import SystemReporter
-
 from pourtier.di.container import get_container
+from shared.reporter import SystemReporter
 
 
 class PourtierGracefulShutdown:

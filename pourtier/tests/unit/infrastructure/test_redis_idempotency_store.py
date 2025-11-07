@@ -8,13 +8,13 @@ Usage:
     laborant pourtier --unit
 """
 
-from unittest.mock import AsyncMock, MagicMock
 import json
+from unittest.mock import AsyncMock
 
-from shared.tests import LaborantTest
 from pourtier.infrastructure.cache.redis_idempotency_store import (
     RedisIdempotencyStore,
 )
+from shared.tests import LaborantTest
 
 
 class TestRedisIdempotencyStore(LaborantTest):

@@ -47,9 +47,7 @@ class TestDepositIdempotency(LaborantTest):
     # ================================================================
 
     @patch("pourtier.application.use_cases.deposit_to_escrow.derive_escrow_pda")
-    async def test_deposit_with_idempotency_prevents_duplicate(
-        self, mock_derive_pda
-    ):
+    async def test_deposit_with_idempotency_prevents_duplicate(self, mock_derive_pda):
         """Test that same idempotency key returns cached result."""
         self.reporter.info(
             "Testing idempotency prevents duplicate deposit",

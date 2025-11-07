@@ -47,9 +47,7 @@ class TestWithdrawIdempotency(LaborantTest):
     # ================================================================
 
     @patch("pourtier.application.use_cases.withdraw_from_escrow.derive_escrow_pda")
-    async def test_withdraw_with_idempotency_prevents_duplicate(
-        self, mock_derive_pda
-    ):
+    async def test_withdraw_with_idempotency_prevents_duplicate(self, mock_derive_pda):
         """Test that same idempotency key returns cached result."""
         self.reporter.info(
             "Testing idempotency prevents duplicate withdrawal",
@@ -71,7 +69,7 @@ class TestWithdrawIdempotency(LaborantTest):
 
         # Create test data
         user_id = uuid4()
-        wallet = self._generate_valid_wallet()
+        self._generate_valid_wallet()
         withdraw_amount = Decimal("50.0")
         signed_transaction = "base64_signed_transaction"
         tx_signature = "5" * 88

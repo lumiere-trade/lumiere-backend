@@ -1,6 +1,7 @@
 """
 Authentication middleware for JWT token validation.
 """
+
 import traceback
 from uuid import UUID
 
@@ -39,29 +40,43 @@ async def get_current_user(
     """
     print(f"[AUTH-DEBUG] get_current_user called!")
     print(f"[AUTH-DEBUG] credentials: {credentials}")
-    
+
     token = credentials.credentials
     print(f"[AUTH-DEBUG] token: {token[:50]}...")
 
     try:
         # Decode JWT token
+        print(f"[AUTH-DEBUG] Step 1: Decoding JWT token...")
         payload = decode_access_token(token)
+        print(f"[AUTH-DEBUG] Step 1 DONE: Payload decoded")
+
+        print(f"[AUTH-DEBUG] Step 2: Extracting user_id from payload...")
         user_id = UUID(payload["user_id"])
+        print(f"[AUTH-DEBUG] Step 2 DONE: Extracted user_id: {user_id}")
 
         # Get repository instance from container with session
+        print(f"[AUTH-DEBUG] Step 3: Getting container...")
         container = get_container()
+        print(f"[AUTH-DEBUG] Step 3 DONE: Got container: {container}")
+
+        print(f"[AUTH-DEBUG] Step 4: Getting user repository...")
         user_repo = container.get_user_repository(session)
+        print(f"[AUTH-DEBUG] Step 4 DONE: Got user_repo: {user_repo}")
 
         # Load user from database
+        print(f"[AUTH-DEBUG] Step 5: Fetching user from database with id={user_id}...")
         user = await user_repo.get_by_id(user_id)
+        print(f"[AUTH-DEBUG] Step 5 DONE: User fetched: {user}")
 
         if not user:
+            print(f"[AUTH-DEBUG] User not found in database!")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        print(f"[AUTH-DEBUG] Returning user: {user.id} - {user.wallet_address}")
         return user
 
     except ValueError as e:
@@ -75,6 +90,7 @@ async def get_current_user(
         )
     except HTTPException:
         # Re-raise HTTP exceptions
+        print(f"[AUTH-DEBUG] HTTPException caught, re-raising...")
         raise
     except Exception as e:
         # Unexpected errors

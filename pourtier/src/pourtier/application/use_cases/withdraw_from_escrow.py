@@ -5,11 +5,8 @@ Handles withdrawal submission and balance updates.
 CRITICAL: Idempotent to prevent double withdrawals.
 """
 
-from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
-
-from shared.resilience import IdempotencyKey
 
 from pourtier.domain.entities.escrow_transaction import (
     EscrowTransaction,
@@ -29,6 +26,7 @@ from pourtier.domain.repositories.i_user_repository import IUserRepository
 from pourtier.domain.services.i_escrow_query_service import IEscrowQueryService
 from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
 from pourtier.infrastructure.blockchain.solana_utils import derive_escrow_pda
+from shared.resilience import IdempotencyKey
 
 
 class WithdrawFromEscrow:
@@ -122,9 +120,7 @@ class WithdrawFromEscrow:
 
         # Store result for idempotency
         if self.idempotency_store:
-            await self.idempotency_store.set_async(
-                idempotency_key, result, ttl=86400
-            )
+            await self.idempotency_store.set_async(idempotency_key, result, ttl=86400)
 
         return result
 
