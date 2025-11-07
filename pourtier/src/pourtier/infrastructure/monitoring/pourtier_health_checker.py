@@ -7,10 +7,9 @@ Implements HealthChecker protocol from shared.health.
 import time
 from datetime import datetime
 
-from shared.health import HealthCheck, HealthChecker, HealthReport, HealthStatus
-
 from pourtier.config.settings import get_settings
 from pourtier.di.container import get_container
+from shared.health import HealthCheck, HealthChecker, HealthReport, HealthStatus
 
 
 class PourtierHealthChecker(HealthChecker):

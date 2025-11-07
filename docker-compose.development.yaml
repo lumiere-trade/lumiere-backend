@@ -12,6 +12,8 @@ networks:
 volumes:
   postgres-data:
     name: lumiere-postgres-data
+  redis-data:
+    name: lumiere-redis-data
 
 # =============================================
 # SERVICES
@@ -40,6 +42,29 @@ services:
       retries: 5
 
   # -------------------------------------------
+  # Redis Cache
+  # -------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: lumiere-dev-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - lumiere-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------------------------------------------
   # Pourtier (Database Service)
   # Development: 
   #   - External 9000 → Internal 9000 (Main API)
@@ -56,6 +81,8 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_secret_change_in_production}
       SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
       SOLANA_NETWORK: ${SOLANA_NETWORK:-devnet}
+      REDIS_HOST: lumiere-dev-redis
+      REDIS_PORT: 6379
       courier_url: http://lumiere-dev-courier:9765
       passeur_url: http://lumiere-dev-passeur:9766
       PASSEUR_BRIDGE_URL: http://lumiere-dev-passeur:9766
@@ -66,6 +93,8 @@ services:
       - "9091:9091"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - lumiere-net
