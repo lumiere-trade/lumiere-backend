@@ -197,7 +197,7 @@ class DIContainer:
     def courier_client(self) -> CourierClient:
         """Get Courier client instance."""
         if self._courier_client is None:
-            self._courier_client = CourierClient(base_url=get_settings().COURIER_URL)
+            self._courier_client = CourierClient(courier_url=get_settings().COURIER_URL)
         return self._courier_client
 
     @property

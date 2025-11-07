@@ -162,14 +162,30 @@ class Settings(BaseSettings):
     )
 
     # Observability - Health Checks
-    HEALTH_CHECK_PORT: int = Field(
-        default=8080,
+    HEALTH_CHECK_ENABLED: bool = Field(
+        default=True,
+        description="Enable dedicated health check server",
+    )
+    HEALTH_HOST: str = Field(
+        default="0.0.0.0",
+        description="Health check server host",
+    )
+    HEALTH_PORT: int = Field(
+        default=9091,
         ge=1024,
         le=65535,
         description="Health check server port",
     )
 
     # Observability - Metrics
+    METRICS_ENABLED: bool = Field(
+        default=True,
+        description="Enable dedicated Prometheus metrics server",
+    )
+    METRICS_HOST: str = Field(
+        default="0.0.0.0",
+        description="Metrics server host",
+    )
     METRICS_PORT: int = Field(
         default=9090,
         ge=1024,

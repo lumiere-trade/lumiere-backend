@@ -8,8 +8,9 @@ import asyncio
 import signal
 from typing import Callable, List
 
-from pourtier.di.container import get_container
 from shared.reporter import SystemReporter
+
+from pourtier.di.container import get_container
 
 
 class PourtierGracefulShutdown:
@@ -38,7 +39,7 @@ class PourtierGracefulShutdown:
         """
         self.shutdown_timeout = shutdown_timeout
         self.reporter = SystemReporter(
-            component_name="pourtier",
+            name="pourtier",
             log_dir=log_dir,
         )
         self.container = get_container()
@@ -129,7 +130,6 @@ class PourtierGracefulShutdown:
             self.reporter.error(
                 f"Error during shutdown: {str(e)}",
                 context="Shutdown",
-                exc_info=True,
             )
 
     def is_shutting_down(self) -> bool:
