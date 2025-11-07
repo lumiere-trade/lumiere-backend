@@ -2,6 +2,7 @@
 Passeur Bridge client implementation.
 
 HTTP client for communicating with Passeur Bridge API.
+Production-hardened with Circuit Breaker, Retry, and Metrics.
 """
 
 import asyncio
@@ -9,52 +10,100 @@ from decimal import Decimal
 from typing import Optional
 
 import aiohttp
-from tenacity import (
-    AsyncRetrying,
-    RetryError,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
+from prometheus_client import Counter, Histogram
+from shared.resilience import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    CircuitBreakerOpenError,
+    Retry,
+    RetryConfig,
+    BackoffStrategy,
 )
 
 from pourtier.domain.exceptions.blockchain import BridgeError
 from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
+
+# Prometheus Metrics
+passeur_requests_total = Counter(
+    "passeur_requests_total",
+    "Total Passeur Bridge requests",
+    ["operation", "status"],
+)
+
+passeur_request_duration = Histogram(
+    "passeur_request_duration_seconds",
+    "Passeur Bridge request duration",
+    ["operation"],
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+)
+
+passeur_circuit_breaker_state = Counter(
+    "passeur_circuit_breaker_state_changes_total",
+    "Passeur Circuit Breaker state changes",
+    ["state"],
+)
 
 
 class PasseurBridgeClient(IPasseurBridge):
     """
     Passeur Bridge HTTP client.
 
-    Communicates with Passeur Bridge API to prepare unsigned
-    blockchain transactions for user signing, submit signed transactions,
-    and query blockchain state.
-
-    Includes retries and optimized timeouts for production reliability.
+    Production-hardened with:
+    - Circuit Breaker (prevents cascading failures)
+    - Exponential Retry with Jitter (handles transient errors)
+    - Prometheus Metrics (observability)
+    - Optimized Timeouts (balanced for performance)
     """
 
     def __init__(
         self,
         bridge_url: str,
-        total_timeout: int = 10,
-        connect_timeout: int = 3,
+        total_timeout: float = 30.0,
+        connect_timeout: float = 10.0,
         max_retries: int = 3,
+        circuit_breaker_config: Optional[CircuitBreakerConfig] = None,
     ):
         """
         Initialize Passeur Bridge client.
 
         Args:
             bridge_url: Passeur Bridge API base URL
-            total_timeout: Total request timeout in seconds (default: 10s)
-            connect_timeout: Connection timeout in seconds (default: 3s)
-            max_retries: Max retry attempts for transient failures (default: 3)
+            total_timeout: Total request timeout (default: 30s)
+            connect_timeout: Connection timeout (default: 10s)
+            max_retries: Max retry attempts (default: 3)
+            circuit_breaker_config: Optional Circuit Breaker config
         """
         self.bridge_url = bridge_url.rstrip("/")
         self.timeout = aiohttp.ClientTimeout(
             total=total_timeout,
             connect=connect_timeout,
         )
-        self.max_retries = max_retries
         self._session: Optional[aiohttp.ClientSession] = None
+
+        # Circuit Breaker for Passeur calls
+        cb_config = circuit_breaker_config or CircuitBreakerConfig(
+            failure_threshold=5,
+            success_threshold=2,
+            timeout=60.0,
+            expected_exceptions=(
+                aiohttp.ClientError,
+                asyncio.TimeoutError,
+                BridgeError,
+            ),
+        )
+        self.circuit_breaker = CircuitBreaker("passeur_bridge", cb_config)
+
+        # Retry with exponential backoff + jitter
+        self.retry_config = RetryConfig(
+            max_attempts=max_retries,
+            initial_delay=1.0,
+            max_delay=10.0,
+            exponential_base=2.0,
+            jitter=True,
+            backoff_strategy=BackoffStrategy.EXPONENTIAL,
+            retry_on=(aiohttp.ClientError, asyncio.TimeoutError),
+        )
+        self.retry = Retry("passeur_bridge", self.retry_config)
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create HTTP session with optimized settings."""
@@ -69,40 +118,68 @@ class PasseurBridgeClient(IPasseurBridge):
             )
         return self._session
 
-    async def _make_request_with_retry(
+    async def _make_request_with_resilience(
         self,
         endpoint: str,
         payload: dict,
         operation: str,
     ) -> str:
         """
-        Make HTTP request with automatic retries.
+        Make HTTP request with Circuit Breaker + Retry.
 
         Args:
             endpoint: API endpoint path
             payload: Request JSON payload
-            operation: Operation name for error messages
+            operation: Operation name for metrics
 
         Returns:
             Transaction string from response
 
         Raises:
             BridgeError: If request fails after all retries
+            CircuitBreakerOpenError: If circuit is open
         """
+        # Wrap with Circuit Breaker
         try:
-            async for attempt in AsyncRetrying(
-                stop=stop_after_attempt(self.max_retries),
-                wait=wait_exponential(multiplier=1, min=1, max=4),
-                retry=retry_if_exception_type(
-                    (aiohttp.ClientError, asyncio.TimeoutError)
-                ),
-                reraise=True,
-            ):
-                with attempt:
-                    return await self._make_request_once(endpoint, payload, operation)
-        except RetryError:
+            result = await self.circuit_breaker.call_async(
+                self._make_request_with_retry,
+                endpoint,
+                payload,
+                operation,
+            )
+            passeur_requests_total.labels(
+                operation=operation, status="success"
+            ).inc()
+            return result
+
+        except CircuitBreakerOpenError:
+            passeur_requests_total.labels(
+                operation=operation, status="circuit_open"
+            ).inc()
+            passeur_circuit_breaker_state.labels(state="open").inc()
             raise BridgeError(
-                f"Bridge {operation} failed after {self.max_retries} retries"
+                f"Passeur Bridge circuit breaker is OPEN for {operation}"
+            )
+
+        except Exception as e:
+            passeur_requests_total.labels(
+                operation=operation, status="error"
+            ).inc()
+            raise
+
+    async def _make_request_with_retry(
+        self,
+        endpoint: str,
+        payload: dict,
+        operation: str,
+    ) -> str:
+        """Make HTTP request with retry logic (called by circuit breaker)."""
+        with passeur_request_duration.labels(operation=operation).time():
+            return await self.retry.execute_async(
+                self._make_request_once,
+                endpoint,
+                payload,
+                operation,
             )
 
     async def _make_request_once(
@@ -112,7 +189,7 @@ class PasseurBridgeClient(IPasseurBridge):
         operation: str,
     ) -> str:
         """
-        Single HTTP request attempt (called by retry logic).
+        Single HTTP request attempt.
 
         Args:
             endpoint: API endpoint path
@@ -123,7 +200,7 @@ class PasseurBridgeClient(IPasseurBridge):
             Transaction string from response
 
         Raises:
-            BridgeError: If request fails
+            BridgeError: If request fails (4xx errors)
             aiohttp.ClientError: Network errors (will be retried)
         """
         session = await self._get_session()
@@ -165,16 +242,17 @@ class PasseurBridgeClient(IPasseurBridge):
 
         Raises:
             BridgeError: If Bridge API call fails
+            CircuitBreakerOpenError: If circuit is open
         """
         payload = {
             "userWallet": user_wallet,
             "tokenMint": token_mint,
         }
 
-        return await self._make_request_with_retry(
+        return await self._make_request_with_resilience(
             endpoint="/escrow/prepare-initialize",
             payload=payload,
-            operation="initialize escrow",
+            operation="initialize_escrow",
         )
 
     async def submit_signed_transaction(
@@ -192,26 +270,41 @@ class PasseurBridgeClient(IPasseurBridge):
 
         Raises:
             BridgeError: If submission fails
+            CircuitBreakerOpenError: If circuit is open
         """
         payload = {
             "signedTransaction": signed_transaction,
         }
 
+        # Special handling for submit - returns signature instead of tx
         try:
-            async for attempt in AsyncRetrying(
-                stop=stop_after_attempt(self.max_retries),
-                wait=wait_exponential(multiplier=1, min=1, max=4),
-                retry=retry_if_exception_type(
-                    (aiohttp.ClientError, asyncio.TimeoutError)
-                ),
-                reraise=True,
-            ):
-                with attempt:
-                    return await self._submit_transaction_once(payload)
-        except RetryError:
+            with passeur_request_duration.labels(
+                operation="submit_transaction"
+            ).time():
+                result = await self.circuit_breaker.call_async(
+                    self.retry.execute_async,
+                    self._submit_transaction_once,
+                    payload,
+                )
+                passeur_requests_total.labels(
+                    operation="submit_transaction", status="success"
+                ).inc()
+                return result
+
+        except CircuitBreakerOpenError:
+            passeur_requests_total.labels(
+                operation="submit_transaction", status="circuit_open"
+            ).inc()
+            passeur_circuit_breaker_state.labels(state="open").inc()
             raise BridgeError(
-                f"Failed to submit transaction after {self.max_retries} retries"
+                "Passeur Bridge circuit breaker is OPEN for transaction submission"
             )
+
+        except Exception:
+            passeur_requests_total.labels(
+                operation="submit_transaction", status="error"
+            ).inc()
+            raise
 
     async def _submit_transaction_once(self, payload: dict) -> str:
         """Submit transaction - single attempt."""
@@ -256,6 +349,7 @@ class PasseurBridgeClient(IPasseurBridge):
 
         Raises:
             BridgeError: If Bridge API call fails
+            CircuitBreakerOpenError: If circuit is open
         """
         payload = {
             "userWallet": user_wallet,
@@ -263,10 +357,10 @@ class PasseurBridgeClient(IPasseurBridge):
             "amount": float(amount),
         }
 
-        return await self._make_request_with_retry(
+        return await self._make_request_with_resilience(
             endpoint="/escrow/prepare-deposit",
             payload=payload,
-            operation="deposit",
+            operation="prepare_deposit",
         )
 
     async def prepare_withdraw(
@@ -288,6 +382,7 @@ class PasseurBridgeClient(IPasseurBridge):
 
         Raises:
             BridgeError: If Bridge API call fails
+            CircuitBreakerOpenError: If circuit is open
         """
         payload = {
             "userWallet": user_wallet,
@@ -295,10 +390,10 @@ class PasseurBridgeClient(IPasseurBridge):
             "amount": float(amount),
         }
 
-        return await self._make_request_with_retry(
+        return await self._make_request_with_resilience(
             endpoint="/escrow/prepare-withdraw",
             payload=payload,
-            operation="withdraw",
+            operation="prepare_withdraw",
         )
 
     async def get_wallet_balance(
@@ -316,30 +411,46 @@ class PasseurBridgeClient(IPasseurBridge):
 
         Raises:
             BridgeError: If Bridge API call fails
+            CircuitBreakerOpenError: If circuit is open
         """
         try:
-            async for attempt in AsyncRetrying(
-                stop=stop_after_attempt(self.max_retries),
-                wait=wait_exponential(multiplier=1, min=1, max=4),
-                retry=retry_if_exception_type(
-                    (aiohttp.ClientError, asyncio.TimeoutError)
-                ),
-                reraise=True,
-            ):
-                with attempt:
-                    return await self._get_wallet_balance_once(wallet_address)
-        except RetryError:
+            with passeur_request_duration.labels(
+                operation="get_wallet_balance"
+            ).time():
+                result = await self.circuit_breaker.call_async(
+                    self.retry.execute_async,
+                    self._get_wallet_balance_once,
+                    wallet_address,
+                )
+                passeur_requests_total.labels(
+                    operation="get_wallet_balance", status="success"
+                ).inc()
+                return result
+
+        except CircuitBreakerOpenError:
+            passeur_requests_total.labels(
+                operation="get_wallet_balance", status="circuit_open"
+            ).inc()
+            passeur_circuit_breaker_state.labels(state="open").inc()
             raise BridgeError(
-                f"Failed to get wallet balance after {self.max_retries} retries"
+                "Passeur Bridge circuit breaker is OPEN for wallet balance query"
             )
 
+        except Exception:
+            passeur_requests_total.labels(
+                operation="get_wallet_balance", status="error"
+            ).inc()
+            raise
+
     async def _get_wallet_balance_once(self, wallet_address: str) -> Decimal:
-        """Single attempt to get wallet balance (called by retry logic)."""
+        """Single attempt to get wallet balance."""
         session = await self._get_session()
         url = f"{self.bridge_url}/wallet/balance"
 
         try:
-            async with session.get(url, params={"wallet": wallet_address}) as response:
+            async with session.get(
+                url, params={"wallet": wallet_address}
+            ) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     if 400 <= response.status < 500:

@@ -91,6 +91,108 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = Field(default="INFO")
     LOG_FILE: Optional[str] = Field(default="logs/pourtier.log")
 
+    # Resilience - Circuit Breaker
+    CB_FAILURE_THRESHOLD: int = Field(
+        default=5,
+        description="Circuit breaker failure threshold",
+    )
+    CB_SUCCESS_THRESHOLD: int = Field(
+        default=2,
+        description="Circuit breaker success threshold for half-open",
+    )
+    CB_TIMEOUT_SECONDS: float = Field(
+        default=60.0,
+        description="Circuit breaker open state timeout",
+    )
+
+    # Resilience - Timeouts
+    PASSEUR_TIMEOUT: float = Field(
+        default=30.0,
+        description="Passeur bridge timeout in seconds",
+    )
+    DATABASE_TIMEOUT: float = Field(
+        default=10.0,
+        description="Database query timeout in seconds",
+    )
+    BLOCKCHAIN_QUERY_TIMEOUT: float = Field(
+        default=15.0,
+        description="Blockchain query timeout in seconds",
+    )
+
+    # Resilience - Retry
+    RETRY_MAX_ATTEMPTS: int = Field(
+        default=3,
+        description="Maximum retry attempts for transient failures",
+    )
+    RETRY_INITIAL_DELAY: float = Field(
+        default=1.0,
+        description="Initial retry delay in seconds",
+    )
+    RETRY_MAX_DELAY: float = Field(
+        default=10.0,
+        description="Maximum retry delay in seconds",
+    )
+    RETRY_EXPONENTIAL_BASE: float = Field(
+        default=2.0,
+        description="Exponential backoff base multiplier",
+    )
+
+    # Resilience - Rate Limiting
+    RATE_LIMIT_ENABLED: bool = Field(
+        default=True,
+        description="Enable per-user rate limiting",
+    )
+    RATE_LIMIT_REQUESTS_PER_SECOND: float = Field(
+        default=10.0,
+        description="Rate limit: requests per second per user",
+    )
+    RATE_LIMIT_BURST_SIZE: int = Field(
+        default=20,
+        description="Rate limit: burst capacity",
+    )
+
+    # Resilience - Idempotency
+    IDEMPOTENCY_ENABLED: bool = Field(
+        default=True,
+        description="Enable idempotency for financial operations",
+    )
+    IDEMPOTENCY_TTL_SECONDS: int = Field(
+        default=86400,
+        description="Idempotency key TTL (24 hours default)",
+    )
+
+    # Observability - Health Checks
+    HEALTH_CHECK_PORT: int = Field(
+        default=8080,
+        ge=1024,
+        le=65535,
+        description="Health check server port",
+    )
+
+    # Observability - Metrics
+    METRICS_PORT: int = Field(
+        default=9090,
+        ge=1024,
+        le=65535,
+        description="Prometheus metrics server port",
+    )
+
+    # Observability - Tracing
+    TRACING_ENABLED: bool = Field(
+        default=False,
+        description="Enable OpenTelemetry distributed tracing",
+    )
+    JAEGER_ENDPOINT: Optional[str] = Field(
+        default=None,
+        description="Jaeger OTLP endpoint (e.g., http://jaeger:4318)",
+    )
+    TRACE_SAMPLE_RATE: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description="Trace sampling rate (0.0-1.0)",
+    )
+
     @field_validator("LOG_LEVEL")
     @classmethod
     def validate_log_level(cls, v: str) -> str:
