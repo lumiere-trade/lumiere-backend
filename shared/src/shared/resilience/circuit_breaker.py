@@ -147,6 +147,42 @@ class CircuitBreaker:
             self._on_failure()
             raise
 
+    async def call_async(self, func: Callable, *args, **kwargs) -> Any:
+        """
+        Execute async function with circuit breaker protection.
+
+        Args:
+            func: Async function to call
+            *args: Positional arguments for function
+            **kwargs: Keyword arguments for function
+
+        Returns:
+            Result from function
+
+        Raises:
+            CircuitBreakerOpenError: If circuit is open
+            Exception: Any exception from the function
+        """
+        with self._lock:
+            self._total_calls += 1
+
+            # Check if we should attempt the call
+            if not self._can_attempt():
+                raise CircuitBreakerOpenError(self.name, self._failure_count)
+
+            # Mark as attempting (for half-open state)
+            if self._state == CircuitBreakerState.HALF_OPEN:
+                self._half_open_calls += 1
+
+        # Execute async function (outside lock to avoid blocking)
+        try:
+            result = await func(*args, **kwargs)
+            self._on_success()
+            return result
+        except Exception:
+            self._on_failure()
+            raise
+
     def _can_attempt(self) -> bool:
         """
         Check if we can attempt a call.
