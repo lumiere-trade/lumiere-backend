@@ -13,9 +13,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from shared.health import HealthServer
-from shared.observability import MetricsServer
-
 from pourtier.config.settings import Settings, get_settings
 from pourtier.di import get_container, initialize_container, shutdown_container
 from pourtier.domain.exceptions import PourtierException
@@ -48,6 +45,8 @@ from pourtier.presentation.api.routes import (
     users,
     wallet,
 )
+from shared.health import HealthServer
+from shared.observability import MetricsServer
 
 
 def create_app(settings: Optional[Settings] = None) -> FastAPI:
@@ -271,12 +270,16 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             },
             "timestamp": "now",
             "monitoring": {
-                "metrics_server": f"http://{settings.METRICS_HOST}:{settings.METRICS_PORT}/metrics"
-                if settings.METRICS_ENABLED
-                else "disabled",
-                "health_server": f"http://{settings.HEALTH_HOST}:{settings.HEALTH_PORT}/health"
-                if settings.HEALTH_CHECK_ENABLED
-                else "disabled",
+                "metrics_server": (
+                    f"http://{settings.METRICS_HOST}:{settings.METRICS_PORT}/metrics"
+                    if settings.METRICS_ENABLED
+                    else "disabled"
+                ),
+                "health_server": (
+                    f"http://{settings.HEALTH_HOST}:{settings.HEALTH_PORT}/health"
+                    if settings.HEALTH_CHECK_ENABLED
+                    else "disabled"
+                ),
             },
         }
 

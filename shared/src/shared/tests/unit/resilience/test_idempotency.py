@@ -8,16 +8,16 @@ Usage:
     laborant test shared --unit
 """
 
-import time
 import asyncio
-from shared.tests import LaborantTest
+import time
+
 from shared.resilience.idempotency import (
+    DuplicateRequestError,
     IdempotencyKey,
-    IdempotencyStore,
     InMemoryIdempotencyStore,
     idempotent,
-    DuplicateRequestError,
 )
+from shared.tests import LaborantTest
 
 
 class TestIdempotencyKey(LaborantTest):
@@ -31,18 +31,12 @@ class TestIdempotencyKey(LaborantTest):
         self.reporter.info("Testing user request key", context="Test")
 
         key1 = IdempotencyKey.from_user_request(
-            user_id="user123",
-            operation="deposit",
-            amount=1000,
-            token="USDC"
+            user_id="user123", operation="deposit", amount=1000, token="USDC"
         )
 
         # Same params should give same key
         key2 = IdempotencyKey.from_user_request(
-            user_id="user123",
-            operation="deposit",
-            amount=1000,
-            token="USDC"
+            user_id="user123", operation="deposit", amount=1000, token="USDC"
         )
 
         assert key1 == key2
@@ -53,7 +47,7 @@ class TestIdempotencyKey(LaborantTest):
             user_id="user123",
             operation="deposit",
             amount=2000,  # Different amount
-            token="USDC"
+            token="USDC",
         )
 
         assert key1 != key3
@@ -65,9 +59,7 @@ class TestIdempotencyKey(LaborantTest):
         self.reporter.info("Testing trade key", context="Test")
 
         key = IdempotencyKey.from_trade(
-            strategy_id="strat_456",
-            signal_hash="abc123",
-            timestamp=1730500000
+            strategy_id="strat_456", signal_hash="abc123", timestamp=1730500000
         )
 
         assert key == "trade_strat_456_1730500000_abc123"
@@ -80,9 +72,7 @@ class TestIdempotencyKey(LaborantTest):
         self.reporter.info("Testing blockchain tx key", context="Test")
 
         key = IdempotencyKey.from_blockchain_tx(
-            operation="bridge",
-            chain="solana",
-            params_hash="def789"
+            operation="bridge", chain="solana", params_hash="def789"
         )
 
         assert key == "blockchain_bridge_solana_def789"
@@ -105,28 +95,18 @@ class TestIdempotencyKey(LaborantTest):
         """Test parameter hashing."""
         self.reporter.info("Testing parameter hashing", context="Test")
 
-        hash1 = IdempotencyKey.hash_params(
-            amount=1000,
-            token="USDC",
-            user="user123"
-        )
+        hash1 = IdempotencyKey.hash_params(amount=1000, token="USDC", user="user123")
 
         # Same params, same hash
         hash2 = IdempotencyKey.hash_params(
-            user="user123",  # Different order
-            amount=1000,
-            token="USDC"
+            user="user123", amount=1000, token="USDC"  # Different order
         )
 
         assert hash1 == hash2
         assert len(hash1) == 64
 
         # Different params, different hash
-        hash3 = IdempotencyKey.hash_params(
-            amount=2000,
-            token="USDC",
-            user="user123"
-        )
+        hash3 = IdempotencyKey.hash_params(amount=2000, token="USDC", user="user123")
 
         assert hash1 != hash3
 
@@ -252,15 +232,11 @@ class TestIdempotentDecorator(LaborantTest):
 
         async def test():
             # First call
-            result1 = await execute_async_operation(
-                "user123", request_id="req_001"
-            )
+            result1 = await execute_async_operation("user123", request_id="req_001")
             assert result1["count"] == 1
 
             # Second call - cached
-            result2 = await execute_async_operation(
-                "user123", request_id="req_001"
-            )
+            result2 = await execute_async_operation("user123", request_id="req_001")
             assert result2["count"] == 1
             assert call_count[0] == 1
 
@@ -322,11 +298,7 @@ class TestIdempotentDecorator(LaborantTest):
 
         store = InMemoryIdempotencyStore()
 
-        @idempotent(
-            key_param="request_id",
-            store=store,
-            raise_on_duplicate=True
-        )
+        @idempotent(key_param="request_id", store=store, raise_on_duplicate=True)
         def execute_operation(request_id: str):
             return {"status": "success"}
 
@@ -363,7 +335,7 @@ class TestIdempotencyIntegration(LaborantTest):
             trade_id = IdempotencyKey.from_trade(
                 strategy_id=strategy_id,
                 signal_hash=signal_hash,
-                timestamp=int(time.time())
+                timestamp=int(time.time()),
             )
 
             # Check if already executed
@@ -374,7 +346,7 @@ class TestIdempotencyIntegration(LaborantTest):
             trade_result = {
                 "trade_id": trade_id,
                 "strategy": strategy_id,
-                "status": "executed"
+                "status": "executed",
             }
             executed_trades.append(trade_id)
 

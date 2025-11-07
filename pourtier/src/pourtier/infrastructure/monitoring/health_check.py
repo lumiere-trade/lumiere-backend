@@ -6,12 +6,10 @@ Kubernetes-compatible health checks for liveness and readiness probes.
 
 import time
 from datetime import datetime
-from typing import Dict
-
-from shared.health import HealthCheck, HealthReport, HealthStatus
 
 from pourtier.config.settings import get_settings
 from pourtier.di.container import get_container
+from shared.health import HealthCheck, HealthReport, HealthStatus
 
 
 class PourtierHealthCheck:
@@ -189,7 +187,7 @@ class PourtierHealthCheck:
         start = time.time()
         try:
             # Check if Courier is reachable
-            courier = self.container.courier_client
+            self.container.courier_client
             duration = time.time() - start
 
             return HealthCheck(

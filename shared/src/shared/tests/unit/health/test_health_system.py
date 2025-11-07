@@ -9,14 +9,14 @@ Usage:
 """
 
 from datetime import datetime
-from shared.tests import LaborantTest
+
 from shared.health import (
-    HealthChecker,
-    HealthStatus,
     HealthCheck,
     HealthReport,
     HealthServer,
+    HealthStatus,
 )
+from shared.tests import LaborantTest
 
 
 class SimpleHealthChecker:
@@ -46,17 +46,13 @@ class SimpleHealthChecker:
 
     def check_readiness(self) -> HealthReport:
         """Simple readiness check."""
-        status = (
-            HealthStatus.HEALTHY if self.healthy else HealthStatus.UNHEALTHY
-        )
+        status = HealthStatus.HEALTHY if self.healthy else HealthStatus.UNHEALTHY
 
         checks = {
             "service": HealthCheck(
                 name="service",
                 status=status,
-                message=(
-                    "Service ready" if self.healthy else "Service not ready"
-                ),
+                message=("Service ready" if self.healthy else "Service not ready"),
                 timestamp=datetime.utcnow(),
             )
         }
@@ -140,9 +136,7 @@ class TestHealthSystem(LaborantTest):
 
     def test_health_check_minimal_fields(self):
         """Test HealthCheck with only required fields."""
-        self.reporter.info(
-            "Testing HealthCheck with minimal fields", context="Test"
-        )
+        self.reporter.info("Testing HealthCheck with minimal fields", context="Test")
 
         check = HealthCheck(name="service", status=HealthStatus.HEALTHY)
 
@@ -163,9 +157,7 @@ class TestHealthSystem(LaborantTest):
         self.reporter.info("Testing HealthReport creation", context="Test")
 
         checks = {
-            "db": HealthCheck(
-                name="db", status=HealthStatus.HEALTHY, message="DB OK"
-            ),
+            "db": HealthCheck(name="db", status=HealthStatus.HEALTHY, message="DB OK"),
             "cache": HealthCheck(
                 name="cache",
                 status=HealthStatus.HEALTHY,
@@ -190,9 +182,7 @@ class TestHealthSystem(LaborantTest):
 
     def test_health_report_is_healthy_property(self):
         """Test HealthReport.is_healthy property."""
-        self.reporter.info(
-            "Testing HealthReport.is_healthy property", context="Test"
-        )
+        self.reporter.info("Testing HealthReport.is_healthy property", context="Test")
 
         healthy_report = HealthReport(
             status=HealthStatus.HEALTHY,
@@ -223,9 +213,7 @@ class TestHealthSystem(LaborantTest):
 
     def test_health_report_is_ready_property(self):
         """Test HealthReport.is_ready property."""
-        self.reporter.info(
-            "Testing HealthReport.is_ready property", context="Test"
-        )
+        self.reporter.info("Testing HealthReport.is_ready property", context="Test")
 
         healthy_report = HealthReport(
             status=HealthStatus.HEALTHY,
@@ -309,9 +297,7 @@ class TestHealthSystem(LaborantTest):
 
     def test_health_checker_liveness(self):
         """Test HealthChecker.check_liveness() returns HealthReport."""
-        self.reporter.info(
-            "Testing HealthChecker.check_liveness()", context="Test"
-        )
+        self.reporter.info("Testing HealthChecker.check_liveness()", context="Test")
 
         checker = SimpleHealthChecker(version="1.2.3")
         report = checker.check_liveness()
@@ -339,9 +325,7 @@ class TestHealthSystem(LaborantTest):
         assert report.status == HealthStatus.HEALTHY
         assert report.is_ready is True
 
-        self.reporter.info(
-            "Readiness check returns healthy status", context="Test"
-        )
+        self.reporter.info("Readiness check returns healthy status", context="Test")
 
     def test_health_checker_readiness_unhealthy(self):
         """Test HealthChecker.check_readiness() when unhealthy."""
@@ -360,9 +344,7 @@ class TestHealthSystem(LaborantTest):
         assert report.is_ready is False
         assert report.is_healthy is False
 
-        self.reporter.info(
-            "Readiness check returns unhealthy status", context="Test"
-        )
+        self.reporter.info("Readiness check returns unhealthy status", context="Test")
 
     # ================================================================
     # HealthServer tests
@@ -370,9 +352,7 @@ class TestHealthSystem(LaborantTest):
 
     def test_health_server_initialization(self):
         """Test HealthServer initialization with checker."""
-        self.reporter.info(
-            "Testing HealthServer initialization", context="Test"
-        )
+        self.reporter.info("Testing HealthServer initialization", context="Test")
 
         checker = SimpleHealthChecker()
         server = HealthServer(checker, host="127.0.0.1", port=8888)
@@ -386,9 +366,7 @@ class TestHealthSystem(LaborantTest):
 
     def test_health_server_default_host_port(self):
         """Test HealthServer uses default host and port."""
-        self.reporter.info(
-            "Testing HealthServer default values", context="Test"
-        )
+        self.reporter.info("Testing HealthServer default values", context="Test")
 
         checker = SimpleHealthChecker()
         server = HealthServer(checker)

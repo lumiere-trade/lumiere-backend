@@ -13,11 +13,11 @@ from shared.observability.metrics_server import (
 from shared.observability.tracing import (
     TracingConfig,
     TracingManager,
-    setup_tracing,
-    trace_span,
-    get_tracer,
     add_span_attribute,
     add_span_event,
+    get_tracer,
+    setup_tracing,
+    trace_span,
 )
 
 __all__ = [

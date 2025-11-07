@@ -8,23 +8,22 @@ Usage:
     laborant test shared --unit
 """
 
-import time
-from shared.tests import LaborantTest
-from shared.observability import (
-    TracingConfig,
-    TracingManager,
-    setup_tracing,
-    trace_span,
-    get_tracer,
-    add_span_attribute,
-    add_span_event,
-)
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
     SimpleSpanProcessor,
-    ConsoleSpanExporter,
 )
+
+from shared.observability import (
+    TracingConfig,
+    TracingManager,
+    add_span_attribute,
+    add_span_event,
+    get_tracer,
+    setup_tracing,
+    trace_span,
+)
+from shared.tests import LaborantTest
 
 
 class InMemorySpanExporter:
@@ -111,10 +110,7 @@ class TestTracingManager(LaborantTest):
         """Test TracingManager setup with console exporter."""
         self.reporter.info("Testing console exporter setup", context="Test")
 
-        config = TracingConfig(
-            service_name="test-console",
-            exporter_type="console"
-        )
+        config = TracingConfig(service_name="test-console", exporter_type="console")
         manager = TracingManager(config)
         tracer = manager.setup()
 
@@ -305,10 +301,7 @@ class TestSetupTracing(LaborantTest):
         """Test setup_tracing with console exporter."""
         self.reporter.info("Testing setup_tracing", context="Test")
 
-        config = TracingConfig(
-            service_name="test-setup",
-            exporter_type="console"
-        )
+        config = TracingConfig(service_name="test-setup", exporter_type="console")
         tracer = setup_tracing(config)
 
         assert tracer is not None

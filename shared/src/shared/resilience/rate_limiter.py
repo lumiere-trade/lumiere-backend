@@ -5,12 +5,12 @@ Provides rate limiting to prevent API abuse and protect external services
 from being overwhelmed by too many requests.
 """
 
-import time
 import asyncio
 import logging
+import time
 from dataclasses import dataclass
-from typing import Optional, Dict
 from threading import Lock
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -97,9 +97,7 @@ class TokenBucket:
 
         # Add tokens based on elapsed time
         new_tokens = elapsed * self.config.tokens_per_second
-        self._tokens = min(
-            self._tokens + new_tokens, float(self.config.burst_size)
-        )
+        self._tokens = min(self._tokens + new_tokens, float(self.config.burst_size))
         self._last_update = now
 
     def _time_until_tokens(self, tokens: float = 1.0) -> float:
@@ -134,8 +132,7 @@ class TokenBucket:
             if self._tokens >= tokens:
                 self._tokens -= tokens
                 logger.debug(
-                    f"Acquired {tokens} token(s). "
-                    f"Remaining: {self._tokens:.2f}"
+                    f"Acquired {tokens} token(s). " f"Remaining: {self._tokens:.2f}"
                 )
                 return True
 
@@ -165,8 +162,7 @@ class TokenBucket:
                 if self._tokens >= tokens:
                     self._tokens -= tokens
                     logger.debug(
-                        f"Acquired {tokens} token(s). "
-                        f"Remaining: {self._tokens:.2f}"
+                        f"Acquired {tokens} token(s). " f"Remaining: {self._tokens:.2f}"
                     )
                     return
 
@@ -191,9 +187,7 @@ class TokenBucket:
             )
             time.sleep(sleep_time)
 
-    async def acquire_async(
-        self, tokens: float = 1.0, timeout: Optional[float] = None
-    ):
+    async def acquire_async(self, tokens: float = 1.0, timeout: Optional[float] = None):
         """
         Acquire tokens asynchronously, waiting until available.
 
@@ -213,8 +207,7 @@ class TokenBucket:
                 if self._tokens >= tokens:
                     self._tokens -= tokens
                     logger.debug(
-                        f"Acquired {tokens} token(s). "
-                        f"Remaining: {self._tokens:.2f}"
+                        f"Acquired {tokens} token(s). " f"Remaining: {self._tokens:.2f}"
                     )
                     return
 
@@ -315,9 +308,7 @@ class RateLimiterRegistry:
 
             return self._limiters[key]
 
-    def set_limiter(
-        self, key: str, config: RateLimitConfig
-    ) -> TokenBucket:
+    def set_limiter(self, key: str, config: RateLimitConfig) -> TokenBucket:
         """
         Set rate limiter with custom config for key.
 

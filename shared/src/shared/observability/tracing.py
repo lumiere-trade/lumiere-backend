@@ -11,7 +11,7 @@ Key Concepts:
 
 Example:
     from shared.observability import TracingConfig, setup_tracing, trace_span
-    
+
     # Setup tracing
     config = TracingConfig(
         service_name="prophet",
@@ -19,14 +19,14 @@ Example:
         otlp_endpoint="http://jaeger:4318"
     )
     tracer = setup_tracing(config)
-    
+
     # Trace a function
     @trace_span("process_strategy")
     def process_strategy(strategy_id: str):
         with tracer.start_as_current_span("parse_tsdl"):
             # Parse TSDL code
             pass
-        
+
         with tracer.start_as_current_span("compile"):
             # Compile to Python
             pass
@@ -34,18 +34,18 @@ Example:
 
 import logging
 from dataclasses import dataclass
-from typing import Optional, Callable, Any
 from functools import wraps
+from typing import Any, Callable, Optional
 
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+    OTLPSpanExporter,
+)
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     ConsoleSpanExporter,
-)
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-    OTLPSpanExporter,
 )
 
 logger = logging.getLogger(__name__)
@@ -126,14 +126,10 @@ class TracingManager:
                 raise ValueError("otlp_endpoint required for OTLP exporter")
 
             exporter = OTLPSpanExporter(endpoint=self.config.otlp_endpoint)
-            logger.info(
-                f"Using OTLP span exporter: {self.config.otlp_endpoint}"
-            )
+            logger.info(f"Using OTLP span exporter: {self.config.otlp_endpoint}")
 
         else:
-            raise ValueError(
-                f"Invalid exporter type: {self.config.exporter_type}"
-            )
+            raise ValueError(f"Invalid exporter type: {self.config.exporter_type}")
 
         # Add span processor
         span_processor = BatchSpanProcessor(exporter)
@@ -147,9 +143,7 @@ class TracingManager:
 
         self._initialized = True
 
-        logger.info(
-            f"Tracing initialized for service: {self.config.service_name}"
-        )
+        logger.info(f"Tracing initialized for service: {self.config.service_name}")
 
         return self.tracer
 

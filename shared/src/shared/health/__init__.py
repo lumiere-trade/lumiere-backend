@@ -8,10 +8,10 @@ Provides Kubernetes-compatible health checks with:
 """
 
 from shared.health.checks import (
-    HealthChecker,
-    HealthStatus,
     HealthCheck,
+    HealthChecker,
     HealthReport,
+    HealthStatus,
 )
 from shared.health.health_server import HealthServer
 

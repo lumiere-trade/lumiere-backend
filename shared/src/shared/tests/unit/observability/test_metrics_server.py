@@ -8,12 +8,14 @@ Usage:
     laborant test shared --unit
 """
 
-import time
-import requests
 import threading
-from shared.tests import LaborantTest
-from shared.observability import MetricsServer
+import time
+
+import requests
 from prometheus_client import Counter
+
+from shared.observability import MetricsServer
+from shared.tests import LaborantTest
 
 
 class TestMetricsServer(LaborantTest):
@@ -53,8 +55,7 @@ class TestMetricsServer(LaborantTest):
 
         # Create a test metric
         test_counter = Counter(
-            'test_background_requests_total',
-            'Test counter for background server'
+            "test_background_requests_total", "Test counter for background server"
         )
         test_counter.inc()
 
@@ -70,17 +71,12 @@ class TestMetricsServer(LaborantTest):
 
         # Try to fetch metrics
         try:
-            response = requests.get(
-                "http://127.0.0.1:19090/metrics",
-                timeout=2
-            )
+            response = requests.get("http://127.0.0.1:19090/metrics", timeout=2)
             assert response.status_code == 200
             assert "test_background_requests_total" in response.text
             self.reporter.info("Server accessible via HTTP", context="Test")
         except requests.RequestException as e:
-            self.reporter.warning(
-                f"Could not connect to server: {e}", context="Test"
-            )
+            self.reporter.warning(f"Could not connect to server: {e}", context="Test")
 
         # Shutdown
         server.shutdown()
@@ -116,12 +112,12 @@ class TestMetricsServer(LaborantTest):
 
         # Create test metrics
         test_counter = Counter(
-            'test_format_requests_total',
-            'Test counter for format validation',
-            ['method', 'status']
+            "test_format_requests_total",
+            "Test counter for format validation",
+            ["method", "status"],
         )
-        test_counter.labels(method='GET', status='200').inc(5)
-        test_counter.labels(method='POST', status='201').inc(3)
+        test_counter.labels(method="GET", status="200").inc(5)
+        test_counter.labels(method="POST", status="201").inc(3)
 
         # Start server
         server = MetricsServer(host="127.0.0.1", port=19092)
@@ -129,10 +125,7 @@ class TestMetricsServer(LaborantTest):
         time.sleep(0.3)
 
         try:
-            response = requests.get(
-                "http://127.0.0.1:19092/metrics",
-                timeout=2
-            )
+            response = requests.get("http://127.0.0.1:19092/metrics", timeout=2)
 
             # Check response
             assert response.status_code == 200
@@ -146,9 +139,7 @@ class TestMetricsServer(LaborantTest):
             self.reporter.info("Prometheus format correct", context="Test")
 
         except requests.RequestException as e:
-            self.reporter.warning(
-                f"Could not verify format: {e}", context="Test"
-            )
+            self.reporter.warning(f"Could not verify format: {e}", context="Test")
 
         finally:
             server.shutdown()

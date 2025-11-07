@@ -60,29 +60,29 @@ class PortUpdater:
         if component == "pourtier":
             # Main API
             updates["API_PORT"] = component_config["api_port"]
-            
+
             # Monitoring ports
             updates["METRICS_ENABLED"] = True
             updates["METRICS_HOST"] = "0.0.0.0"
             updates["METRICS_PORT"] = component_config["metrics_port"]
-            
+
             updates["HEALTH_CHECK_ENABLED"] = True
             updates["HEALTH_HOST"] = "0.0.0.0"
             updates["HEALTH_PORT"] = component_config["health_port"]
-            
+
             # Service discovery
             updates["COURIER_URL"] = sd_config.get("courier")
             updates["PASSEUR_URL"] = sd_config.get("passeur")
-            
+
             # Remove old fields
             if "HEALTH_CHECK_PORT" in existing_config:
                 del existing_config["HEALTH_CHECK_PORT"]
-                
+
         elif component == "courier":
             updates["port"] = component_config["api_port"]
             updates["pourtier_url"] = sd_config.get("pourtier")
             updates["passeur_url"] = sd_config.get("passeur")
-            
+
         elif component == "passeur":
             updates["bridge_port"] = component_config["api_port"]
             updates["courier_url"] = sd_config.get("courier")
@@ -165,50 +165,50 @@ class PortUpdater:
                 if component == "pourtier":
                     expected_port = component_config["api_port"]
                     actual_port = existing_config.get("API_PORT")
-                    
+
                     if actual_port != expected_port:
                         print(
                             f"[MISMATCH] {component}/{environment}: "
                             f"API_PORT={actual_port}, expected {expected_port}"
                         )
                         all_consistent = False
-                        
+
                     # Check monitoring ports for pourtier
                     expected_metrics = component_config["metrics_port"]
                     actual_metrics = existing_config.get("METRICS_PORT")
-                    
+
                     if actual_metrics != expected_metrics:
                         print(
                             f"[MISMATCH] {component}/{environment}: "
                             f"METRICS_PORT={actual_metrics}, expected {expected_metrics}"
                         )
                         all_consistent = False
-                        
+
                     expected_health = component_config["health_port"]
                     actual_health = existing_config.get("HEALTH_PORT")
-                    
+
                     if actual_health != expected_health:
                         print(
                             f"[MISMATCH] {component}/{environment}: "
                             f"HEALTH_PORT={actual_health}, expected {expected_health}"
                         )
                         all_consistent = False
-                        
+
                 elif component == "courier":
                     expected_port = component_config["api_port"]
                     actual_port = existing_config.get("port")
-                    
+
                     if actual_port != expected_port:
                         print(
                             f"[MISMATCH] {component}/{environment}: "
                             f"port={actual_port}, expected {expected_port}"
                         )
                         all_consistent = False
-                        
+
                 elif component == "passeur":
                     expected_port = component_config["api_port"]
                     actual_port = existing_config.get("bridge_port")
-                    
+
                     if actual_port != expected_port:
                         print(
                             f"[MISMATCH] {component}/{environment}: "

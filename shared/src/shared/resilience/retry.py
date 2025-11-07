@@ -11,8 +11,8 @@ import random
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Optional, Type, Union, Any
 from functools import wraps
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ class Retry:
         """
         if self.config.backoff_strategy == BackoffStrategy.EXPONENTIAL:
             delay = self.config.initial_delay * (
-                self.config.backoff_multiplier ** attempt
+                self.config.backoff_multiplier**attempt
             )
         elif self.config.backoff_strategy == BackoffStrategy.LINEAR:
             delay = self.config.initial_delay + (
@@ -133,9 +133,7 @@ class Retry:
             return False
         return self.config.retry_on_result(result)
 
-    def execute(
-        self, func: Callable, *args, **kwargs
-    ) -> Any:
+    def execute(self, func: Callable, *args, **kwargs) -> Any:
         """
         Execute function with retry logic.
 
@@ -187,9 +185,7 @@ class Retry:
 
                 # Check if we should retry this exception
                 if not self._should_retry_exception(e):
-                    logger.error(
-                        f"Non-retryable exception: {type(e).__name__}: {e}"
-                    )
+                    logger.error(f"Non-retryable exception: {type(e).__name__}: {e}")
                     raise
 
                 # Last attempt - raise RetryError
@@ -217,9 +213,7 @@ class Retry:
             last_exception=last_exception,
         )
 
-    async def execute_async(
-        self, func: Callable, *args, **kwargs
-    ) -> Any:
+    async def execute_async(self, func: Callable, *args, **kwargs) -> Any:
         """
         Execute async function with retry logic.
 
@@ -271,9 +265,7 @@ class Retry:
 
                 # Check if we should retry this exception
                 if not self._should_retry_exception(e):
-                    logger.error(
-                        f"Non-retryable exception: {type(e).__name__}: {e}"
-                    )
+                    logger.error(f"Non-retryable exception: {type(e).__name__}: {e}")
                     raise
 
                 # Last attempt - raise RetryError

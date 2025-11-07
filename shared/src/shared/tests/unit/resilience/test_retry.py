@@ -8,17 +8,16 @@ Usage:
     laborant test shared --unit
 """
 
-import time
 import asyncio
-from unittest.mock import Mock
-from shared.tests import LaborantTest
+
 from shared.resilience.retry import (
+    BackoffStrategy,
     Retry,
     RetryConfig,
     RetryError,
-    BackoffStrategy,
     with_retry,
 )
+from shared.tests import LaborantTest
 
 
 class TestRetryPattern(LaborantTest):
@@ -77,9 +76,7 @@ class TestRetryPattern(LaborantTest):
 
     def test_successful_operation_no_retry(self):
         """Test successful operation requires no retry."""
-        self.reporter.info(
-            "Testing successful operation without retry", context="Test"
-        )
+        self.reporter.info("Testing successful operation without retry", context="Test")
 
         retry = Retry(RetryConfig(max_attempts=3))
         call_count = 0
@@ -115,9 +112,7 @@ class TestRetryPattern(LaborantTest):
         assert result == "success"
         assert call_count == 3
 
-        self.reporter.info(
-            "Operation succeeded after 2 retries", context="Test"
-        )
+        self.reporter.info("Operation succeeded after 2 retries", context="Test")
 
     def test_exhausted_retries_raises_error(self):
         """Test RetryError raised when all attempts exhausted."""
@@ -300,9 +295,7 @@ class TestRetryPattern(LaborantTest):
             assert False, "Should have raised TypeError"
         except TypeError as e:
             assert "Non-retryable" in str(e)
-            self.reporter.info(
-                "Non-retryable exception propagated", context="Test"
-            )
+            self.reporter.info("Non-retryable exception propagated", context="Test")
 
         assert call_count == 1
 
@@ -367,9 +360,7 @@ class TestRetryPattern(LaborantTest):
             assert False, "Should have raised RetryError"
         except RetryError as e:
             assert e.attempts == 3
-            self.reporter.info(
-                "Result retry exhausted correctly", context="Test"
-            )
+            self.reporter.info("Result retry exhausted correctly", context="Test")
 
         assert call_count == 3
 

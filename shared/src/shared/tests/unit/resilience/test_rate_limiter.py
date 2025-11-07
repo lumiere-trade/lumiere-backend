@@ -8,15 +8,16 @@ Usage:
     laborant test shared --unit
 """
 
-import time
 import asyncio
-from shared.tests import LaborantTest
+import time
+
 from shared.resilience.rate_limiter import (
-    TokenBucket,
     RateLimitConfig,
-    RateLimitExceeded,
     RateLimiterRegistry,
+    RateLimitExceeded,
+    TokenBucket,
 )
+from shared.tests import LaborantTest
 
 
 class TestRateLimiter(LaborantTest):
@@ -65,9 +66,7 @@ class TestRateLimiter(LaborantTest):
         """Test TokenBucket initialization."""
         self.reporter.info("Testing initialization", context="Test")
 
-        bucket = TokenBucket(
-            RateLimitConfig(tokens_per_second=5.0, burst_size=10)
-        )
+        bucket = TokenBucket(RateLimitConfig(tokens_per_second=5.0, burst_size=10))
 
         assert bucket.tokens_per_second == 5.0
         assert bucket.burst_size == 10
@@ -102,7 +101,6 @@ class TestRateLimiter(LaborantTest):
         assert result3 is False
 
         self.reporter.info("try_acquire working", context="Test")
-
 
     def test_burst_size_cap(self):
         """Test tokens don't exceed burst_size."""

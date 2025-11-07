@@ -14,14 +14,14 @@ Example:
     async def create_strategy(user_id: str, prompt: str, idempotency_key: str):
         strategy = await generate_strategy(user_id, prompt)
         return strategy
-    
+
     # Autonomous operation
     trade_id = IdempotencyKey.from_trade(
         strategy_id="strat_123",
         signal_hash="abc456",
         timestamp=1730500000
     )
-    
+
     if not await store.exists(trade_id):
         result = await execute_trade(signal)
         await store.set(trade_id, result)
@@ -29,11 +29,10 @@ Example:
 
 import hashlib
 import json
-import time
 import logging
-from typing import Optional, Callable, Any, Protocol
+import time
 from functools import wraps
-from abc import ABC, abstractmethod
+from typing import Any, Callable, Optional, Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -41,17 +40,17 @@ logger = logging.getLogger(__name__)
 class IdempotencyStore(Protocol):
     """
     Protocol for idempotency key storage.
-    
+
     Implementations can use Redis, PostgreSQL, or any persistent store.
     """
 
     def get(self, key: str) -> Optional[Any]:
         """
         Get cached result for idempotency key.
-        
+
         Args:
             key: Idempotency key
-            
+
         Returns:
             Cached result or None if not found
         """
@@ -60,7 +59,7 @@ class IdempotencyStore(Protocol):
     def set(self, key: str, value: Any, ttl: int = 86400) -> None:
         """
         Store result for idempotency key.
-        
+
         Args:
             key: Idempotency key
             value: Result to cache
@@ -71,10 +70,10 @@ class IdempotencyStore(Protocol):
     def exists(self, key: str) -> bool:
         """
         Check if idempotency key exists.
-        
+
         Args:
             key: Idempotency key
-            
+
         Returns:
             True if key exists, False otherwise
         """
@@ -96,7 +95,7 @@ class IdempotencyStore(Protocol):
 class InMemoryIdempotencyStore:
     """
     In-memory idempotency store for testing.
-    
+
     NOT FOR PRODUCTION - data lost on restart.
     Use Redis or database for production.
     """
@@ -135,25 +134,23 @@ class InMemoryIdempotencyStore:
 class IdempotencyKey:
     """
     Utility class for generating idempotency keys.
-    
+
     Provides standard key generation for different operation types.
     """
 
     @staticmethod
-    def from_user_request(
-        user_id: str, operation: str, **params
-    ) -> str:
+    def from_user_request(user_id: str, operation: str, **params) -> str:
         """
         Generate key for user-initiated operations.
-        
+
         Args:
             user_id: User identifier
             operation: Operation name (e.g., "deposit", "create_strategy")
             **params: Operation parameters
-            
+
         Returns:
             Idempotency key (SHA256 hash)
-            
+
         Example:
             key = IdempotencyKey.from_user_request(
                 user_id="user123",
@@ -166,20 +163,18 @@ class IdempotencyKey:
         return hashlib.sha256(content.encode()).hexdigest()
 
     @staticmethod
-    def from_trade(
-        strategy_id: str, signal_hash: str, timestamp: int
-    ) -> str:
+    def from_trade(strategy_id: str, signal_hash: str, timestamp: int) -> str:
         """
         Generate key for autonomous trade execution.
-        
+
         Args:
             strategy_id: Strategy identifier
             signal_hash: Hash of trade signal
             timestamp: Unix timestamp
-            
+
         Returns:
             Trade idempotency key
-            
+
         Example:
             key = IdempotencyKey.from_trade(
                 strategy_id="strat_456",
@@ -191,20 +186,18 @@ class IdempotencyKey:
         return f"trade_{strategy_id}_{timestamp}_{signal_hash}"
 
     @staticmethod
-    def from_blockchain_tx(
-        operation: str, chain: str, params_hash: str
-    ) -> str:
+    def from_blockchain_tx(operation: str, chain: str, params_hash: str) -> str:
         """
         Generate key for blockchain transactions.
-        
+
         Args:
             operation: Operation type (e.g., "bridge", "swap")
             chain: Blockchain name
             params_hash: Hash of transaction parameters
-            
+
         Returns:
             Blockchain operation idempotency key
-            
+
         Example:
             key = IdempotencyKey.from_blockchain_tx(
                 operation="bridge",
@@ -218,13 +211,13 @@ class IdempotencyKey:
     def from_event(event_id: str) -> str:
         """
         Extract key from event.
-        
+
         Args:
             event_id: Event identifier from event bus
-            
+
         Returns:
             Event idempotency key
-            
+
         Example:
             key = IdempotencyKey.from_event("evt_12345")
             # Returns: "event_evt_12345"
@@ -235,10 +228,10 @@ class IdempotencyKey:
     def hash_params(**params) -> str:
         """
         Generate hash from parameters.
-        
+
         Args:
             **params: Parameters to hash
-            
+
         Returns:
             SHA256 hash of parameters
         """
@@ -248,8 +241,6 @@ class IdempotencyKey:
 
 class IdempotencyError(Exception):
     """Base exception for idempotency errors."""
-
-    pass
 
 
 class DuplicateRequestError(IdempotencyError):
@@ -269,28 +260,28 @@ def idempotent(
 ):
     """
     Decorator to make function idempotent.
-    
+
     Ensures function executes exactly once per idempotency key.
     Subsequent calls with same key return cached result.
-    
+
     Args:
         key_param: Name of parameter containing idempotency key
         store: Storage backend (Redis, DB, etc.)
         ttl: Time to live for cached results (seconds, default: 24h)
         raise_on_duplicate: If True, raise DuplicateRequestError on duplicate
-        
+
     Returns:
         Decorated function
-        
+
     Example:
         @idempotent(key_param="request_id", store=redis_store, ttl=3600)
         def execute_trade(user_id: str, amount: float, request_id: str):
             # This executes only once per request_id
             return process_trade(user_id, amount)
-        
+
         # First call - executes
         result1 = execute_trade("user123", 1000, "req_001")
-        
+
         # Second call - returns cached result
         result2 = execute_trade("user123", 1000, "req_001")
         assert result1 == result2
@@ -304,16 +295,13 @@ def idempotent(
             # Extract idempotency key
             key = kwargs.get(key_param)
             if not key:
-                raise ValueError(
-                    f"Missing required parameter: {key_param}"
-                )
+                raise ValueError(f"Missing required parameter: {key_param}")
 
             # Check cache
             if store.exists(key):
                 cached_result = store.get(key)
                 logger.info(
-                    f"Idempotent operation: returning cached result "
-                    f"for key {key}"
+                    f"Idempotent operation: returning cached result " f"for key {key}"
                 )
 
                 if raise_on_duplicate:
@@ -327,9 +315,7 @@ def idempotent(
 
             # Cache result
             store.set(key, result, ttl)
-            logger.debug(
-                f"Idempotent operation: cached result for key {key}"
-            )
+            logger.debug(f"Idempotent operation: cached result for key {key}")
 
             return result
 
@@ -338,16 +324,13 @@ def idempotent(
             # Extract idempotency key
             key = kwargs.get(key_param)
             if not key:
-                raise ValueError(
-                    f"Missing required parameter: {key_param}"
-                )
+                raise ValueError(f"Missing required parameter: {key_param}")
 
             # Check cache
             if await store.exists_async(key):
                 cached_result = await store.get_async(key)
                 logger.info(
-                    f"Idempotent operation: returning cached result "
-                    f"for key {key}"
+                    f"Idempotent operation: returning cached result " f"for key {key}"
                 )
 
                 if raise_on_duplicate:
@@ -361,9 +344,7 @@ def idempotent(
 
             # Cache result
             await store.set_async(key, result, ttl)
-            logger.debug(
-                f"Idempotent operation: cached result for key {key}"
-            )
+            logger.debug(f"Idempotent operation: cached result for key {key}")
 
             return result
 
