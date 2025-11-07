@@ -18,6 +18,9 @@ from pourtier.di import get_container, initialize_container, shutdown_container
 from pourtier.domain.exceptions import PourtierException
 from pourtier.infrastructure.cache import ResponseCache
 from pourtier.infrastructure.monitoring import get_logger, setup_logging
+from pourtier.infrastructure.monitoring.graceful_shutdown import (
+    PourtierGracefulShutdown,
+)
 from pourtier.presentation.api.middleware import (
     pourtier_exception_handler,
 )
@@ -30,6 +33,7 @@ from pourtier.presentation.api.middleware.request_id_middleware import (
 from pourtier.presentation.api.routes import (
     auth,
     escrow,
+    health,
     legal,
     subscriptions,
     users,
@@ -74,6 +78,15 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             app.state.response_cache = response_cache
             logger.info("Response cache initialized")
 
+        # Setup graceful shutdown handler
+        shutdown_handler = PourtierGracefulShutdown(
+            shutdown_timeout=30.0,
+            log_dir=None if settings.ENV == "production" else "/app/logs",
+        )
+        shutdown_handler.setup_signal_handlers()
+        app.state.shutdown_handler = shutdown_handler
+        logger.info("Graceful shutdown handler initialized")
+
         logger.info("Pourtier application started successfully")
 
         yield
@@ -117,6 +130,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     app.add_exception_handler(PourtierException, pourtier_exception_handler)
 
     # Register routes
+    app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
     app.include_router(users.router, prefix="/api")
     app.include_router(subscriptions.router, prefix="/api")
