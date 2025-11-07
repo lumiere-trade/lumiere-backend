@@ -27,6 +27,9 @@ from pourtier.presentation.api.middleware import (
 from pourtier.presentation.api.middleware.metrics_middleware import (
     MetricsMiddleware,
 )
+from pourtier.presentation.api.middleware.rate_limit_middleware import (
+    RateLimitMiddleware,
+)
 from pourtier.presentation.api.middleware.request_id_middleware import (
     RequestIDMiddleware,
 )
@@ -104,20 +107,26 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Request ID middleware (add FIRST for tracking)
+    # Middleware chain (order matters!)
+    # 1. Request ID middleware (FIRST for tracking)
     app.add_middleware(RequestIDMiddleware)
 
-    # Metrics middleware (add SECOND for accurate timing)
+    # 2. Metrics middleware (SECOND for accurate timing)
     app.add_middleware(MetricsMiddleware)
 
-    # GZip compression middleware (add before CORS for correct order)
+    # 3. Rate limiting middleware (if Redis enabled)
+    if settings.REDIS_ENABLED and settings.RATE_LIMITING_ENABLED:
+        app.add_middleware(RateLimitMiddleware)
+        logger.info("Rate limiting enabled")
+
+    # 4. GZip compression middleware
     app.add_middleware(
         GZipMiddleware,
         minimum_size=1000,
         compresslevel=6,
     )
 
-    # CORS middleware - configured via settings
+    # 5. CORS middleware (LAST)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
