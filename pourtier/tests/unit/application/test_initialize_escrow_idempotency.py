@@ -112,9 +112,7 @@ class TestInitializeEscrowIdempotency(LaborantTest):
         )
 
     @patch("pourtier.application.use_cases.initialize_escrow.derive_escrow_pda")
-    async def test_initialize_stores_result_for_idempotency(
-        self, mock_derive_pda
-    ):
+    async def test_initialize_stores_result_for_idempotency(self, mock_derive_pda):
         """Test that successful initialization stores result."""
         self.reporter.info(
             "Testing initialization stores result for idempotency",
@@ -186,9 +184,7 @@ class TestInitializeEscrowIdempotency(LaborantTest):
         )
 
     @patch("pourtier.application.use_cases.initialize_escrow.derive_escrow_pda")
-    async def test_initialize_auto_generates_idempotency_key(
-        self, mock_derive_pda
-    ):
+    async def test_initialize_auto_generates_idempotency_key(self, mock_derive_pda):
         """Test that idempotency key is auto-generated if not provided."""
         self.reporter.info(
             "Testing auto-generation of idempotency key",

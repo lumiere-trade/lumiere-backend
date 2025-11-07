@@ -8,8 +8,6 @@ CRITICAL: Idempotent to prevent duplicate initialization.
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from shared.resilience import IdempotencyKey, idempotent
-
 from pourtier.domain.entities.escrow_transaction import (
     EscrowTransaction,
     TransactionStatus,
@@ -26,6 +24,7 @@ from pourtier.domain.repositories.i_escrow_transaction_repository import (
 from pourtier.domain.repositories.i_user_repository import IUserRepository
 from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
 from pourtier.infrastructure.blockchain.solana_utils import derive_escrow_pda
+from shared.resilience import IdempotencyKey
 
 
 class InitializeEscrow:
@@ -115,9 +114,7 @@ class InitializeEscrow:
 
         # Store result for idempotency
         if self.idempotency_store:
-            await self.idempotency_store.set_async(
-                idempotency_key, result, ttl=86400
-            )
+            await self.idempotency_store.set_async(idempotency_key, result, ttl=86400)
 
         return result
 

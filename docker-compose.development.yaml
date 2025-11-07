@@ -1,11 +1,10 @@
-
 # =============================================
 # NETWORKS
 # =============================================
 networks:
   lumiere-net:
     driver: bridge
-    name: lumiere-network
+    name: lumiere-dev-network
 
 # =============================================
 # VOLUMES
@@ -39,7 +38,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    # NO external ports - internal access only via Docker DNS
 
   # -------------------------------------------
   # Pourtier (Database Service)
@@ -51,18 +49,14 @@ services:
     restart: unless-stopped
     environment:
       ENV: ${ENV:-development}
-      # Database connection
-      DATABASE_URL: postgresql+asyncpg://pourtier_user:pourtier_pass@postgres:5432/pourtier_dev_db
-      # JWT
+      DATABASE_URL: postgresql+asyncpg://pourtier_user:pourtier_pass@lumiere-dev-postgres:5432/pourtier_dev_db
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_secret_change_in_production}
-      # Solana
       SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
       SOLANA_NETWORK: ${SOLANA_NETWORK:-devnet}
-      # Service Discovery (Docker DNS - internal ports)
-      courier_url: http://courier:9765
-      passeur_url: http://passeur:9766
-      PASSEUR_BRIDGE_URL: http://passeur:9766
-      COURIER_URL: http://courier:9765
+      courier_url: http://lumiere-dev-courier:9765
+      passeur_url: http://lumiere-dev-passeur:9766
+      PASSEUR_BRIDGE_URL: http://lumiere-dev-passeur:9766
+      COURIER_URL: http://lumiere-dev-courier:9765
     ports:
       - "${POURTIER_PORT:-9000}:9000"
     depends_on:
@@ -91,9 +85,8 @@ services:
     restart: unless-stopped
     environment:
       ENV: ${ENV:-development}
-      # Service Discovery (Docker DNS - internal ports)
-      pourtier_url: http://pourtier:9000
-      passeur_url: http://passeur:9766
+      pourtier_url: http://lumiere-dev-pourtier:9000
+      passeur_url: http://lumiere-dev-passeur:9766
     ports:
       - "${COURIER_PORT:-9765}:9765"
     depends_on:
@@ -122,17 +115,13 @@ services:
     restart: unless-stopped
     environment:
       ENV: ${ENV:-development}
-      # Service Discovery (Docker DNS - internal ports)
-      courier_url: http://courier:9765
-      pourtier_url: http://pourtier:9000
-      # Solana
+      courier_url: http://lumiere-dev-courier:9765
+      pourtier_url: http://lumiere-dev-pourtier:9000
       PASSEUR_SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
       PASSEUR_SOLANA_NETWORK: ${SOLANA_NETWORK:-devnet}
       PASSEUR_PROGRAM_ID: ${ESCROW_PROGRAM_ID:-9gvUtaF99sQ287PNzRfCbhFTC4PUnnd7jdAjnY5GUVhS}
-      # Platform Keypair
       PASSEUR_PLATFORM_KEYPAIR_PATH: /app/keypairs/platform.json
     volumes:
-      # Mount keypair into container
       - ~/lumiere/keypairs/dev/platform.json:/app/keypairs/platform.json:ro
     ports:
       - "${PASSEUR_PORT:-9766}:9766"

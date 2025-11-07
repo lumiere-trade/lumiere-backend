@@ -7,7 +7,6 @@ Manages all service instances and their dependencies.
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from shared.resilience import CircuitBreakerConfig, IdempotencyStore
 
 from pourtier.application.use_cases.authenticate_wallet import (
     AuthenticateWallet,
@@ -99,6 +98,7 @@ from pourtier.infrastructure.persistence.repositories.user_repository import (
     UserRepository,
 )
 from shared.courier_client import CourierClient
+from shared.resilience import CircuitBreakerConfig, IdempotencyStore
 
 
 class DIContainer:
@@ -499,9 +499,7 @@ class DIContainer:
             idempotency_store=self.idempotency_store,
         )
 
-    def get_withdraw_from_escrow(
-        self, session: AsyncSession
-    ) -> WithdrawFromEscrow:
+    def get_withdraw_from_escrow(self, session: AsyncSession) -> WithdrawFromEscrow:
         """
         Get withdraw from escrow use case with idempotency protection.
 

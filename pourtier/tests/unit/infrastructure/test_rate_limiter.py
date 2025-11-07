@@ -11,8 +11,8 @@ Usage:
 import time
 from unittest.mock import AsyncMock, MagicMock
 
-from shared.tests import LaborantTest
 from pourtier.infrastructure.rate_limiting.rate_limiter import RateLimiter
+from shared.tests import LaborantTest
 
 
 class TestRateLimiter(LaborantTest):
@@ -38,10 +38,10 @@ class TestRateLimiter(LaborantTest):
         mock_pipeline.zremrangebyscore = MagicMock()
         mock_pipeline.zcard = MagicMock()
         mock_pipeline.execute = AsyncMock(return_value=execute_result)
-        
+
         # Make pipeline() return sync object (NOT async)
         mock_cache._client.pipeline = MagicMock(return_value=mock_pipeline)
-        
+
         return mock_pipeline
 
     def _create_rate_limiter(
@@ -119,9 +119,7 @@ class TestRateLimiter(LaborantTest):
         )
 
         mock_cache = self._create_mock_cache()
-        mock_pipeline = self._setup_pipeline_mock(
-            mock_cache, execute_result=[None, 50]
-        )
+        mock_pipeline = self._setup_pipeline_mock(mock_cache, execute_result=[None, 50])
         rate_limiter = self._create_rate_limiter(mock_cache, rpm=60, burst=10)
 
         # Execute

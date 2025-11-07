@@ -11,17 +11,17 @@ from typing import Optional
 
 import aiohttp
 from prometheus_client import Counter, Histogram
+
+from pourtier.domain.exceptions.blockchain import BridgeError
+from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
 from shared.resilience import (
+    BackoffStrategy,
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerOpenError,
     Retry,
     RetryConfig,
-    BackoffStrategy,
 )
-
-from pourtier.domain.exceptions.blockchain import BridgeError
-from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
 
 # Prometheus Metrics
 passeur_requests_total = Counter(
@@ -147,9 +147,7 @@ class PasseurBridgeClient(IPasseurBridge):
                 payload,
                 operation,
             )
-            passeur_requests_total.labels(
-                operation=operation, status="success"
-            ).inc()
+            passeur_requests_total.labels(operation=operation, status="success").inc()
             return result
 
         except CircuitBreakerOpenError:
@@ -157,14 +155,10 @@ class PasseurBridgeClient(IPasseurBridge):
                 operation=operation, status="circuit_open"
             ).inc()
             passeur_circuit_breaker_state.labels(state="open").inc()
-            raise BridgeError(
-                f"Passeur Bridge circuit breaker is OPEN for {operation}"
-            )
+            raise BridgeError(f"Passeur Bridge circuit breaker is OPEN for {operation}")
 
-        except Exception as e:
-            passeur_requests_total.labels(
-                operation=operation, status="error"
-            ).inc()
+        except Exception:
+            passeur_requests_total.labels(operation=operation, status="error").inc()
             raise
 
     async def _make_request_with_retry(
@@ -278,9 +272,7 @@ class PasseurBridgeClient(IPasseurBridge):
 
         # Special handling for submit - returns signature instead of tx
         try:
-            with passeur_request_duration.labels(
-                operation="submit_transaction"
-            ).time():
+            with passeur_request_duration.labels(operation="submit_transaction").time():
                 result = await self.circuit_breaker.call_async(
                     self.retry.execute_async,
                     self._submit_transaction_once,
@@ -414,9 +406,7 @@ class PasseurBridgeClient(IPasseurBridge):
             CircuitBreakerOpenError: If circuit is open
         """
         try:
-            with passeur_request_duration.labels(
-                operation="get_wallet_balance"
-            ).time():
+            with passeur_request_duration.labels(operation="get_wallet_balance").time():
                 result = await self.circuit_breaker.call_async(
                     self.retry.execute_async,
                     self._get_wallet_balance_once,
@@ -448,9 +438,7 @@ class PasseurBridgeClient(IPasseurBridge):
         url = f"{self.bridge_url}/wallet/balance"
 
         try:
-            async with session.get(
-                url, params={"wallet": wallet_address}
-            ) as response:
+            async with session.get(url, params={"wallet": wallet_address}) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     if 400 <= response.status < 500:

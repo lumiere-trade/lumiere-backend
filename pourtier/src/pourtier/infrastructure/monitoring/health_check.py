@@ -4,12 +4,11 @@ Pourtier Health Check implementation.
 Kubernetes-compatible health checks for liveness and readiness probes.
 """
 
-from typing import Dict, Any
-
-from shared.health import HealthCheck, HealthStatus
+from typing import Any, Dict
 
 from pourtier.config.settings import get_settings
 from pourtier.di.container import get_container
+from shared.health import HealthCheck, HealthStatus
 
 
 class PourtierHealthCheck(HealthCheck):
@@ -164,7 +163,7 @@ class PourtierHealthCheck(HealthCheck):
         try:
             # Check if Courier is reachable
             # For now, just verify client exists
-            courier = self.container.courier_client
+            self.container.courier_client
 
             return {
                 "status": HealthStatus.HEALTHY.value,
