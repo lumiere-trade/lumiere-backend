@@ -257,10 +257,11 @@ def load_config(
 
     environment = env or os.getenv("ENV", "production")
 
+    # FIXED: Map test environment to .env.test
     env_map = {
         "production": (".env.production", "production.yaml"),
         "development": (".env.development", "development.yaml"),
-        "test": (".env.development", "test.yaml"),
+        "test": (".env.test", "test.yaml"),  # ✅ FIXED: Now uses .env.test
     }
 
     if env_file is None:

@@ -1,18 +1,16 @@
 # =============================================
 # POURTIER TEST INFRASTRUCTURE
-# Uses: config/test.yaml + .env.development (test uses dev secrets)
+# Uses: config/test.yaml + .env.test
 # Port: 7000 (from config/test.yaml)
 # =============================================
-
 networks:
-  pourtier-test-net:
+  lumiere-test-network:
     driver: bridge
-    name: pourtier-test-network
-
+    name: lumiere-test-network
 volumes:
-  pourtier-postgres-test-data:
-    name: pourtier-postgres-test-data
-
+  lumiere-test-postgres-data:
+    external: true
+    name: lumiere-test-postgres-data
 services:
   # -------------------------------------------
   # PostgreSQL Database (Test)
@@ -20,17 +18,17 @@ services:
   # -------------------------------------------
   postgres:
     image: postgres:15-alpine
-    container_name: pourtier-postgres-test
+    container_name: lumiere-test-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-lumiere}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-test_password}
       POSTGRES_DB: lumiere_test
     volumes:
-      - pourtier-postgres-test-data:/var/lib/postgresql/data
+      - lumiere-test-postgres-data:/var/lib/postgresql/data
       - ../postgres/init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
-      - pourtier-test-net
+      - lumiere-test-network
     ports:
       - "5433:5432"
     healthcheck:
@@ -43,15 +41,13 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
   # -------------------------------------------
   # Courier Event Bus (Test)
   # External: 7765 → Internal: 7765
-  # No persistence needed for test environment
   # -------------------------------------------
   courier:
     image: courier:development
-    container_name: courier-test
+    container_name: lumiere-test-courier
     restart: unless-stopped
     environment:
       ENV: test
@@ -59,7 +55,7 @@ services:
     ports:
       - "7765:7765"
     networks:
-      - pourtier-test-net
+      - lumiere-test-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7765/health"]
       interval: 10s
@@ -70,19 +66,48 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
+  # -------------------------------------------
+  # Passeur Blockchain Bridge (Test)
+  # External: 7766 → Internal: 7766
+  # -------------------------------------------
+  passeur:
+    image: passeur:development
+    container_name: lumiere-test-passeur
+    restart: unless-stopped
+    env_file:
+      - ../passeur/.env.test
+    environment:
+      ENV: test
+      LOG_LEVEL: INFO
+    ports:
+      - "7766:7766"
+    networks:
+      - lumiere-test-network
+    volumes:
+      - /root/lumiere/keypairs:/root/lumiere/keypairs:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7766/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
   # -------------------------------------------
   # Pourtier API (Test)
   # External: 7000 → Internal: 7000
   # -------------------------------------------
   pourtier:
     image: pourtier:development
-    container_name: pourtier-test
+    container_name: lumiere-test-pourtier
     restart: unless-stopped
     env_file:
-      - .env.development
+      - .env.test  # ✅ FIXED: Now uses .env.test instead of .env.development
     environment:
       ENV: test
+      DATABASE_URL: postgresql+asyncpg://pourtier_user:pourtier_pass@postgres:5432/pourtier_test_db
     ports:
       - "7000:7000"
     depends_on:
@@ -90,8 +115,10 @@ services:
         condition: service_healthy
       courier:
         condition: service_healthy
+      passeur:
+        condition: service_healthy
     networks:
-      - pourtier-test-net
+      - lumiere-test-network
     volumes:
       - ./config:/app/config:ro
       - ./tests:/app/tests:ro
