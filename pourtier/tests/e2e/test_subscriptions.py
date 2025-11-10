@@ -18,8 +18,6 @@ from pourtier.config.settings import get_settings
 from pourtier.infrastructure.persistence.database import Database
 from pourtier.infrastructure.persistence.models import Base
 from shared.blockchain.wallets import PlatformWallets
-from shared.reporter.emojis.emoji import Emoji
-from shared.reporter.emojis.errors_emojis import ErrorEmoji
 from shared.tests import LaborantTest
 
 AUTH_MESSAGE = "Sign this message to authenticate with Lumiere"
@@ -192,7 +190,7 @@ class TestSubscriptions(LaborantTest):
                 assert "id" in data
                 TestSubscriptions.subscription_id = data["id"]
                 self.reporter.info(
-                    f"{Emoji.SYSTEM.READY} Subscription created", context="Test"
+                    "Subscription created", context="Test"
                 )
             else:
                 self.reporter.info(
@@ -214,7 +212,7 @@ class TestSubscriptions(LaborantTest):
                 data = response.json()
                 assert isinstance(data, list)
                 self.reporter.info(
-                    f"{Emoji.SYSTEM.READY} Found {len(data)} subscription(s)",
+                    f"Found {len(data)} subscription(s)",
                     context="Test",
                 )
             else:
@@ -226,7 +224,7 @@ class TestSubscriptions(LaborantTest):
     async def test_03_unauthorized_access(self):
         """Test rejecting access without auth."""
         self.reporter.info(
-            f"{ErrorEmoji.FORBIDDEN} Testing unauthorized access...", context="Test"
+            "Testing unauthorized access...", context="Test"
         )
 
         async with httpx.AsyncClient() as client:
@@ -235,7 +233,7 @@ class TestSubscriptions(LaborantTest):
             assert response.status_code in [307, 403, 404]
 
             self.reporter.info(
-                f"{Emoji.SYSTEM.READY} Unauthorized access blocked", context="Test"
+                "Unauthorized access blocked", context="Test"
             )
 
 
