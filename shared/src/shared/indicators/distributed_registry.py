@@ -121,9 +121,7 @@ class DistributedIndicatorRegistry(IIndicatorRegistry):
                 return None
 
         except redis.RedisError as e:
-            self.reporter.error(
-                f"Redis read failed: {e}", verbose_level=1
-            )
+            self.reporter.error(f"Redis read failed: {e}", verbose_level=1)
             return None
 
         except ValueError as e:
@@ -169,9 +167,7 @@ class DistributedIndicatorRegistry(IIndicatorRegistry):
                 return []
 
         except redis.RedisError as e:
-            self.reporter.error(
-                f"Redis read failed: {e}", verbose_level=1
-            )
+            self.reporter.error(f"Redis read failed: {e}", verbose_level=1)
             return []
 
         except ValueError as e:
@@ -277,13 +273,9 @@ class DistributedIndicatorRegistry(IIndicatorRegistry):
             if hasattr(self, "redis_client"):
                 self.redis_client.close()
 
-            self.reporter.info(
-                f"Redis connection closed", verbose_level=1
-            )
+            self.reporter.info(f"Redis connection closed", verbose_level=1)
         except Exception as e:
-            self.reporter.warning(
-                f"Error closing Redis: {e}", verbose_level=2
-            )
+            self.reporter.warning(f"Error closing Redis: {e}", verbose_level=2)
 
     def __del__(self):
         """Cleanup on garbage collection."""
