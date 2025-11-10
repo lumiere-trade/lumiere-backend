@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
 
 dependencies = [
-    "shared>=0.0.32",
+    "shared==0.3.0",
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
     "websockets>=11.0",

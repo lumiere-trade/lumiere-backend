@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Smart test orchestrator for Lumiere components"
 requires-python = ">=3.11"
 dependencies = [
-    "shared",
+    "shared==0.3.0",
     "rich>=13.7.0",
     "black>=23.0.0",
     "isort>=5.12.0",
