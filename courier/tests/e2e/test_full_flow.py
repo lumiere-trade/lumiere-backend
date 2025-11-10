@@ -365,8 +365,7 @@ class TestFullFlow(LaborantTest):
 
                 # Should have exactly 2 more connections
                 assert count_during == count_before + 2, (
-                    f"Expected {count_before + 2} during, "
-                    f"got {count_during}"
+                    f"Expected {count_before + 2} during, " f"got {count_during}"
                 )
 
             # Wait for cleanup to complete (async context manager may not wait)
