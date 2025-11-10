@@ -228,7 +228,7 @@ def load_config(
     env_map = {
         "production": (".env.production", "production.yaml"),
         "development": (".env.development", "development.yaml"),
-        "test": (".env.development", "test.yaml"),
+        "test": (".env.test", "test.yaml"),  # FIXED: Now uses .env.test
     }
 
     # Load .env file FIRST (before Settings initialization)
