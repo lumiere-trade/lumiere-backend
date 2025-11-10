@@ -9,16 +9,15 @@ PROJECT_ROOT = ..
 
 help:
 	@echo "=== Courier Docker Commands ==="
-	@echo "make build-dev   - Build development image with buildx"
-	@echo "make build-prod  - Build production image with buildx"
-	@echo "make run-dev     - Run development container"
-	@echo "make run-prod    - Run production container"
+	@echo "make build-dev   - Build development image"
+	@echo "make build-prod  - Build production image"
+	@echo "make run-dev     - Run lumiere-dev-courier"
+	@echo "make run-prod    - Run lumiere-courier"
 	@echo "make test        - Test the container"
-	@echo "make clean       - Remove images and builder"
+	@echo "make clean       - Remove images and containers"
 
 build-dev:
-	@echo "[BUILD] Building $(COMPONENT):development with buildx..."
-	@echo "[INFO] Using PyPI Registry at http://localhost:9001/simple/"
+	@echo "[BUILD] Building $(COMPONENT):development..."
 	cd $(PROJECT_ROOT) && \
 	DOCKER_BUILDKIT=1 docker buildx build \
 		-f $(COMPONENT)/Dockerfile \
@@ -29,8 +28,7 @@ build-dev:
 		.
 
 build-prod:
-	@echo "[BUILD] Building $(COMPONENT):production with buildx..."
-	@echo "[INFO] Using PyPI Registry at http://localhost:9001/simple/"
+	@echo "[BUILD] Building $(COMPONENT):production..."
 	cd $(PROJECT_ROOT) && \
 	DOCKER_BUILDKIT=1 docker buildx build \
 		-f $(COMPONENT)/Dockerfile \
@@ -41,9 +39,9 @@ build-prod:
 		.
 
 run-dev:
-	@echo "[RUN] Starting $(COMPONENT) development container..."
+	@echo "[RUN] Starting lumiere-dev-$(COMPONENT)..."
 	docker run -d \
-		--name $(COMPONENT)-dev \
+		--name lumiere-dev-$(COMPONENT) \
 		--network lumiere-network \
 		-p $(PORT_DEV):$(PORT_DEV) \
 		-e ENV=development \
@@ -52,9 +50,9 @@ run-dev:
 		$(COMPONENT):development
 
 run-prod:
-	@echo "[RUN] Starting $(COMPONENT) production container..."
+	@echo "[RUN] Starting lumiere-$(COMPONENT)..."
 	docker run -d \
-		--name $(COMPONENT)-prod \
+		--name lumiere-$(COMPONENT) \
 		--network lumiere-network \
 		-p $(PORT_PROD):$(PORT_PROD) \
 		-e ENV=production \
@@ -62,28 +60,23 @@ run-prod:
 		$(COMPONENT):production
 
 test:
-	@echo "[TEST] Testing $(COMPONENT) container..."
-	@echo "[TEST] Health check..."
+	@echo "[TEST] Testing $(COMPONENT)..."
 	curl -f http://localhost:$(PORT_DEV)/health || echo "Health check failed"
-	@echo ""
-	@echo "[TEST] Stats check..."
-	curl -f http://localhost:$(PORT_DEV)/stats || echo "Stats check failed"
 
 clean:
-	@echo "[CLEAN] Removing $(COMPONENT) images..."
-	docker rm -f $(COMPONENT)-dev $(COMPONENT)-prod 2>/dev/null || true
+	@echo "[CLEAN] Removing $(COMPONENT) containers and images..."
+	docker rm -f lumiere-dev-$(COMPONENT) lumiere-$(COMPONENT) 2>/dev/null || true
 	docker rmi -f $(COMPONENT):development $(COMPONENT):production 2>/dev/null || true
-	@echo "[CLEAN] Cleaning build cache..."
 	docker builder prune -f
 
 stop:
 	@echo "[STOP] Stopping $(COMPONENT) containers..."
-	docker stop $(COMPONENT)-dev $(COMPONENT)-prod 2>/dev/null || true
+	docker stop lumiere-dev-$(COMPONENT) lumiere-$(COMPONENT) 2>/dev/null || true
 
 logs-dev:
-	@echo "[LOGS] Development container logs..."
-	docker logs -f $(COMPONENT)-dev
+	@echo "[LOGS] Development logs..."
+	docker logs -f lumiere-dev-$(COMPONENT)
 
 logs-prod:
-	@echo "[LOGS] Production container logs..."
-	docker logs -f $(COMPONENT)-prod
+	@echo "[LOGS] Production logs..."
+	docker logs -f lumiere-$(COMPONENT)

@@ -137,7 +137,6 @@ class Container:
             self._publish_rate_limiter = RateLimiter(
                 limit=self.settings.rate_limit_publish_requests,
                 window_seconds=self.settings.rate_limit_window_seconds,
-                reporter=self.reporter,
             )
 
         return self._publish_rate_limiter
@@ -158,7 +157,6 @@ class Container:
                 limit=self.settings.rate_limit_websocket_connections,
                 window_seconds=self.settings.rate_limit_window_seconds,
                 per_type_limits=self.settings.rate_limit_per_message_type,
-                reporter=self.reporter,
             )
 
         return self._websocket_rate_limiter
@@ -255,7 +253,7 @@ class Container:
         Increment connection rejection counter.
 
         Args:
-            limit_type: Type of limit that caused rejection (global, per_user, per_channel)
+            limit_type: Type of limit that caused rejection
         """
         self.stats["connection_rejections"] += 1
 

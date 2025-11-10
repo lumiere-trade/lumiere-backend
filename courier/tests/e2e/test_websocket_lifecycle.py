@@ -22,7 +22,7 @@ class TestWebSocketLifecycle(LaborantTest):
     test_category = "e2e"
 
     ws_base_url = "ws://localhost:7765"
-    container_name = "courier-e2e-ws-test"
+    container_name = "lumiere-test-courier-ws-test"
 
     async def async_setup(self):
         """Setup and start Courier container."""

@@ -21,7 +21,7 @@ class TestGracefulShutdown(LaborantTest):
     test_category = "e2e"
 
     http_base_url = "http://localhost:7766"
-    container_name = "courier-e2e-shutdown-test"
+    container_name = "lumiere-test-courier-shutdown-test"
 
     async def async_setup(self):
         """Setup test environment."""

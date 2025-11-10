@@ -23,7 +23,7 @@ class TestHealthAPI(LaborantTest):
 
     client: httpx.AsyncClient = None
     api_base_url = "http://localhost:7765"
-    container_name = "courier-e2e-test"
+    container_name = "lumiere-test-courier-test"
 
     async def async_setup(self):
         """Setup HTTP client and start Courier container."""
