@@ -74,7 +74,7 @@ async def websocket_endpoint(
     shutdown_manager = container.shutdown_manager
     if shutdown_manager.is_shutting_down():
         reporter.warning(
-            f"{Emoji.NETWORK.DISCONNECT} Connection rejected: server shutting down "
+            f"{Emoji.NETWORK.DISCONNECTED} Connection rejected: server shutting down "
             f"[conn={connection_id}] [channel={channel}]",
             context="WebSocket",
         )
@@ -124,7 +124,7 @@ async def websocket_endpoint(
     except ConnectionLimitExceeded as e:
         # Connection limit exceeded - send error and close
         reporter.warning(
-            f"{Emoji.NETWORK.DISCONNECT} Connection rejected: {e.limit_type} limit exceeded "
+            f"{Emoji.NETWORK.DISCONNECTED} Connection rejected: {e.limit_type} limit exceeded "
             f"[conn={connection_id}] [channel={channel}]",
             context="WebSocket",
         )
@@ -301,7 +301,7 @@ async def websocket_endpoint(
     except WebSocketDisconnect:
         # Client disconnected normally
         reporter.info(
-            f"{Emoji.NETWORK.DISCONNECT} Client disconnected [conn={connection_id}] "
+            f"{Emoji.NETWORK.DISCONNECTED} Client disconnected [conn={connection_id}] "
             f"[channel={channel}]",
             context="WebSocket",
         )
@@ -319,7 +319,7 @@ async def websocket_endpoint(
 
         # Log connection summary
         reporter.info(
-            f"{Emoji.NETWORK.DISCONNECT} Connection closed [conn={connection_id}] "
+            f"{Emoji.NETWORK.DISCONNECTED} Connection closed [conn={connection_id}] "
             f"[duration={connection_duration:.2f}s] [messages={messages_processed}] "
             f"[validation_failures={validation_failures}] [rate_limit_hits={rate_limit_hits}]",
             context="WebSocket",
@@ -393,7 +393,7 @@ async def _handle_control_message(
         target_channel = message.get("channel")
         await websocket.send_json({"type": "unsubscribed", "channel": target_channel})
         reporter.info(
-            f"{Emoji.NETWORK.DISCONNECT} Channel unsubscription requested "
+            f"{Emoji.NETWORK.DISCONNECTED} Channel unsubscription requested "
             f"[conn={connection_id}] [target={target_channel}]",
             context="WebSocket",
         )

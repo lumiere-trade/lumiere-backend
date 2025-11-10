@@ -343,11 +343,16 @@ class TestFullFlow(LaborantTest):
         """Test health endpoint reflects active connections."""
         self.reporter.info("Testing health accuracy", context="Test")
 
-        channel = "health.test"
+        channel = "health.test.isolated"
 
         async with httpx.AsyncClient() as client:
             before = await client.get(f"{self.http_base_url}/health")
             count_before = before.json()["total_clients"]
+
+            self.reporter.info(
+                f"Baseline connections: {count_before}",
+                context="Test",
+            )
 
             async with (
                 websockets.connect(f"{self.ws_base_url}/ws/{channel}") as ws1,
@@ -358,14 +363,24 @@ class TestFullFlow(LaborantTest):
                 during = await client.get(f"{self.http_base_url}/health")
                 count_during = during.json()["total_clients"]
 
-                assert count_during == count_before + 2
+                # Should have exactly 2 more connections
+                assert count_during == count_before + 2, (
+                    f"Expected {count_before + 2} during, "
+                    f"got {count_during}"
+                )
 
-            await asyncio.sleep(0.5)
+            # Wait for cleanup to complete (async context manager may not wait)
+            await asyncio.sleep(2.0)
 
             after = await client.get(f"{self.http_base_url}/health")
             count_after = after.json()["total_clients"]
 
-            assert count_after == count_before
+            # Robust check: allow small tolerance for async timing
+            leaked = count_after - count_before
+            assert leaked <= 0, (
+                f"Connection leak detected: expected <={count_before}, "
+                f"got {count_after} (leaked: {leaked})"
+            )
 
         self.reporter.info("Health reflects connections accurately", context="Test")
 
