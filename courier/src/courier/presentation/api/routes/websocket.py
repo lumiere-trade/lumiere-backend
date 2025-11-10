@@ -116,7 +116,7 @@ async def websocket_endpoint(
         total_connections = conn_manager.get_total_connections()
         reporter.info(
             f"{Emoji.NETWORK.CONNECTED} Client connected successfully "
-            f"[conn={connection_id}] [channel={channel}] [client={client.client_id}] "
+            f"[conn={connection_id}] [channel={channel}] [client={client.id}] "
             f"[total_connections={total_connections}]",
             context="WebSocket",
         )
@@ -149,7 +149,7 @@ async def websocket_endpoint(
     container.increment_stat("total_connections")
 
     # Use user_id for rate limiting, fallback to client_id
-    rate_limit_identifier = user_id or client.client_id
+    rate_limit_identifier = user_id or client.id
 
     # Track connection start time for duration logging
     connection_start_time = time.time()
@@ -279,7 +279,7 @@ async def websocket_endpoint(
                         connection_id,
                         channel,
                         user_id,
-                        client.client_id,
+                        client.id,
                         reporter,
                     )
                 else:
