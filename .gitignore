@@ -142,3 +142,7 @@ htmlcov/
 # ==================== REDIS ====================
 dump.rdb
 frontend-bak/
+
+# Blockchain keypairs - never commit to repo
+**/keypairs/**/*.json
+keypairs/
