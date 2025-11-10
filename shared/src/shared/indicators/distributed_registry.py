@@ -14,7 +14,6 @@ import redis
 from rebalancer.interfaces.indicator_registry_interface import IIndicatorRegistry
 
 from shared.reporter import SystemReporter
-from shared.reporter.emojis import Emoji
 
 
 class DistributedIndicatorRegistry(IIndicatorRegistry):
@@ -70,13 +69,13 @@ class DistributedIndicatorRegistry(IIndicatorRegistry):
             self.redis_client.ping()
 
             self.reporter.info(
-                f"{Emoji.DATABASE.READ} Redis connected: {redis_host}:{redis_port} (db={redis_db})",
+                f"Redis connected: {redis_host}:{redis_port} (db={redis_db})",
                 verbose_level=1,
             )
 
         except redis.RedisError as e:
             self.reporter.error(
-                f"{Emoji.ERROR.CRITICAL} Failed to connect to Redis: {e}",
+                f"Failed to connect to Redis: {e}",
                 verbose_level=0,
             )
             raise
@@ -85,7 +84,7 @@ class DistributedIndicatorRegistry(IIndicatorRegistry):
         self._lock = threading.RLock()
 
         self.reporter.info(
-            f"{Emoji.SYSTEM.READY} DistributedIndicatorRegistry initialized (Redis-only, TTL={cache_ttl}s)",
+            f"DistributedIndicatorRegistry initialized (Redis-only, TTL={cache_ttl}s)",
             verbose_level=1,
         )
 
@@ -110,26 +109,26 @@ class DistributedIndicatorRegistry(IIndicatorRegistry):
 
             if value is not None:
                 self.reporter.debug(
-                    f"{Emoji.DATABASE.READ} Redis read: {redis_key} = {value}",
+                    f"Redis read: {redis_key} = {value}",
                     verbose_level=3,
                 )
                 return float(value)
             else:
                 self.reporter.debug(
-                    f"{Emoji.ERROR.WARNING} No data in Redis: {redis_key}",
+                    f"No data in Redis: {redis_key}",
                     verbose_level=3,
                 )
                 return None
 
         except redis.RedisError as e:
             self.reporter.error(
-                f"{Emoji.ERROR.ERROR} Redis read failed: {e}", verbose_level=1
+                f"Redis read failed: {e}", verbose_level=1
             )
             return None
 
         except ValueError as e:
             self.reporter.error(
-                f"{Emoji.ERROR.ERROR} Invalid value in Redis for {redis_key}: {e}",
+                f"Invalid value in Redis for {redis_key}: {e}",
                 verbose_level=1,
             )
             return None
@@ -158,26 +157,26 @@ class DistributedIndicatorRegistry(IIndicatorRegistry):
             if values:
                 result = [float(v) for v in values]
                 self.reporter.debug(
-                    f"{Emoji.DATABASE.READ} Historical: {redis_key} ({len(result)} values)",
+                    f"Historical: {redis_key} ({len(result)} values)",
                     verbose_level=3,
                 )
                 return result
             else:
                 self.reporter.debug(
-                    f"{Emoji.ERROR.WARNING} No historical data in Redis: {redis_key}",
+                    f"No historical data in Redis: {redis_key}",
                     verbose_level=3,
                 )
                 return []
 
         except redis.RedisError as e:
             self.reporter.error(
-                f"{Emoji.ERROR.ERROR} Redis read failed: {e}", verbose_level=1
+                f"Redis read failed: {e}", verbose_level=1
             )
             return []
 
         except ValueError as e:
             self.reporter.error(
-                f"{Emoji.ERROR.ERROR} Invalid values in Redis list {redis_key}: {e}",
+                f"Invalid values in Redis list {redis_key}: {e}",
                 verbose_level=1,
             )
             return []
@@ -279,11 +278,11 @@ class DistributedIndicatorRegistry(IIndicatorRegistry):
                 self.redis_client.close()
 
             self.reporter.info(
-                f"{Emoji.SYSTEM.CLEANUP} Redis connection closed", verbose_level=1
+                f"Redis connection closed", verbose_level=1
             )
         except Exception as e:
             self.reporter.warning(
-                f"{Emoji.ERROR.WARNING} Error closing Redis: {e}", verbose_level=2
+                f"Error closing Redis: {e}", verbose_level=2
             )
 
     def __del__(self):
