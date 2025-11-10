@@ -4,12 +4,12 @@
 # =============================================
 
 networks:
-  lumiere-test-net:
+  lumiere-test-network:
     driver: bridge
     name: lumiere-test-network
 
 volumes:
-  test-postgres-data:
+  lumiere-test-postgres-data:
     name: lumiere-test-postgres-data
 
 services:
@@ -26,10 +26,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
       POSTGRES_DB: lumiere_test
     volumes:
-      - test-postgres-data:/var/lib/postgresql/data
+      - lumiere-test-postgres-data:/var/lib/postgresql/data
       - ./postgres/init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
-      - lumiere-test-net
+      - lumiere-test-network
     ports:
       - "5433:5432"
     healthcheck:
@@ -85,7 +85,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - lumiere-test-net
+      - lumiere-test-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7000/health"]
       interval: 30s
@@ -120,7 +120,7 @@ services:
       pourtier:
         condition: service_healthy
     networks:
-      - lumiere-test-net
+      - lumiere-test-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7765/health"]
       interval: 30s
@@ -164,7 +164,7 @@ services:
       pourtier:
         condition: service_healthy
     networks:
-      - lumiere-test-net
+      - lumiere-test-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7766/health"]
       interval: 30s
@@ -220,7 +220,7 @@ services:
       pourtier:
         condition: service_healthy
     networks:
-      - lumiere-test-net
+      - lumiere-test-network
     profiles:
       - test-pourtier
     working_dir: /app
