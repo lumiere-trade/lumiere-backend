@@ -25,7 +25,7 @@ class TestFullFlow(LaborantTest):
 
     ws_base_url = "ws://localhost:7765"
     http_base_url = "http://localhost:7765"
-    container_name = "courier-e2e-full-flow-test"
+    container_name = "lumiere-test-courier-full-flow-test"
 
     async def async_setup(self):
         """Setup and start Courier container."""

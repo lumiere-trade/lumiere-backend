@@ -294,7 +294,9 @@ async def websocket_endpoint(
             except asyncio.TimeoutError:
                 # Send heartbeat ping
                 await websocket.send_json({"type": "ping"})
-                reporter.debug(f"{Emoji.SYSTEM.HEARTBEAT} Heartbeat ping sent", context="WebSocket")
+                reporter.debug(
+                    f"{Emoji.SYSTEM.HEARTBEAT} Heartbeat ping sent", context="WebSocket"
+                )
 
     except WebSocketDisconnect:
         # Client disconnected normally
@@ -369,7 +371,9 @@ async def _handle_control_message(
         )
         return
 
-    reporter.debug(f"Control message: {message_type} [conn={connection_id}]", context="WebSocket")
+    reporter.debug(
+        f"Control message: {message_type} [conn={connection_id}]", context="WebSocket"
+    )
 
     if message_type == "ping":
         await websocket.send_json({"type": "pong"})
