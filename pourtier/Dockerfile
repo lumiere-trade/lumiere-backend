@@ -26,7 +26,7 @@ COPY pourtier/src/ ./src/
 # Install dependencies (shared will be fetched from PyPI registry)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --user --no-cache-dir \
-    --extra-index-url http://172.17.0.1:9001/simple/ \
+    --extra-index-url http://172.17.0.1:10001/simple/ \
     --trusted-host 172.17.0.1 \
     .
 
@@ -58,7 +58,7 @@ COPY pourtier/ .
 
 # Install in editable mode for development
 RUN pip install --no-cache-dir \
-    --extra-index-url http://172.17.0.1:9001/simple/ \
+    --extra-index-url http://172.17.0.1:10001/simple/ \
     --trusted-host 172.17.0.1 \
     -e ".[dev]"
 

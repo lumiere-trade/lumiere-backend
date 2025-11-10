@@ -12,7 +12,7 @@ FROM node:18-alpine AS node-builder
 WORKDIR /app/bridge
 
 COPY passeur/bridge/package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 COPY passeur/bridge/ ./
 
@@ -34,7 +34,7 @@ COPY passeur/src/ ./src/
 
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --user --no-cache-dir \
-    --extra-index-url http://172.17.0.1:9001/simple/ \
+    --extra-index-url http://172.17.0.1:10001/simple/ \
     --trusted-host 172.17.0.1 \
     .
 
@@ -55,7 +55,6 @@ RUN apt-get update && \
 
 COPY --from=python-builder /root/.local /root/.local
 
-COPY --from=node-builder /app/bridge ./bridge
 
 ENV PATH=/root/.local/bin:$PATH
 ENV PYTHONUNBUFFERED=1
@@ -66,7 +65,7 @@ COPY passeur/ .
 
 # Install passeur as editable for development
 RUN pip install --no-cache-dir \
-    --extra-index-url http://172.17.0.1:9001/simple/ \
+    --extra-index-url http://172.17.0.1:10001/simple/ \
     --trusted-host 172.17.0.1 \
     -e ".[dev]"
 
@@ -95,6 +94,7 @@ WORKDIR /app
 
 COPY --from=python-builder /root/.local /home/passeur/.local
 
+    COPY --from=node-builder /app/bridge/node_modules ./bridge/node_modules
 COPY --from=node-builder /app/bridge ./bridge
 
 COPY --chown=passeur:passeur passeur/config/ ./config/

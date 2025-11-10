@@ -1,0 +1,2 @@
+# Blockchain keypairs - never commit
+src/shared/blockchain/keypairs/**/*.json
