@@ -10,7 +10,7 @@ Provides commands for:
 - Install git pre-commit hook
 - Code quality checks (lint, format)
 
-All output via SystemReporter with LaborantEmoji.
+All output via SystemReporter.
 """
 
 import argparse
@@ -19,7 +19,6 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from shared.reporter.emojis import LaborantEmoji, SystemEmoji
 from shared.reporter.system_reporter import SystemReporter
 
 from laborant.core.change_detector import ChangeDetector
@@ -40,7 +39,7 @@ def install_hook(project_root: Path, reporter: SystemReporter) -> int:
     """
     reporter.info("", context="CLI")
     reporter.info(
-        f"{SystemEmoji.BUILD} Installing Laborant pre-commit hook", context="CLI"
+        "Installing Laborant pre-commit hook", context="CLI"
     )
     reporter.info("", context="CLI")
 
@@ -48,10 +47,10 @@ def install_hook(project_root: Path, reporter: SystemReporter) -> int:
     git_dir = project_root / ".git"
     if not git_dir.exists():
         reporter.error(
-            f"{LaborantEmoji.TEST_ERROR} Not a git repository", context="CLI"
+            "Not a git repository", context="CLI"
         )
         reporter.info(
-            f"{LaborantEmoji.INFO} Run this command from project root", context="CLI"
+            "Run this command from project root", context="CLI"
         )
         reporter.info("", context="CLI")
         return 1
@@ -66,27 +65,27 @@ def install_hook(project_root: Path, reporter: SystemReporter) -> int:
     # Check if hook already exists
     if hook_path.exists():
         reporter.warning(
-            f"{LaborantEmoji.WARNING} Pre-commit hook already exists", context="CLI"
+            "Pre-commit hook already exists", context="CLI"
         )
-        reporter.info(f"{LaborantEmoji.INFO} Location: {hook_path}", context="CLI")
+        reporter.info(f"Location: {hook_path}", context="CLI")
         reporter.info("", context="CLI")
 
         # Ask for confirmation (read from stdin)
         reporter.info(
-            f"{LaborantEmoji.WARNING} Overwrite existing hook? (y/N): ", context="CLI"
+            "Overwrite existing hook? (y/N): ", context="CLI"
         )
 
         try:
             response = input().strip().lower()
             if response not in ["y", "yes"]:
                 reporter.info(
-                    f"{LaborantEmoji.INFO} Installation cancelled", context="CLI"
+                    "Installation cancelled", context="CLI"
                 )
                 reporter.info("", context="CLI")
                 return 0
         except (EOFError, KeyboardInterrupt):
             reporter.info(
-                f"\n{LaborantEmoji.INFO} Installation cancelled", context="CLI"
+                "\nInstallation cancelled", context="CLI"
             )
             reporter.info("", context="CLI")
             return 0
@@ -99,9 +98,9 @@ def install_hook(project_root: Path, reporter: SystemReporter) -> int:
 
     if not template_path.exists():
         reporter.error(
-            f"{LaborantEmoji.TEST_ERROR} Hook template not found", context="CLI"
+            "Hook template not found", context="CLI"
         )
-        reporter.error(f"{LaborantEmoji.INFO} Expected: {template_path}", context="CLI")
+        reporter.error(f"Expected: {template_path}", context="CLI")
         reporter.info("", context="CLI")
         return 1
 
@@ -113,18 +112,17 @@ def install_hook(project_root: Path, reporter: SystemReporter) -> int:
         hook_path.chmod(0o755)
 
         reporter.info(
-            f"{LaborantEmoji.SUCCESS} Pre-commit hook installed successfully",
+            "Pre-commit hook installed successfully",
             context="CLI",
         )
-        reporter.info(f"{LaborantEmoji.INFO} Location: {hook_path}", context="CLI")
+        reporter.info(f"Location: {hook_path}", context="CLI")
         reporter.info("", context="CLI")
         reporter.info(
-            f"{LaborantEmoji.INFO} The hook will run automatically "
-            f"before each commit",
+            "The hook will run automatically before each commit",
             context="CLI",
         )
         reporter.info(
-            f"{LaborantEmoji.INFO} To skip: git commit --no-verify", context="CLI"
+            "To skip: git commit --no-verify", context="CLI"
         )
         reporter.info("", context="CLI")
 
@@ -132,7 +130,7 @@ def install_hook(project_root: Path, reporter: SystemReporter) -> int:
 
     except Exception as e:
         reporter.error(
-            f"{LaborantEmoji.TEST_ERROR} Failed to install hook: {e}", context="CLI"
+            f"Failed to install hook: {e}", context="CLI"
         )
         reporter.info("", context="CLI")
         return 1
@@ -153,12 +151,12 @@ def list_components(project_root: Path, reporter: SystemReporter) -> int:
     components = mapper.discover_all_components()
 
     reporter.info("", context="CLI")
-    reporter.info(f"{LaborantEmoji.TEST_RUN} Available components:", context="CLI")
+    reporter.info("Available components:", context="CLI")
     reporter.info("", context="CLI")
 
     if not components:
         reporter.info(
-            f"{LaborantEmoji.INFO} No components with tests found.", context="CLI"
+            "No components with tests found.", context="CLI"
         )
         reporter.info("", context="CLI")
         return 0
@@ -171,20 +169,19 @@ def list_components(project_root: Path, reporter: SystemReporter) -> int:
             categories = ", ".join(summary["categories"])
             total = summary["total_test_files"]
             reporter.info(
-                f"  {LaborantEmoji.COMPONENT} {component:20s} "
-                f"(has tests: {categories})",
+                f"  {component:20s} (has tests: {categories})",
                 context="CLI",
             )
             reporter.info(f"    {' ' * 20}   {total} test file(s)", context="CLI")
         else:
             reporter.warning(
-                f"  {LaborantEmoji.NO_TESTS} {component:20s} " f"(no tests found)",
+                f"  {component:20s} (no tests found)",
                 context="CLI",
             )
 
     reporter.info("", context="CLI")
     reporter.info(
-        f"{LaborantEmoji.SUMMARY} Total: {len(components)} component(s)", context="CLI"
+        f"Total: {len(components)} component(s)", context="CLI"
     )
     reporter.info("", context="CLI")
 
@@ -213,7 +210,7 @@ def dry_run(
     """
     reporter.info("", context="CLI")
     reporter.info(
-        f"{LaborantEmoji.DRY_RUN} Laborant (Dry run - no execution)", context="CLI"
+        "Laborant (Dry run - no execution)", context="CLI"
     )
     reporter.info("", context="CLI")
 
@@ -221,8 +218,7 @@ def dry_run(
     if components:
         target_components = components
         reporter.info(
-            f"{LaborantEmoji.MANUAL} Manual mode: "
-            f"{len(target_components)} component(s)",
+            f"Manual mode: {len(target_components)} component(s)",
             context="CLI",
         )
         reporter.info("", context="CLI")
@@ -230,8 +226,7 @@ def dry_run(
         mapper = ComponentMapper(project_root, reporter)
         target_components = mapper.discover_all_components()
         reporter.info(
-            f"{LaborantEmoji.DISCOVER} All components mode: "
-            f"{len(target_components)} component(s)",
+            f"All components mode: {len(target_components)} component(s)",
             context="CLI",
         )
         reporter.info("", context="CLI")
@@ -241,7 +236,7 @@ def dry_run(
 
         if not detector.is_git_repository():
             reporter.warning(
-                f"{LaborantEmoji.WARNING} Not a git repository", context="CLI"
+                "Not a git repository", context="CLI"
             )
             reporter.info("", context="CLI")
             return 0
@@ -253,26 +248,26 @@ def dry_run(
         target_components = mapper.extract_component_names(relevant)
 
         reporter.info(
-            f"{LaborantEmoji.AUTO} Auto mode: " f"{len(staged)} staged file(s)",
+            f"Auto mode: {len(staged)} staged file(s)",
             context="CLI",
         )
         reporter.info("", context="CLI")
-        reporter.info(f"{LaborantEmoji.CHANGED} Changed files:", context="CLI")
+        reporter.info("Changed files:", context="CLI")
         for f in relevant:
             reporter.info(
-                f"  {LaborantEmoji.FILE} {f.relative_to(project_root)}", context="CLI"
+                f"  {f.relative_to(project_root)}", context="CLI"
             )
         reporter.info("", context="CLI")
 
     if not target_components:
-        reporter.info(f"{LaborantEmoji.INFO} No components to test.", context="CLI")
+        reporter.info("No components to test.", context="CLI")
         reporter.info("", context="CLI")
         return 0
 
     # Show what would run
     mapper = ComponentMapper(project_root, reporter)
 
-    reporter.info(f"{LaborantEmoji.DISCOVER} Would run:", context="CLI")
+    reporter.info("Would run:", context="CLI")
     reporter.info("", context="CLI")
 
     total_files = 0
@@ -280,7 +275,7 @@ def dry_run(
     for component in sorted(target_components):
         if not mapper.has_tests(component):
             reporter.warning(
-                f"  {LaborantEmoji.NO_TESTS} {component} (no tests)", context="CLI"
+                f"  {component} (no tests)", context="CLI"
             )
             continue
 
@@ -288,35 +283,27 @@ def dry_run(
 
         if not test_files:
             reporter.warning(
-                f"  {LaborantEmoji.NO_TESTS} {component} " f"(no test files found)",
+                f"  {component} (no test files found)",
                 context="CLI",
             )
             continue
 
-        reporter.info(f"  {LaborantEmoji.COMPONENT} {component}", context="CLI")
+        reporter.info(f"  {component}", context="CLI")
 
         for category in ["unit", "integration", "e2e"]:
             if category not in test_files:
                 continue
 
-            # Get category emoji
-            cat_emoji = {
-                "unit": LaborantEmoji.UNIT,
-                "integration": LaborantEmoji.INTEGRATION,
-                "e2e": LaborantEmoji.E2E,
-            }.get(category, LaborantEmoji.TEST)
-
             for test_file in test_files[category]:
                 reporter.info(
-                    f"      {cat_emoji} {category}/{test_file.name}", context="CLI"
+                    f"      {category}/{test_file.name}", context="CLI"
                 )
                 total_files += 1
 
         reporter.info("", context="CLI")
 
     reporter.info(
-        f"{LaborantEmoji.SUMMARY} Total: {total_files} test file(s) "
-        f"would be executed",
+        f"Total: {total_files} test file(s) would be executed",
         context="CLI",
     )
     reporter.info("", context="CLI")
@@ -559,13 +546,13 @@ Examples:
 
     except KeyboardInterrupt:
         cli_reporter.warning(
-            f"\n{LaborantEmoji.STOPPED} Test run interrupted by user", context="CLI"
+            "\nTest run interrupted by user", context="CLI"
         )
         return 2
 
     except Exception as e:
         cli_reporter.error(
-            f"{LaborantEmoji.TEST_ERROR} Fatal error: {e}", context="CLI"
+            f"Fatal error: {e}", context="CLI"
         )
         if args.verbose:
             import traceback
