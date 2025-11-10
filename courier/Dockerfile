@@ -20,13 +20,13 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy courier package files
-COPY pyproject.toml ./
-COPY src/ ./src/
+COPY courier/pyproject.toml ./
+COPY courier/src/ ./src/
 
 # Install courier (shared will be fetched from PyPI registry)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --user --no-cache-dir \
-    --extra-index-url http://172.17.0.1:9001/simple/ \
+    --extra-index-url http://172.17.0.1:10001/simple/ \
     --trusted-host 172.17.0.1 \
     .
 
@@ -52,11 +52,11 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # Copy application code
-COPY . .
+COPY courier/ .
 
 # Install in editable mode for development
 RUN pip install --no-cache-dir \
-    --extra-index-url http://172.17.0.1:9001/simple/ \
+    --extra-index-url http://172.17.0.1:10001/simple/ \
     --trusted-host 172.17.0.1 \
     -e ".[dev]"
 
