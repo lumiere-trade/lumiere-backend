@@ -12,7 +12,6 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 from shared.reporter import SystemReporter
-from shared.reporter.emojis import Emoji
 
 from courier.config.settings import Settings, load_config
 from courier.di import Container
@@ -64,7 +63,7 @@ class CourierApp:
         self.server = None
 
         self.reporter.info(
-            f"{Emoji.SUCCESS} Courier initialized",
+            "Courier initialized",
             context="Courier",
             verbose_level=1,
         )
@@ -131,7 +130,7 @@ class CourierApp:
         and starts background tasks.
         """
         self.reporter.info(
-            f"{Emoji.SYSTEM.STARTUP} Courier starting...",
+            "Courier starting...",
             context="Courier",
             verbose_level=1,
         )
@@ -142,14 +141,13 @@ class CourierApp:
         shutdown_manager.register_shutdown_callback(self._graceful_shutdown_callback)
 
         self.reporter.info(
-            f"{Emoji.SYSTEM.CONFIG} Graceful shutdown enabled "
+            f"Graceful shutdown enabled "
             f"(timeout: {self.settings.shutdown_timeout}s)",
             context="Courier",
             verbose_level=1,
         )
 
         self.reporter.info(
-            f"{Emoji.NETWORK.CONNECTED} "
             f"Host: {self.settings.host}:{self.settings.port}",
             context="Courier",
             verbose_level=1,
@@ -158,13 +156,13 @@ class CourierApp:
         # Log authentication status
         if self.settings.require_auth:
             self.reporter.info(
-                f"{Emoji.SYSTEM.CONFIG} Authentication: ENABLED",
+                "Authentication: ENABLED",
                 context="Courier",
                 verbose_level=1,
             )
         else:
             self.reporter.info(
-                f"{Emoji.SYSTEM.CONFIG} Authentication: DISABLED",
+                "Authentication: DISABLED",
                 context="Courier",
                 verbose_level=1,
             )
@@ -172,7 +170,7 @@ class CourierApp:
         # Log configured channels
         channel_count = len(self.settings.channels)
         self.reporter.info(
-            f"{Emoji.SYSTEM.READY} Channels configured: {channel_count}",
+            f"Channels configured: {channel_count}",
             context="Courier",
             verbose_level=1,
         )
@@ -187,7 +185,7 @@ class CourierApp:
         Logs shutdown initiation and starts graceful shutdown sequence.
         """
         self.reporter.warning(
-            f"{Emoji.SYSTEM.SHUTDOWN} Graceful shutdown initiated",
+            "Graceful shutdown initiated",
             context="Courier",
             verbose_level=1,
         )
@@ -208,7 +206,7 @@ class CourierApp:
         shutdown_manager = self.container.shutdown_manager
 
         self.reporter.info(
-            f"{Emoji.SYSTEM.SHUTDOWN} Courier shutting down...",
+            "Courier shutting down...",
             context="Courier",
             verbose_level=1,
         )
@@ -231,7 +229,7 @@ class CourierApp:
         shutdown_manager.restore_signal_handlers()
 
         self.reporter.info(
-            f"{Emoji.SUCCESS} Courier stopped",
+            "Courier stopped",
             context="Courier",
             verbose_level=1,
         )
@@ -249,7 +247,7 @@ class CourierApp:
             return
 
         self.reporter.info(
-            f"{Emoji.NETWORK.DISCONNECTED} Notifying {total} clients of shutdown",
+            f"Notifying {total} clients of shutdown",
             context="Courier",
             verbose_level=1,
         )
@@ -279,7 +277,7 @@ class CourierApp:
 
         # Wait grace period for clients to disconnect
         self.reporter.info(
-            f"{Emoji.TIME.HOURGLASS} Waiting {grace_period}s for graceful close",
+            f"Waiting {grace_period}s for graceful close",
             context="Courier",
             verbose_level=1,
         )
@@ -300,7 +298,7 @@ class CourierApp:
 
         if total_closed > 0:
             self.reporter.info(
-                f"{Emoji.NETWORK.DISCONNECTED} Closed {total_closed} connections",
+                f"Closed {total_closed} connections",
                 context="Courier",
                 verbose_level=1,
             )
@@ -317,7 +315,7 @@ class CourierApp:
         shutdown_manager = self.container.shutdown_manager
 
         self.reporter.info(
-            f"{Emoji.SYSTEM.HEARTBEAT} Heartbeat started " f"(interval: {interval}s)",
+            f"Heartbeat started (interval: {interval}s)",
             context="Courier",
             verbose_level=1,
         )
@@ -326,7 +324,7 @@ class CourierApp:
             # Stop heartbeat if shutting down
             if shutdown_manager.is_shutting_down():
                 self.reporter.info(
-                    f"{Emoji.SYSTEM.HEARTBEAT} Heartbeat stopped (shutdown)",
+                    "Heartbeat stopped (shutdown)",
                     context="Courier",
                     verbose_level=1,
                 )
@@ -341,7 +339,7 @@ class CourierApp:
                 continue
 
             self.reporter.debug(
-                f"{Emoji.SYSTEM.PING} Heartbeat -> {total} clients",
+                f"Heartbeat -> {total} clients",
                 context="Courier",
                 verbose_level=3,
             )

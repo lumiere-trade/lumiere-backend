@@ -6,7 +6,6 @@ from typing import Dict, List, Optional
 
 from fastapi import WebSocket
 from shared.reporter import SystemReporter
-from shared.reporter.emojis import Emoji
 
 from courier.domain.entities import Client
 from courier.domain.value_objects import ChannelName
@@ -57,7 +56,7 @@ class ConnectionManager:
             if total >= self.max_total_connections:
                 if self.reporter:
                     self.reporter.warning(
-                        f"{Emoji.ERROR} Global connection limit exceeded "
+                        f"Global connection limit exceeded "
                         f"(current={total}, limit={self.max_total_connections}, "
                         f"channel={channel_name}, user={user_id})",
                         context="ConnectionManager",
@@ -74,7 +73,7 @@ class ConnectionManager:
             if user_count >= self.max_connections_per_user:
                 if self.reporter:
                     self.reporter.warning(
-                        f"{Emoji.ERROR} Per-user connection limit exceeded "
+                        f"Per-user connection limit exceeded "
                         f"(user={user_id}, current={user_count}, "
                         f"limit={self.max_connections_per_user}, channel={channel_name})",
                         context="ConnectionManager",
@@ -91,7 +90,7 @@ class ConnectionManager:
             if channel_count >= self.max_clients_per_channel:
                 if self.reporter:
                     self.reporter.warning(
-                        f"{Emoji.ERROR} Per-channel connection limit exceeded "
+                        f"Per-channel connection limit exceeded "
                         f"(channel={channel_name}, current={channel_count}, "
                         f"limit={self.max_clients_per_channel}, user={user_id})",
                         context="ConnectionManager",
@@ -140,7 +139,7 @@ class ConnectionManager:
             user_conns = self.get_user_connection_count(user_id) if user_id else 0
 
             self.reporter.info(
-                f"{Emoji.NETWORK.CONNECTED} Client added: channel={channel_name}, "
+                f"Client added: channel={channel_name}, "
                 f"client={client.id}, user={user_id}, wallet={wallet_address}, "
                 f"new_channel={is_new_channel}, channel_subs={ch_count}, "
                 f"total={total}, user_conns={user_conns}",
@@ -169,7 +168,7 @@ class ConnectionManager:
             ch_count = self.get_channel_count(channel_name)
 
             self.reporter.info(
-                f"{Emoji.NETWORK.DISCONNECT} Client removed: channel={channel_name}, "
+                f"Client removed: channel={channel_name}, "
                 f"client={client.id}, user={client.user_id}, "
                 f"channel_subs={ch_count}, total={total}",
                 context="ConnectionManager",
@@ -213,7 +212,7 @@ class ConnectionManager:
 
         if self.reporter and empty:
             self.reporter.info(
-                f"{Emoji.SYSTEM.CLEANUP} Empty channels cleaned: "
+                f"Empty channels cleaned: "
                 f"removed={len(empty)}, names={empty}, remaining={len(self.channels)}",
                 context="ConnectionManager",
                 verbose_level=2,
