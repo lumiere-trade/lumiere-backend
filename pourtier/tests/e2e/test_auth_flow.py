@@ -24,7 +24,6 @@ from pourtier.config.settings import get_settings
 from pourtier.infrastructure.persistence.database import Database
 from pourtier.infrastructure.persistence.models import Base
 from shared.blockchain.wallets import PlatformWallets
-from shared.reporter.emojis.emoji import Emoji
 from shared.tests import LaborantTest
 
 AUTH_MESSAGE = "Sign this message to authenticate with Lumiere"
@@ -143,7 +142,7 @@ class TestAuthFlow(LaborantTest):
     async def test_01_health_check(self):
         """Test health check endpoint."""
         self.reporter.info(
-            f"{Emoji.NETWORK.HTTP} Testing health endpoint...", context="Test"
+            "Testing health endpoint...", context="Test"
         )
 
         async with httpx.AsyncClient() as client:
@@ -155,7 +154,7 @@ class TestAuthFlow(LaborantTest):
             assert data["status"] in ["healthy", "degraded"]
 
             self.reporter.info(
-                f"{Emoji.SYSTEM.READY} Health check passed", context="Test"
+                "Health check passed", context="Test"
             )
 
     async def test_02_get_legal_documents(self):
