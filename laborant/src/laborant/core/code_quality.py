@@ -9,7 +9,6 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from shared.reporter.emojis import LaborantEmoji, SystemEmoji
 from shared.reporter.system_reporter import SystemReporter
 
 
@@ -318,7 +317,7 @@ class CodeQualityChecker:
         """
         self.reporter.info("", context="CodeQuality")
         self.reporter.info(
-            f"{SystemEmoji.BUILD} Linting {component}", context="CodeQuality"
+            f"Linting {component}", context="CodeQuality"
         )
         self.reporter.info("", context="CodeQuality")
 
@@ -739,7 +738,7 @@ class CodeQualityChecker:
 
         self.reporter.info("", context="CodeQuality")
         self.reporter.info(
-            f"{SystemEmoji.BUILD} Formatting {target}", context="CodeQuality"
+            f"Formatting {target}", context="CodeQuality"
         )
         self.reporter.info("", context="CodeQuality")
 
@@ -747,18 +746,18 @@ class CodeQualityChecker:
 
         # Run black
         self.reporter.info(
-            "{} Running black formatter...".format(LaborantEmoji.TEST_RUN),
+            "Running black formatter...",
             context="CodeQuality",
         )
         black_ok, black_out = self.run_black(component)
 
         if black_ok:
             self.reporter.info(
-                "  {} Black: Done".format(LaborantEmoji.SUCCESS), context="CodeQuality"
+                "  Black: Done", context="CodeQuality"
             )
         else:
             self.reporter.error(
-                "  {} Black: FAILED".format(LaborantEmoji.TEST_ERROR),
+                "  Black: FAILED",
                 context="CodeQuality",
             )
             if black_out:
@@ -767,18 +766,18 @@ class CodeQualityChecker:
 
         # Run isort
         self.reporter.info(
-            "{} Running isort import sorter...".format(LaborantEmoji.TEST_RUN),
+            "Running isort import sorter...",
             context="CodeQuality",
         )
         isort_ok, isort_out = self.run_isort(component)
 
         if isort_ok:
             self.reporter.info(
-                "  {} isort: Done".format(LaborantEmoji.SUCCESS), context="CodeQuality"
+                "  isort: Done", context="CodeQuality"
             )
         else:
             self.reporter.error(
-                "  {} isort: FAILED".format(LaborantEmoji.TEST_ERROR),
+                "  isort: FAILED",
                 context="CodeQuality",
             )
             if isort_out:
@@ -789,12 +788,12 @@ class CodeQualityChecker:
 
         if all_passed:
             self.reporter.info(
-                "{} Formatting complete!".format(LaborantEmoji.SUCCESS),
+                "Formatting complete!",
                 context="CodeQuality",
             )
         else:
             self.reporter.error(
-                "{} Formatting failed".format(LaborantEmoji.TEST_ERROR),
+                "Formatting failed",
                 context="CodeQuality",
             )
 
@@ -824,7 +823,7 @@ class CodeQualityChecker:
 
         self.reporter.info("", context="CodeQuality")
         self.reporter.info(
-            f"{SystemEmoji.BUILD} Linting {target}", context="CodeQuality"
+            f"Linting {target}", context="CodeQuality"
         )
         self.reporter.info("", context="CodeQuality")
 

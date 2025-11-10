@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 from rich.console import Console
-from shared.reporter.emojis import LaborantEmoji
 from shared.reporter.system_reporter import SystemReporter
 from shared.tests.models import TestFileResult
 
@@ -144,7 +143,7 @@ class Laborant:
 
         self.reporter.info("=" * 67, context="Laborant")
         self.reporter.info(
-            f"{LaborantEmoji.TEST_RUN} Laborant Test Runner Starting",
+            "Laborant Test Runner Starting",
             context="Laborant",
         )
         self.reporter.info("=" * 67, context="Laborant")
@@ -154,16 +153,14 @@ class Laborant:
             # Manual mode - explicit components
             target_components = set(components)
             self.reporter.info(
-                f"{LaborantEmoji.MANUAL} Manual mode: "
-                f"{len(target_components)} component(s)",
+                f"Manual mode: {len(target_components)} component(s)",
                 context="Laborant",
             )
         elif skip_git:
             # All components mode
             target_components = set(self.component_mapper.discover_all_components())
             self.reporter.info(
-                f"{LaborantEmoji.DISCOVER} All components mode: "
-                f"{len(target_components)} component(s)",
+                f"All components mode: {len(target_components)} component(s)",
                 context="Laborant",
             )
         else:
@@ -172,11 +169,11 @@ class Laborant:
 
             if not target_components:
                 self.reporter.info(
-                    f"{LaborantEmoji.INFO} No changed components detected",
+                    "No changed components detected",
                     context="Laborant",
                 )
                 self.reporter.info(
-                    f"{LaborantEmoji.SUCCESS} No tests to run - " f"Commit allowed",
+                    "No tests to run - Commit allowed",
                     context="Laborant",
                 )
                 return True
@@ -194,7 +191,7 @@ class Laborant:
 
                 if self.fail_fast:
                     self.reporter.error(
-                        f"{LaborantEmoji.STOPPED} Fail-fast enabled - " f"stopping",
+                        "Fail-fast enabled - stopping",
                         context="Laborant",
                     )
                     break
@@ -216,7 +213,7 @@ class Laborant:
             Set of component names
         """
         self.reporter.info(
-            f"{LaborantEmoji.AUTO} Auto mode: Detecting changes via git",
+            "Auto mode: Detecting changes via git",
             context="Laborant",
         )
 
@@ -225,7 +222,7 @@ class Laborant:
 
         if not changed_files:
             self.reporter.info(
-                f"{LaborantEmoji.INFO} No file changes detected", context="Laborant"
+                "No file changes detected", context="Laborant"
             )
             return set()
 
@@ -240,14 +237,13 @@ class Laborant:
 
         if not affected_components:
             self.reporter.info(
-                f"{LaborantEmoji.INFO} No affected components detected",
+                "No affected components detected",
                 context="Laborant",
             )
             return set()
 
         self.reporter.info(
-            f"{LaborantEmoji.SUCCESS} Detected {len(affected_components)} "
-            f"affected component(s)",
+            f"Detected {len(affected_components)} affected component(s)",
             context="Laborant",
         )
 
@@ -429,7 +425,6 @@ class Laborant:
                     for test in result.tests:
                         if test.error:
                             self.reporter.error(
-                                f"{LaborantEmoji.TEST_ERROR} "
                                 f"{test.name}: {test.error}",
                                 context="Laborant",
                             )
@@ -437,7 +432,7 @@ class Laborant:
                 # Fail-fast check
                 if not result.success and self.fail_fast:
                     self.reporter.error(
-                        f"{LaborantEmoji.TEST_FAIL} Test failed: " f"{test_file.name}",
+                        f"Test failed: {test_file.name}",
                         context="Laborant",
                     )
                     self.component_results[component_name] = component_result
