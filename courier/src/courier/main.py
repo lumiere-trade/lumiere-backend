@@ -7,6 +7,7 @@ real-time event broadcasting with optional JWT authentication.
 
 import asyncio
 import os
+import signal
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -59,6 +60,9 @@ class CourierApp:
 
         # Set global container for FastAPI dependencies
         set_container(self.container)
+
+        # Server instance (set during start)
+        self.server = None
 
         self.reporter.info(
             f"{Emoji.SUCCESS} Courier initialized",
@@ -191,6 +195,10 @@ class CourierApp:
 
         # Notify all WebSocket clients
         await self._notify_clients_shutdown()
+        
+        # Stop the uvicorn server
+        if self.server:
+            self.server.should_exit = True
 
     async def _on_shutdown(self):
         """
@@ -242,7 +250,7 @@ class CourierApp:
             return
 
         self.reporter.info(
-            f"{Emoji.NETWORK.DISCONNECT} Notifying {total} clients of shutdown",
+            f"{Emoji.NETWORK.DISCONNECTED} Notifying {total} clients of shutdown",
             context="Courier",
             verbose_level=1,
         )
@@ -293,7 +301,7 @@ class CourierApp:
 
         if total_closed > 0:
             self.reporter.info(
-                f"{Emoji.NETWORK.DISCONNECT} Closed {total_closed} connections",
+                f"{Emoji.NETWORK.DISCONNECTED} Closed {total_closed} connections",
                 context="Courier",
                 verbose_level=1,
             )
@@ -353,6 +361,21 @@ class CourierApp:
                 for ws in dead_clients:
                     conn_manager.remove_client(ws, channel)
 
+    async def serve(self):
+        """
+        Run server with proper signal handling.
+        
+        Uses uvicorn.Server API for proper shutdown control.
+        """
+        config = uvicorn.Config(
+            self.app,
+            host=self.settings.host,
+            port=self.settings.port,
+            log_level=self.settings.log_level,
+        )
+        self.server = uvicorn.Server(config)
+        await self.server.serve()
+
     def start(self):
         """
         Start Courier server.
@@ -360,12 +383,7 @@ class CourierApp:
         Runs uvicorn server with configured host and port.
         Blocks until server is stopped.
         """
-        uvicorn.run(
-            self.app,
-            host=self.settings.host,
-            port=self.settings.port,
-            log_level=self.settings.log_level,
-        )
+        asyncio.run(self.serve())
 
 
 def main():
