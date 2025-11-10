@@ -27,39 +27,6 @@ def _generate_connection_id() -> str:
     return f"conn_{uuid.uuid4().hex[:12]}"
 
 
-def _create_log_context(
-    connection_id: str,
-    channel: str,
-    user_id: Optional[str] = None,
-    client_id: Optional[str] = None,
-    message_type: Optional[str] = None,
-) -> dict:
-    """
-    Create structured logging context.
-
-    Args:
-        connection_id: Unique connection identifier
-        channel: Channel name
-        user_id: Optional user ID
-        client_id: Optional client ID
-        message_type: Optional message type
-
-    Returns:
-        Dictionary with logging context
-    """
-    context = {
-        "connection_id": connection_id,
-        "channel": channel,
-    }
-    if user_id:
-        context["user_id"] = user_id
-    if client_id:
-        context["client_id"] = client_id
-    if message_type:
-        context["message_type"] = message_type
-    return context
-
-
 @router.websocket("/ws/{channel}")
 async def websocket_endpoint(
     websocket: WebSocket,
@@ -98,20 +65,18 @@ async def websocket_endpoint(
 
     # Log connection attempt
     reporter.info(
-        f"{Emoji.NETWORK.CONNECTED} WebSocket connection attempt",
+        f"{Emoji.NETWORK.CONNECTED} WebSocket connection attempt "
+        f"[conn={connection_id}] [channel={channel}] [user={user_id}]",
         context="WebSocket",
-        **_create_log_context(connection_id, channel, user_id),
-        verbose_level=2,
     )
 
     # Check if shutting down BEFORE accepting connection
     shutdown_manager = container.shutdown_manager
     if shutdown_manager.is_shutting_down():
         reporter.warning(
-            f"{Emoji.NETWORK.DISCONNECT} Connection rejected: server shutting down",
+            f"{Emoji.NETWORK.DISCONNECT} Connection rejected: server shutting down "
+            f"[conn={connection_id}] [channel={channel}]",
             context="WebSocket",
-            **_create_log_context(connection_id, channel, user_id),
-            verbose_level=1,
         )
         await websocket.close(
             code=status.WS_1001_GOING_AWAY,
@@ -123,10 +88,9 @@ async def websocket_endpoint(
     await websocket.accept()
 
     reporter.debug(
-        f"{Emoji.SUCCESS} WebSocket connection accepted",
+        f"{Emoji.SUCCESS} WebSocket connection accepted "
+        f"[conn={connection_id}] [channel={channel}]",
         context="WebSocket",
-        **_create_log_context(connection_id, channel, user_id),
-        verbose_level=3,
     )
 
     # Get managers and use cases
@@ -151,23 +115,18 @@ async def websocket_endpoint(
         # Log successful connection
         total_connections = conn_manager.get_total_connections()
         reporter.info(
-            f"{Emoji.NETWORK.CONNECTED} Client connected successfully",
+            f"{Emoji.NETWORK.CONNECTED} Client connected successfully "
+            f"[conn={connection_id}] [channel={channel}] [client={client.client_id}] "
+            f"[total_connections={total_connections}]",
             context="WebSocket",
-            **_create_log_context(connection_id, channel, user_id, client.client_id),
-            total_connections=total_connections,
-            wallet_address=wallet_address,
-            verbose_level=1,
         )
 
     except ConnectionLimitExceeded as e:
         # Connection limit exceeded - send error and close
         reporter.warning(
-            f"{Emoji.NETWORK.DISCONNECT} Connection rejected: {e.limit_type} limit exceeded",
+            f"{Emoji.NETWORK.DISCONNECT} Connection rejected: {e.limit_type} limit exceeded "
+            f"[conn={connection_id}] [channel={channel}]",
             context="WebSocket",
-            **_create_log_context(connection_id, channel, user_id),
-            limit_type=e.limit_type,
-            error=str(e),
-            verbose_level=1,
         )
 
         error_response = {
@@ -204,12 +163,8 @@ async def websocket_endpoint(
             # Check shutdown state during connection
             if shutdown_manager.is_shutting_down():
                 reporter.info(
-                    f"{Emoji.SYSTEM.SHUTDOWN} Notifying client of shutdown",
+                    f"{Emoji.SYSTEM.SHUTDOWN} Notifying client of shutdown [conn={connection_id}]",
                     context="WebSocket",
-                    **_create_log_context(
-                        connection_id, channel, user_id, client.client_id
-                    ),
-                    verbose_level=2,
                 )
 
                 await websocket.send_json(
@@ -236,14 +191,7 @@ async def websocket_endpoint(
                 # Handle legacy ping/pong (simple text)
                 if data == "ping":
                     await websocket.send_text("pong")
-                    reporter.debug(
-                        "Legacy ping/pong handled",
-                        context="WebSocket",
-                        **_create_log_context(
-                            connection_id, channel, user_id, client.client_id
-                        ),
-                        verbose_level=3,
-                    )
+                    reporter.debug("Legacy ping/pong handled", context="WebSocket")
                     continue
 
                 # Validate message
@@ -254,14 +202,9 @@ async def websocket_endpoint(
 
                     # Log validation failure
                     reporter.warning(
-                        f"{Emoji.ERROR} Message validation failed",
+                        f"{Emoji.ERROR} Message validation failed [conn={connection_id}] "
+                        f"[errors={validation_result.errors}]",
                         context="WebSocket",
-                        **_create_log_context(
-                            connection_id, channel, user_id, client.client_id
-                        ),
-                        errors=validation_result.errors,
-                        message_size=len(data),
-                        verbose_level=2,
                     )
 
                     # Send validation error to client
@@ -298,17 +241,9 @@ async def websocket_endpoint(
 
                         # Log rate limit hit
                         reporter.warning(
-                            f"{Emoji.ERROR} Rate limit exceeded",
+                            f"{Emoji.ERROR} Rate limit exceeded [conn={connection_id}] "
+                            f"[message_type={message_type}] [retry_after={retry_after}s]",
                             context="WebSocket",
-                            **_create_log_context(
-                                connection_id,
-                                channel,
-                                user_id,
-                                client.client_id,
-                                message_type,
-                            ),
-                            retry_after_seconds=retry_after,
-                            verbose_level=2,
                         )
 
                         error_response = {
@@ -327,16 +262,11 @@ async def websocket_endpoint(
                 # Calculate message processing latency
                 processing_time_ms = (time.time() - message_start_time) * 1000
 
-                # Log message processing (only at debug level to avoid log spam)
+                # Log message processing (only at debug level)
                 reporter.debug(
-                    "Message processed successfully",
+                    f"Message processed [conn={connection_id}] [type={message_type}] "
+                    f"[time={processing_time_ms:.2f}ms] [size={validation_result.size_bytes}]",
                     context="WebSocket",
-                    **_create_log_context(
-                        connection_id, channel, user_id, client.client_id, message_type
-                    ),
-                    processing_time_ms=round(processing_time_ms, 2),
-                    message_size=validation_result.size_bytes,
-                    verbose_level=3,
                 )
 
                 # Message is valid and within rate limit - handle control messages
@@ -353,8 +283,7 @@ async def websocket_endpoint(
                         reporter,
                     )
                 else:
-                    # Non-control message - could be echoed or processed
-                    # For now, just acknowledge receipt
+                    # Non-control message - acknowledge receipt
                     ack_response = {
                         "type": "ack",
                         "message_type": message_type,
@@ -365,38 +294,21 @@ async def websocket_endpoint(
             except asyncio.TimeoutError:
                 # Send heartbeat ping
                 await websocket.send_json({"type": "ping"})
-                reporter.debug(
-                    f"{Emoji.SYSTEM.HEARTBEAT} Heartbeat ping sent",
-                    context="WebSocket",
-                    **_create_log_context(
-                        connection_id, channel, user_id, client.client_id
-                    ),
-                    verbose_level=3,
-                )
+                reporter.debug(f"{Emoji.SYSTEM.HEARTBEAT} Heartbeat ping sent", context="WebSocket")
 
     except WebSocketDisconnect:
         # Client disconnected normally
         reporter.info(
-            f"{Emoji.NETWORK.DISCONNECT} Client disconnected",
+            f"{Emoji.NETWORK.DISCONNECT} Client disconnected [conn={connection_id}] "
+            f"[channel={channel}]",
             context="WebSocket",
-            **_create_log_context(
-                connection_id, channel, user_id, client.client_id if client else None
-            ),
-            reason="client_disconnect",
-            verbose_level=2,
         )
 
     except Exception as e:
         # Unexpected error during connection
         reporter.error(
-            f"{Emoji.ERROR} WebSocket connection error",
+            f"{Emoji.ERROR} WebSocket connection error [conn={connection_id}]: {type(e).__name__}: {str(e)}",
             context="WebSocket",
-            **_create_log_context(
-                connection_id, channel, user_id, client.client_id if client else None
-            ),
-            error=str(e),
-            error_type=type(e).__name__,
-            verbose_level=1,
         )
 
     finally:
@@ -405,16 +317,10 @@ async def websocket_endpoint(
 
         # Log connection summary
         reporter.info(
-            f"{Emoji.NETWORK.DISCONNECT} Connection closed",
+            f"{Emoji.NETWORK.DISCONNECT} Connection closed [conn={connection_id}] "
+            f"[duration={connection_duration:.2f}s] [messages={messages_processed}] "
+            f"[validation_failures={validation_failures}] [rate_limit_hits={rate_limit_hits}]",
             context="WebSocket",
-            **_create_log_context(
-                connection_id, channel, user_id, client.client_id if client else None
-            ),
-            duration_seconds=round(connection_duration, 2),
-            messages_processed=messages_processed,
-            validation_failures=validation_failures,
-            rate_limit_hits=rate_limit_hits,
-            verbose_level=1,
         )
 
         # Cleanup - remove client from channel
@@ -425,12 +331,8 @@ async def websocket_endpoint(
             if manage_uc.should_cleanup_channel(channel):
                 if channel in conn_manager.channels:
                     reporter.debug(
-                        "Ephemeral channel cleaned up",
+                        f"Ephemeral channel cleaned up [channel={channel}]",
                         context="WebSocket",
-                        **_create_log_context(
-                            connection_id, channel, user_id, client.client_id
-                        ),
-                        verbose_level=3,
                     )
                     del conn_manager.channels[channel]
 
@@ -462,21 +364,12 @@ async def _handle_control_message(
         message = json.loads(raw_data)
     except json.JSONDecodeError:
         reporter.warning(
-            "Invalid JSON in control message",
+            f"Invalid JSON in control message [conn={connection_id}]",
             context="WebSocket",
-            **_create_log_context(
-                connection_id, channel, user_id, client_id, message_type
-            ),
-            verbose_level=2,
         )
         return
 
-    reporter.debug(
-        f"Control message: {message_type}",
-        context="WebSocket",
-        **_create_log_context(connection_id, channel, user_id, client_id, message_type),
-        verbose_level=3,
-    )
+    reporter.debug(f"Control message: {message_type} [conn={connection_id}]", context="WebSocket")
 
     if message_type == "ping":
         await websocket.send_json({"type": "pong"})
@@ -486,13 +379,9 @@ async def _handle_control_message(
         target_channel = message.get("channel")
         await websocket.send_json({"type": "subscribed", "channel": target_channel})
         reporter.info(
-            f"{Emoji.NETWORK.CONNECTED} Channel subscription requested",
+            f"{Emoji.NETWORK.CONNECTED} Channel subscription requested "
+            f"[conn={connection_id}] [target={target_channel}]",
             context="WebSocket",
-            **_create_log_context(
-                connection_id, channel, user_id, client_id, message_type
-            ),
-            target_channel=target_channel,
-            verbose_level=2,
         )
 
     elif message_type == "unsubscribe":
@@ -500,11 +389,7 @@ async def _handle_control_message(
         target_channel = message.get("channel")
         await websocket.send_json({"type": "unsubscribed", "channel": target_channel})
         reporter.info(
-            f"{Emoji.NETWORK.DISCONNECT} Channel unsubscription requested",
+            f"{Emoji.NETWORK.DISCONNECT} Channel unsubscription requested "
+            f"[conn={connection_id}] [target={target_channel}]",
             context="WebSocket",
-            **_create_log_context(
-                connection_id, channel, user_id, client_id, message_type
-            ),
-            target_channel=target_channel,
-            verbose_level=2,
         )
