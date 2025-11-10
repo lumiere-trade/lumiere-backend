@@ -78,9 +78,9 @@ class DockerTestExecutor:
             component: Component name (e.g., 'pourtier', 'passeur')
 
         Returns:
-            Container name (e.g., 'pourtier-test')
+            Container name (e.g., 'lumiere-test-pourtier')
         """
-        return f"{component}-test"
+        return f"lumiere-test-{component}"
 
     def _container_exists(self, container_name: str) -> bool:
         """

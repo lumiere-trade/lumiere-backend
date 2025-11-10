@@ -80,9 +80,20 @@ class TestWithdrawFromEscrow(LaborantTest):
         # User entity (immutable, no balance)
         user = User(id=user_id, wallet_address=wallet)
 
-        # Create expected transaction
-        expected_transaction = EscrowTransaction(
+        # Create pending transaction (returned by create())
+        pending_transaction = EscrowTransaction(
             id=uuid4(),
+            user_id=user_id,
+            tx_signature=tx_signature,
+            transaction_type=TransactionType.WITHDRAW,
+            amount=withdraw_amount,
+            token_mint="USDC",
+            status=TransactionStatus.PENDING,
+        )
+
+        # Create confirmed transaction (returned by update())
+        confirmed_transaction = EscrowTransaction(
+            id=pending_transaction.id,
             user_id=user_id,
             tx_signature=tx_signature,
             transaction_type=TransactionType.WITHDRAW,
@@ -96,7 +107,8 @@ class TestWithdrawFromEscrow(LaborantTest):
         escrow_query_service.check_escrow_exists.return_value = True
         escrow_query_service.get_escrow_balance.return_value = Decimal("100.0")
         tx_repo.get_by_tx_signature.return_value = None
-        tx_repo.create.return_value = expected_transaction
+        tx_repo.create.return_value = pending_transaction
+        tx_repo.update.return_value = confirmed_transaction
         passeur_bridge.submit_signed_transaction.return_value = tx_signature
 
         # Execute use case
@@ -127,6 +139,7 @@ class TestWithdrawFromEscrow(LaborantTest):
             signed_transaction
         )
         tx_repo.create.assert_called_once()
+        tx_repo.update.assert_called_once()
 
         # User is immutable - no update
         user_repo.update.assert_not_called()
@@ -403,9 +416,20 @@ class TestWithdrawFromEscrow(LaborantTest):
         # User entity (immutable)
         user = User(id=user_id, wallet_address=wallet)
 
-        # Create expected transaction
-        expected_transaction = EscrowTransaction(
+        # Create pending transaction (returned by create())
+        pending_transaction = EscrowTransaction(
             id=uuid4(),
+            user_id=user_id,
+            tx_signature=tx_signature,
+            transaction_type=TransactionType.WITHDRAW,
+            amount=total_balance,
+            token_mint="USDC",
+            status=TransactionStatus.PENDING,
+        )
+
+        # Create confirmed transaction (returned by update())
+        confirmed_transaction = EscrowTransaction(
+            id=pending_transaction.id,
             user_id=user_id,
             tx_signature=tx_signature,
             transaction_type=TransactionType.WITHDRAW,
@@ -419,7 +443,8 @@ class TestWithdrawFromEscrow(LaborantTest):
         escrow_query_service.check_escrow_exists.return_value = True
         escrow_query_service.get_escrow_balance.return_value = total_balance
         tx_repo.get_by_tx_signature.return_value = None
-        tx_repo.create.return_value = expected_transaction
+        tx_repo.create.return_value = pending_transaction
+        tx_repo.update.return_value = confirmed_transaction
         passeur_bridge.submit_signed_transaction.return_value = tx_signature
 
         # Execute use case

@@ -2,7 +2,7 @@
 # NETWORKS
 # =============================================
 networks:
-  lumiere-net:
+  lumiere-dev-network:
     driver: bridge
     name: lumiere-dev-network
 
@@ -11,9 +11,9 @@ networks:
 # =============================================
 volumes:
   postgres-data:
-    name: lumiere-postgres-data
+    name: lumiere-dev-postgres-data
   redis-data:
-    name: lumiere-redis-data
+    name: lumiere-dev-redis-data
 
 # =============================================
 # SERVICES
@@ -34,7 +34,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
-      - lumiere-net
+      - lumiere-dev-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -52,7 +52,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - lumiere-net
+      - lumiere-dev-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -97,7 +97,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - lumiere-net
+      - lumiere-dev-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
       interval: 30s
@@ -127,7 +127,7 @@ services:
       pourtier:
         condition: service_healthy
     networks:
-      - lumiere-net
+      - lumiere-dev-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9765/health"]
       interval: 30s
@@ -165,7 +165,7 @@ services:
       pourtier:
         condition: service_healthy
     networks:
-      - lumiere-net
+      - lumiere-dev-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9766/health"]
       interval: 30s
