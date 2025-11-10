@@ -7,7 +7,6 @@ real-time event broadcasting with optional JWT authentication.
 
 import asyncio
 import os
-import signal
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -195,7 +194,7 @@ class CourierApp:
 
         # Notify all WebSocket clients
         await self._notify_clients_shutdown()
-        
+
         # Stop the uvicorn server
         if self.server:
             self.server.should_exit = True
@@ -364,7 +363,7 @@ class CourierApp:
     async def serve(self):
         """
         Run server with proper signal handling.
-        
+
         Uses uvicorn.Server API for proper shutdown control.
         """
         config = uvicorn.Config(
