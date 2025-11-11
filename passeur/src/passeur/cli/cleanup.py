@@ -340,9 +340,9 @@ def cleanup_escrows(config_file: str, specific_wallet: str | None = None) -> boo
                 continue
 
             wallet_name = keypair_path.stem
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(f"👤 {wallet_name}")
-            print(f"{'='*60}")
+            print(f"{'=' * 60}")
 
             keypair = get_keypair(keypair_path)
             wallet = str(keypair.pubkey())
