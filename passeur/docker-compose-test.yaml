@@ -1,0 +1,28 @@
+services:
+  passeur:
+    image: passeur:development
+    container_name: lumiere-test-passeur
+    restart: "no"
+    environment:
+      ENV: test
+      PASSEUR_SOLANA_RPC_URL: https://api.devnet.solana.com
+      PASSEUR_SOLANA_NETWORK: devnet
+      PASSEUR_PROGRAM_ID: 9gvUtaF99sQ287PNzRfCbhFTC4PUnnd7jdAjnY5GUVhS
+      PASSEUR_PLATFORM_KEYPAIR_PATH: /app/keypairs/platform.json
+    volumes:
+      - /root/lumiere/keypairs/dev/platform.json:/app/keypairs/platform.json:ro
+    ports:
+      - "7766:7766"
+    networks:
+      - lumiere-test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7766/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+networks:
+  lumiere-test-network:
+    name: lumiere-test-network
+    driver: bridge

@@ -382,12 +382,12 @@ class TestBridgeEndpoints(LaborantTest):
 
         self.reporter.info("Missing params correctly rejected", context="Test")
 
-    def test_send_transaction_missing_params(self):
-        """Test /escrow/send-transaction rejects missing parameters."""
-        self.reporter.info("Testing send-transaction missing params", context="Test")
+    def test_submit_transaction_missing_params(self):
+        """Test /transaction/submit rejects missing signedTransaction."""
+        self.reporter.info("Testing transaction submit missing params", context="Test")
 
         response = requests.post(
-            f"{self.bridge_url}/escrow/send-transaction",
+            f"{self.bridge_url}/transaction/submit",
             json={},
             timeout=10,
         )
