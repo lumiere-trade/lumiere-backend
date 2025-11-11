@@ -382,7 +382,7 @@ class TransactionSigner:
             Transaction signature
         """
         response = requests.post(
-            f"{self.bridge_url}/escrow/send-transaction",
+            f"{self.bridge_url}/transaction/submit",
             json={"signedTransaction": signed_tx_base64},
             timeout=30,
         )
