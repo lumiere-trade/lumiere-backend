@@ -55,13 +55,19 @@ RUN apt-get update && \
 
 COPY --from=python-builder /root/.local /root/.local
 
-
 ENV PATH=/root/.local/bin:$PATH
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV NODE_ENV=development
 
-COPY passeur/ .
+# CRITICAL: Copy bridge with node_modules FIRST
+COPY --from=node-builder /app/bridge ./bridge
+
+# Then copy everything else EXCEPT bridge (to avoid overwriting)
+COPY passeur/config/ ./config/
+COPY passeur/src/ ./src/
+COPY passeur/tests/ ./tests/
+COPY passeur/pyproject.toml ./pyproject.toml
 
 # Install passeur as editable for development
 RUN pip install --no-cache-dir \
@@ -93,8 +99,6 @@ RUN useradd -m -u 1000 -s /bin/bash passeur && \
 WORKDIR /app
 
 COPY --from=python-builder /root/.local /home/passeur/.local
-
-    COPY --from=node-builder /app/bridge/node_modules ./bridge/node_modules
 COPY --from=node-builder /app/bridge ./bridge
 
 COPY --chown=passeur:passeur passeur/config/ ./config/
