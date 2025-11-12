@@ -111,7 +111,7 @@ async def lifespan(app: FastAPI):
 
     shutdown_handler.register_cleanup(cleanup_redis)
 
-    print(f"Passeur started successfully on port {settings.bridge_port}")
+    print(f"Passeur started successfully on port {settings.api_port}")
     print(f"Health checks: http://localhost:{settings.health.port}/health")
     print(f"Metrics: http://localhost:{settings.metrics.port}/metrics")
 
@@ -165,8 +165,8 @@ def main():
 
     uvicorn.run(
         app,
-        host=settings.bridge_host,
-        port=settings.bridge_port,
+        host=settings.api_host,
+        port=settings.api_port,
         log_level=settings.log_level.lower(),
     )
 

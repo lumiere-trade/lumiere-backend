@@ -1,19 +1,22 @@
 # Passeur Test Configuration
-# For integration and E2E tests
 
-# Bridge server
-bridge_host: "0.0.0.0"
-bridge_port: 7766
+# Bridge server (INTERNAL - Python on 7766 will proxy here)
+bridge_host: "127.0.0.1"
+bridge_port: 7768
 
-# Service Discovery (Docker DNS - test ports)
+# Python FastAPI (external API)
+api_host: "0.0.0.0"
+api_port: 7766
+
+# Service Discovery (Docker DNS)
 courier_url: "http://courier:7765"
 pourtier_url: "http://pourtier:7000"
 
 # Connection settings (fast for tests)
 heartbeat_interval: 5
-request_timeout: 5
+request_timeout: 10
 
-# Logging (verbose + stdout)
+# Logging
 log_level: "debug"
 
 # Blockchain
@@ -23,60 +26,60 @@ solana_network: "devnet"
 resilience:
   circuit_breakers:
     solana_rpc:
-      failure_threshold: 3
-      success_threshold: 1
-      timeout: 10.0
+      failure_threshold: 10
+      success_threshold: 2
+      timeout: 30.0
     bridge_server:
-      failure_threshold: 2
-      success_threshold: 1
-      timeout: 10.0
-  
-  # Retry patterns (minimal for fast tests)
+      failure_threshold: 10
+      success_threshold: 2
+      timeout: 60.0
+
+  # Retry patterns (fast for tests)
   retry:
     transaction_submission:
       max_attempts: 2
       initial_delay: 0.1
       max_delay: 1.0
       exponential_base: 2.0
-      jitter: true
+      jitter: false
     rpc_query:
-      max_attempts: 2
+      max_attempts: 3
       initial_delay: 0.1
       max_delay: 0.5
       exponential_base: 2.0
-      jitter: true
-  
-  # Timeouts (short for fast tests)
+      jitter: false
+
+  # Timeouts (short for tests)
   timeouts:
     rpc_call: 5.0
     transaction_confirmation: 10.0
     bridge_call: 5.0
-  
+
   # Rate Limiting (disabled for tests)
   rate_limiting:
     rpc_calls_per_second: 1000.0
-    burst_size: 1000
-  
-  # Idempotency TTL (short for tests)
+    burst_size: 2000
+
+  # Idempotency TTL (very short for tests)
   idempotency:
     financial_operations: 1
     security_operations: 1
     query_operations: 1
 
-# Health Checks (disabled for tests)
+# Health Checks
 health:
   port: 7793
-  check_interval: 10
+  check_interval: 30
 
-# Metrics (disabled for tests)
+# Metrics
 metrics:
   port: 7792
-  enabled: false
+  enabled: true
 
 # Redis
 redis:
   host: "lumiere-test-redis"
   port: 6379
   db: 2
-  socket_timeout: 2.0
-  socket_connect_timeout: 2.0
+  socket_timeout: 5.0
+  socket_connect_timeout: 5.0
