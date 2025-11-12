@@ -1,0 +1,17 @@
+# Passeur Default Configuration
+# Base settings shared across all environments
+
+# Bridge server
+bridge_host: "0.0.0.0"
+bridge_port: 8766
+
+# Service Discovery (Docker DNS - defaults for production)
+courier_url: "http://courier:8765"
+pourtier_url: "http://pourtier:8000"
+
+# Connection settings
+heartbeat_interval: 30
+request_timeout: 30
+
+# Logging
+log_dir: "logs"

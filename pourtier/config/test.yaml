@@ -1,0 +1,50 @@
+# Pourtier Test Configuration
+# For integration and E2E tests
+# Environment
+ENV: "test"
+# Application
+DEBUG: true
+# API Server
+API_HOST: "0.0.0.0"
+API_PORT: 7000
+# Service Discovery (Docker DNS - test ports)
+COURIER_URL: "http://courier:7765"
+PASSEUR_URL: "http://passeur:7766"
+# Database
+DATABASE_ECHO: false
+# Redis (disabled for tests)
+REDIS_ENABLED: false
+# Solana
+SOLANA_NETWORK: "devnet"
+# Logging (verbose + stdout)
+LOG_LEVEL: "DEBUG"
+LOG_FILE: null
+# Resilience - Circuit Breaker (permissive for tests)
+CB_FAILURE_THRESHOLD: 3
+CB_SUCCESS_THRESHOLD: 1
+CB_TIMEOUT_SECONDS: 10.0
+# Resilience - Timeouts (short for fast tests)
+PASSEUR_TIMEOUT: 5.0
+DATABASE_TIMEOUT: 3.0
+BLOCKCHAIN_QUERY_TIMEOUT: 5.0
+# Resilience - Retry (minimal for fast tests)
+RETRY_MAX_ATTEMPTS: 2
+RETRY_INITIAL_DELAY: 0.1
+RETRY_MAX_DELAY: 1.0
+RETRY_EXPONENTIAL_BASE: 2.0
+# Resilience - Rate Limiting (disabled for tests)
+RATE_LIMIT_ENABLED: false
+RATE_LIMIT_REQUESTS_PER_SECOND: 1000.0
+RATE_LIMIT_BURST_SIZE: 1000
+# Resilience - Idempotency (enabled but short TTL)
+IDEMPOTENCY_ENABLED: true
+IDEMPOTENCY_TTL_SECONDS: 300
+# Observability - Health Checks (disabled in tests)
+HEALTH_CHECK_PORT: 8080
+HEALTH_CHECK_ENABLED: false
+# Observability - Metrics (disabled in tests)
+METRICS_PORT: 9090
+METRICS_ENABLED: false
+# Observability - Tracing (disabled in tests)
+TRACING_ENABLED: false
+TRACE_SAMPLE_RATE: 1.0

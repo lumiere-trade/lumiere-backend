@@ -1,0 +1,20 @@
+# Courier Development Configuration (Docker)
+
+# Server settings (Docker needs 0.0.0.0)
+host: "0.0.0.0"
+port: 9765
+
+# Service Discovery (Docker DNS)
+pourtier_url: "http://pourtier:9000"
+passeur_url: "http://passeur:9766"
+
+# Connection settings (faster for testing)
+heartbeat_interval: 10
+
+# Logging (verbose + stdout for Docker)
+log_level: "debug"
+log_file: null
+
+# Observability
+METRICS_PORT: 9790
+HEALTH_PORT: 9791

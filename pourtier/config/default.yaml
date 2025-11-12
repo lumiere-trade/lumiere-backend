@@ -1,0 +1,65 @@
+# Pourtier Default Configuration
+# Base settings shared across all environments
+
+# API Server
+API_HOST: "0.0.0.0"
+API_PORT: 8000
+
+# Service Discovery (Docker DNS - defaults for production)
+COURIER_URL: "http://courier:8765"
+PASSEUR_URL: "http://passeur:8766"
+
+# Logging
+LOG_FILE: "logs/pourtier.log"
+
+# Database
+DATABASE_ECHO: false
+
+# Redis
+REDIS_HOST: "localhost"
+REDIS_PORT: 6379
+
+# Solana
+SOLANA_COMMITMENT: "confirmed"
+
+# JWT
+JWT_ALGORITHM: "HS256"
+JWT_EXPIRATION_HOURS: 24
+
+# External Services
+COURIER_ENABLED: true
+
+# Resilience - Circuit Breaker
+CB_FAILURE_THRESHOLD: 5
+CB_SUCCESS_THRESHOLD: 2
+CB_TIMEOUT_SECONDS: 60.0
+
+# Resilience - Timeouts
+PASSEUR_TIMEOUT: 30.0
+DATABASE_TIMEOUT: 10.0
+BLOCKCHAIN_QUERY_TIMEOUT: 15.0
+
+# Resilience - Retry
+RETRY_MAX_ATTEMPTS: 3
+RETRY_INITIAL_DELAY: 1.0
+RETRY_MAX_DELAY: 10.0
+RETRY_EXPONENTIAL_BASE: 2.0
+
+# Resilience - Rate Limiting
+RATE_LIMIT_ENABLED: true
+RATE_LIMIT_REQUESTS_PER_SECOND: 10.0
+RATE_LIMIT_BURST_SIZE: 20
+
+# Resilience - Idempotency
+IDEMPOTENCY_ENABLED: true
+IDEMPOTENCY_TTL_SECONDS: 86400
+
+# Observability - Health Checks
+HEALTH_CHECK_PORT: 8080
+
+# Observability - Metrics
+METRICS_PORT: 9090
+
+# Observability - Tracing
+TRACING_ENABLED: false
+TRACE_SAMPLE_RATE: 0.1

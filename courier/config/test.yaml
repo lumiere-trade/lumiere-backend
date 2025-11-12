@@ -1,0 +1,24 @@
+# Courier Test Configuration
+# For integration and E2E tests
+
+# Environment
+ENV: test
+
+# Server settings
+host: "0.0.0.0"
+port: 7765
+
+# Service Discovery (Docker DNS - test ports)
+pourtier_url: "http://pourtier:7000"
+passeur_url: "http://passeur:7766"
+
+# Connection settings (fast for tests)
+heartbeat_interval: 10
+
+# Logging (verbose + stdout)
+log_level: "debug"
+log_file: null
+
+# Observability
+METRICS_PORT: 7790
+HEALTH_PORT: 7791
