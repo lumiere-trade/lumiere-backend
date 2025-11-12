@@ -1,0 +1,16 @@
+# Passeur Development Configuration (Docker)
+
+# Bridge server (Docker needs 0.0.0.0)
+bridge_host: "0.0.0.0"
+bridge_port: 9766
+
+# Service Discovery (Docker DNS)
+courier_url: "http://courier:9765"
+pourtier_url: "http://pourtier:9000"
+
+# Connection settings (faster for development)
+heartbeat_interval: 10
+request_timeout: 15
+
+# Logging (verbose + stdout for Docker)
+log_level: "debug"

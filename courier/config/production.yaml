@@ -1,0 +1,17 @@
+# Courier Production Configuration
+
+# Server settings
+host: "0.0.0.0"
+port: 8765
+
+# Service Discovery (Docker DNS)
+pourtier_url: "http://pourtier:8000"
+passeur_url: "http://passeur:8766"
+
+# Logging (Docker stdout - no file)
+log_level: "info"
+log_file: null
+
+# Observability
+METRICS_PORT: 8790
+HEALTH_PORT: 8791

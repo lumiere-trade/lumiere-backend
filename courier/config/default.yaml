@@ -1,0 +1,68 @@
+# Courier Default Configuration
+
+# Server settings
+host: "0.0.0.0"
+port: 8765
+
+# Service Discovery (Docker DNS - defaults for production)
+pourtier_url: "http://pourtier:8000"
+passeur_url: "http://passeur:8766"
+
+# Channels
+channels:
+  - "trade"
+  - "candles"
+  - "sys"
+  - "rsi"
+  - "extrema"
+  - "analysis"
+  - "strategy"
+  - "subscription"
+  - "payment"
+  - "deposit"
+
+# Connection settings
+heartbeat_interval: 30
+max_clients_per_channel: 0      # 0 = unlimited
+max_total_connections: 10000    # Global connection limit
+max_connections_per_user: 5     # Per-user connection limit
+
+# Rate Limiting
+rate_limit_enabled: true
+rate_limit_publish_requests: 100
+rate_limit_websocket_connections: 10
+rate_limit_window_seconds: 60
+
+# Per-message-type rate limits (messages per minute)
+# Overrides global limit for specific message types
+# Types not listed here fall back to global limit
+rate_limit_per_message_type:
+  trade: 50           # Trading signals are critical but lower volume
+  candles: 100        # Candle updates are high frequency
+  strategy: 10        # Strategy messages are low frequency
+  subscription: 5     # Subscription changes are rare
+  payment: 5          # Payment messages are rare
+  deposit: 5          # Deposit messages are rare
+
+# Message Validation
+max_message_size: 1048576        # 1MB
+max_string_length: 10000         # 10K characters
+max_array_size: 1000             # 1K items
+
+# Event Validation
+max_event_size: 1048576          # 1MB
+max_event_payload_size: 524288   # 512KB
+max_event_metadata_size: 10240   # 10KB
+
+# Logging
+log_level: "info"
+log_file: null
+
+# Observability - Monitoring Servers
+METRICS_ENABLED: true
+METRICS_HOST: "0.0.0.0"
+METRICS_PORT: 8790      # Production default
+
+HEALTH_CHECK_ENABLED: true
+HEALTH_HOST: "0.0.0.0"
+HEALTH_PORT: 8791       # Production default
