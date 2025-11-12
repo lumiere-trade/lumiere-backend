@@ -18,8 +18,8 @@ from courier.application.use_cases import (
 )
 from courier.config.settings import Settings
 from courier.infrastructure.auth import JWTVerifier
+from courier.infrastructure.monitoring import CourierGracefulShutdown
 from courier.infrastructure.rate_limiting import RateLimiter
-from courier.infrastructure.shutdown import ShutdownManager
 from courier.infrastructure.websocket import ConnectionManager
 
 
@@ -47,7 +47,7 @@ class Container:
         self._jwt_verifier: Optional[JWTVerifier] = None
         self._validate_event_use_case: Optional[ValidateEventUseCase] = None
         self._validate_message_use_case: Optional[ValidateMessageUseCase] = None
-        self._shutdown_manager: Optional[ShutdownManager] = None
+        self._shutdown_manager: Optional[CourierGracefulShutdown] = None
 
         # Rate limiters
         self._publish_rate_limiter: Optional[RateLimiter] = None
@@ -108,17 +108,26 @@ class Container:
         return self._jwt_verifier
 
     @property
-    def shutdown_manager(self) -> ShutdownManager:
+    def shutdown_manager(self) -> CourierGracefulShutdown:
         """
-        Get ShutdownManager singleton.
+        Get CourierGracefulShutdown singleton.
 
         Returns:
-            ShutdownManager instance
+            CourierGracefulShutdown instance
         """
         if self._shutdown_manager is None:
-            self._shutdown_manager = ShutdownManager(
-                shutdown_timeout=self.settings.shutdown_timeout,
-                grace_period=self.settings.shutdown_grace_period,
+            log_dir = None
+            if self.settings.log_file:
+                import os
+
+                log_dir = os.path.dirname(self.settings.log_file)
+                if not log_dir:
+                    log_dir = "logs"
+
+            self._shutdown_manager = CourierGracefulShutdown(
+                shutdown_timeout=float(self.settings.shutdown_timeout),
+                grace_period=float(self.settings.shutdown_grace_period),
+                log_dir=log_dir,
             )
         return self._shutdown_manager
 

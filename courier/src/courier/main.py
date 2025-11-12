@@ -7,14 +7,22 @@ real-time event broadcasting with optional JWT authentication.
 
 import asyncio
 import os
+import threading
 from contextlib import asynccontextmanager
+from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI
+from shared.health import HealthServer
+from shared.observability import MetricsServer
 from shared.reporter import SystemReporter
 
 from courier.config.settings import Settings, load_config
 from courier.di import Container
+from courier.infrastructure.monitoring import (
+    CourierGracefulShutdown,
+    CourierHealthChecker,
+)
 from courier.presentation.api.dependencies import set_container
 from courier.presentation.api.routes import (
     health_router,
@@ -35,6 +43,7 @@ class CourierApp:
         - Setup FastAPI application
         - Register API routes
         - Manage application lifecycle with graceful shutdown
+        - Start monitoring servers (Health, Metrics)
         - Run uvicorn server
     """
 
@@ -58,6 +67,10 @@ class CourierApp:
 
         # Set global container for FastAPI dependencies
         set_container(self.container)
+
+        # Monitoring servers
+        self.metrics_server: Optional[MetricsServer] = None
+        self.health_server: Optional[HealthServer] = None
 
         # Server instance (set during start)
         self.server = None
@@ -127,7 +140,7 @@ class CourierApp:
         Application startup event handler.
 
         Initializes shutdown manager, registers signal handlers,
-        and starts background tasks.
+        starts background tasks, and starts monitoring servers.
         """
         self.reporter.info(
             "Courier starting...",
@@ -138,14 +151,56 @@ class CourierApp:
         # Setup graceful shutdown
         shutdown_manager = self.container.shutdown_manager
         shutdown_manager.setup_signal_handlers()
-        shutdown_manager.register_shutdown_callback(self._graceful_shutdown_callback)
+        shutdown_manager.register_cleanup_task(self._graceful_shutdown_callback)
 
         self.reporter.info(
-            f"Graceful shutdown enabled "
-            f"(timeout: {self.settings.shutdown_timeout}s)",
+            f"Graceful shutdown enabled (timeout: {self.settings.shutdown_timeout}s)",
             context="Courier",
             verbose_level=1,
         )
+
+        # Start Metrics Server (port 9090)
+        if self.settings.METRICS_ENABLED:
+            self.metrics_server = MetricsServer(
+                host=self.settings.METRICS_HOST,
+                port=self.settings.METRICS_PORT,
+            )
+            metrics_thread = threading.Thread(
+                target=self.metrics_server.start,
+                daemon=True,
+                name="MetricsServer",
+            )
+            metrics_thread.start()
+            self.reporter.info(
+                f"Metrics server started on "
+                f"http://{self.settings.METRICS_HOST}:{self.settings.METRICS_PORT}/metrics",
+                context="Courier",
+                verbose_level=1,
+            )
+
+        # Start Health Server (port 9091)
+        if self.settings.HEALTH_CHECK_ENABLED:
+            health_checker = CourierHealthChecker(
+                settings=self.settings,
+                connection_manager=self.container.connection_manager,
+            )
+            self.health_server = HealthServer(
+                host=self.settings.HEALTH_HOST,
+                port=self.settings.HEALTH_PORT,
+                health_checker=health_checker,
+            )
+            health_thread = threading.Thread(
+                target=self.health_server.start,
+                daemon=True,
+                name="HealthServer",
+            )
+            health_thread.start()
+            self.reporter.info(
+                f"Health server started on "
+                f"http://{self.settings.HEALTH_HOST}:{self.settings.HEALTH_PORT}/health",
+                context="Courier",
+                verbose_level=1,
+            )
 
         self.reporter.info(
             f"Host: {self.settings.host}:{self.settings.port}",
@@ -201,10 +256,8 @@ class CourierApp:
         """
         Application shutdown event handler.
 
-        Cleanly shuts down all connections and background tasks.
+        Cleanly shuts down all connections, background tasks, and monitoring servers.
         """
-        shutdown_manager = self.container.shutdown_manager
-
         self.reporter.info(
             "Courier shutting down...",
             context="Courier",
@@ -222,11 +275,14 @@ class CourierApp:
         # Close all WebSocket connections gracefully
         await self._close_all_connections_gracefully()
 
-        # Mark shutdown complete
-        shutdown_manager.mark_shutdown_complete()
+        # Shutdown monitoring servers
+        if self.metrics_server:
+            self.metrics_server.shutdown()
+            self.reporter.info("Metrics server shut down", context="Courier")
 
-        # Restore signal handlers
-        shutdown_manager.restore_signal_handlers()
+        if self.health_server:
+            self.health_server.shutdown()
+            self.reporter.info("Health server shut down", context="Courier")
 
         self.reporter.info(
             "Courier stopped",
