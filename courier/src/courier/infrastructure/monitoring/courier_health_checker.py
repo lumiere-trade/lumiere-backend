@@ -117,6 +117,14 @@ class CourierHealthChecker(HealthChecker):
 
             duration = time.time() - start
 
+            # Metadata for machine consumption
+            metadata = {
+                "total_connections": total_connections,
+                "max_connections": (
+                    max_connections if max_connections > 0 else None
+                ),
+            }
+
             # No limit configured - always healthy
             if max_connections <= 0:
                 return HealthCheck(
@@ -125,10 +133,12 @@ class CourierHealthChecker(HealthChecker):
                     message=f"Unlimited capacity ({total_connections} active)",
                     duration=duration,
                     timestamp=datetime.utcnow(),
+                    metadata=metadata,
                 )
 
             # Calculate capacity percentage
             capacity_pct = (total_connections / max_connections) * 100
+            metadata["capacity_percent"] = round(capacity_pct, 1)
 
             # Degraded if over 90% capacity
             if capacity_pct >= 90:
@@ -141,6 +151,7 @@ class CourierHealthChecker(HealthChecker):
                     ),
                     duration=duration,
                     timestamp=datetime.utcnow(),
+                    metadata=metadata,
                 )
 
             # Healthy
@@ -153,6 +164,7 @@ class CourierHealthChecker(HealthChecker):
                 ),
                 duration=duration,
                 timestamp=datetime.utcnow(),
+                metadata=metadata,
             )
 
         except Exception as e:
@@ -174,12 +186,18 @@ class CourierHealthChecker(HealthChecker):
             channels = self.connection_manager.get_all_channels()
             duration = time.time() - start
 
+            metadata = {
+                "active_channels": len(channels),
+                "channel_names": list(channels.keys()),
+            }
+
             return HealthCheck(
                 name="connection_manager",
                 status=HealthStatus.HEALTHY,
                 message=f"Operational ({len(channels)} active channels)",
                 duration=duration,
                 timestamp=datetime.utcnow(),
+                metadata=metadata,
             )
 
         except Exception as e:
