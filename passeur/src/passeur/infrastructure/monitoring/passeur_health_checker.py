@@ -19,7 +19,7 @@ from passeur.config.settings import get_settings
 class PasseurHealthChecker(HealthCheck):
     """
     Health checker for Passeur blockchain bridge.
-    
+
     Implements Kubernetes-compatible liveness and readiness probes.
     """
 
@@ -54,7 +54,7 @@ class PasseurHealthChecker(HealthCheck):
             if loop.is_running():
                 # Already in async context
                 return HealthStatus.HEALTHY
-            
+
             return loop.run_until_complete(self._check_async())
         except Exception:
             return HealthStatus.UNHEALTHY
@@ -63,13 +63,13 @@ class PasseurHealthChecker(HealthCheck):
         """Async health check implementation."""
         redis_ok = await self._check_redis()
         solana_ok = await self._check_solana_rpc()
-        
+
         if not redis_ok:
             return HealthStatus.DEGRADED
-        
+
         if not solana_ok:
             return HealthStatus.DEGRADED
-        
+
         return HealthStatus.HEALTHY
 
     def liveness(self) -> HealthStatus:
@@ -93,7 +93,7 @@ class PasseurHealthChecker(HealthCheck):
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 return HealthStatus.HEALTHY
-            
+
             return loop.run_until_complete(self._readiness_async())
         except Exception:
             return HealthStatus.UNHEALTHY
@@ -101,17 +101,17 @@ class PasseurHealthChecker(HealthCheck):
     async def _readiness_async(self) -> HealthStatus:
         """Async readiness check."""
         redis_ok = await self._check_redis()
-        
+
         if not redis_ok:
             return HealthStatus.UNHEALTHY
-        
+
         return HealthStatus.HEALTHY
 
     async def _check_redis(self) -> bool:
         """Check Redis connectivity."""
         if not self.redis:
             return True  # Redis optional for basic operations
-        
+
         try:
             await self.redis.ping()
             return True
@@ -122,7 +122,7 @@ class PasseurHealthChecker(HealthCheck):
         """Check Solana RPC connectivity."""
         if not self._settings.solana_rpc_url:
             return True  # RPC URL not configured
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(

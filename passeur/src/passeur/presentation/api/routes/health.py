@@ -25,15 +25,15 @@ def set_health_checker(checker: PasseurHealthChecker) -> None:
 async def health_check():
     """
     Overall health check.
-    
+
     Returns:
         Health status and details
     """
     if not health_checker:
         return {"status": "unhealthy", "message": "Health checker not initialized"}
-    
+
     status = health_checker.check()
-    
+
     return {
         "status": status.value,
         "service": "passeur",
@@ -45,15 +45,15 @@ async def health_check():
 async def liveness_probe():
     """
     Kubernetes liveness probe.
-    
+
     Returns:
         Liveness status
     """
     if not health_checker:
         return {"status": "unhealthy"}
-    
+
     status = health_checker.liveness()
-    
+
     return {
         "status": status.value,
         "alive": status == HealthStatus.HEALTHY,
@@ -64,15 +64,15 @@ async def liveness_probe():
 async def readiness_probe():
     """
     Kubernetes readiness probe.
-    
+
     Returns:
         Readiness status
     """
     if not health_checker:
         return {"status": "unhealthy"}
-    
+
     status = health_checker.readiness()
-    
+
     return {
         "status": status.value,
         "ready": status == HealthStatus.HEALTHY,

@@ -16,7 +16,7 @@ from passeur.config.settings import get_settings
 class RedisIdempotencyStore(IdempotencyStore):
     """
     Redis implementation of idempotency store.
-    
+
     Used for financial and security operations to ensure exactly-once semantics.
     Critical for:
     - Escrow withdrawals (prevent double withdrawal)
@@ -57,7 +57,7 @@ class RedisIdempotencyStore(IdempotencyStore):
             Stored value or None if not found
         """
         await self._ensure_connection()
-        
+
         value = await self.redis.get(f"idempotency:{key}")
         if value:
             return json.loads(value)
@@ -73,7 +73,7 @@ class RedisIdempotencyStore(IdempotencyStore):
             ttl: Time to live in seconds
         """
         await self._ensure_connection()
-        
+
         serialized = json.dumps(value, default=str)
         await self.redis.setex(
             f"idempotency:{key}",
@@ -92,7 +92,7 @@ class RedisIdempotencyStore(IdempotencyStore):
             True if key exists
         """
         await self._ensure_connection()
-        
+
         exists = await self.redis.exists(f"idempotency:{key}")
         return bool(exists)
 
@@ -104,7 +104,7 @@ class RedisIdempotencyStore(IdempotencyStore):
             key: Idempotency key
         """
         await self._ensure_connection()
-        
+
         await self.redis.delete(f"idempotency:{key}")
 
     async def close(self) -> None:

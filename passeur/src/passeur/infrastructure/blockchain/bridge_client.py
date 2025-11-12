@@ -25,7 +25,7 @@ from passeur.domain.exceptions import (
 class BridgeClient:
     """
     Client for Node.js bridge server with resilience.
-    
+
     Features:
     - Circuit breaker for bridge availability
     - Retry with exponential backoff
@@ -41,7 +41,7 @@ class BridgeClient:
         """
         self._settings = get_settings()
         self.bridge_url = bridge_url or f"http://localhost:{self._settings.bridge_port}"
-        
+
         # Circuit breaker config
         cb_config = self._settings.get_circuit_breaker_config("bridge_server")
         self.circuit_breaker = CircuitBreaker(
@@ -57,7 +57,7 @@ class BridgeClient:
                 ),
             ),
         )
-        
+
         # Retry config
         retry_config = self._settings.get_retry_config("transaction_submission")
         self.retry = Retry(
@@ -74,7 +74,7 @@ class BridgeClient:
                 ),
             ),
         )
-        
+
         self.bridge_timeout = self._settings.resilience.timeouts.bridge_call
 
     async def call_bridge(
@@ -127,7 +127,7 @@ class BridgeClient:
     ) -> Dict[str, Any]:
         """Inner bridge call implementation."""
         url = f"{self.bridge_url}{endpoint}"
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.request(
@@ -138,7 +138,7 @@ class BridgeClient:
                 ) as response:
                     response.raise_for_status()
                     return await response.json()
-        
+
         except aiohttp.ClientError as e:
             raise BridgeConnectionException(
                 f"Bridge connection error: {str(e)}",
