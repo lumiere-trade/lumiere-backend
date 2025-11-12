@@ -17,7 +17,7 @@ from shared.resilience import (
     CircuitBreakerConfig,
     Retry,
     RetryConfig,
-    with_timeout,
+    timeout,
 )
 
 from passeur.config.settings import get_settings
@@ -27,7 +27,7 @@ from passeur.domain.exceptions import RPCException, TransactionTimeoutException
 class SolanaRPCClient:
     """
     Solana RPC client with circuit breaker and retry logic.
-    
+
     Resilience features:
     - Circuit breaker to prevent cascading failures
     - Automatic retry with exponential backoff
@@ -44,7 +44,7 @@ class SolanaRPCClient:
         """
         self._settings = get_settings()
         self.rpc_url = rpc_url or self._settings.solana_rpc_url
-        
+
         # Circuit breaker config
         cb_config = self._settings.get_circuit_breaker_config("solana_rpc")
         self.circuit_breaker = CircuitBreaker(
@@ -60,7 +60,7 @@ class SolanaRPCClient:
                 ),
             ),
         )
-        
+
         # Retry config
         retry_config = self._settings.get_retry_config("rpc_query")
         self.retry = Retry(
@@ -78,11 +78,11 @@ class SolanaRPCClient:
                 ),
             ),
         )
-        
+
         # Timeouts
         self.rpc_timeout = self._settings.resilience.timeouts.rpc_call
 
-    @with_timeout(10.0)
+    @timeout(10.0)
     async def call_rpc(
         self,
         method: str,
@@ -128,14 +128,14 @@ class SolanaRPCClient:
         """Inner RPC call implementation."""
         if not self.rpc_url:
             raise RPCException("Solana RPC URL not configured")
-        
+
         payload = {
             "jsonrpc": "2.0",
             "id": 1,
             "method": method,
             "params": params or [],
         }
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -145,15 +145,15 @@ class SolanaRPCClient:
                 ) as response:
                     response.raise_for_status()
                     data = await response.json()
-                    
+
                     if "error" in data:
                         raise RPCException(
                             f"RPC error: {data['error']}",
                             details={"method": method, "error": data["error"]},
                         )
-                    
+
                     return data.get("result", {})
-        
+
         except aiohttp.ClientError as e:
             raise RPCException(
                 f"RPC connection error: {str(e)}",
@@ -212,26 +212,26 @@ class SolanaRPCClient:
             TransactionTimeoutException: If confirmation times out
         """
         deadline = asyncio.get_event_loop().time() + timeout
-        
+
         while asyncio.get_event_loop().time() < deadline:
             try:
                 result = await self.call_rpc(
                     "getSignatureStatuses",
                     [[signature]],
                 )
-                
+
                 statuses = result.get("value", [])
                 if statuses and statuses[0]:
                     status = statuses[0]
                     if status.get("confirmationStatus") == "confirmed":
                         return True
-                
+
                 await asyncio.sleep(1.0)
-            
+
             except RPCException:
                 # Continue waiting on RPC errors
                 await asyncio.sleep(1.0)
-        
+
         raise TransactionTimeoutException(
             f"Transaction confirmation timeout: {signature}",
             details={"signature": signature, "timeout": timeout},
