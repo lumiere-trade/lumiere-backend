@@ -1,8 +1,9 @@
 """
 Passeur configuration with hybrid YAML + ENV support.
 
-This Python module wraps the Node.js bridge configuration for testing purposes.
-The actual bridge uses config/default.yaml, config/development.yaml, config/production.yaml.
+Architecture:
+- Python FastAPI (api_port): External proxy with resilience patterns
+- Node.js Bridge (bridge_port): Internal blockchain operations
 
 Priority: Environment variables > YAML config > Pydantic defaults
 """
@@ -12,7 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
-from pydantic import Field, field_validator
+from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -126,10 +127,11 @@ class RedisConfig(BaseSettings):
 
 class PasseurConfig(BaseSettings):
     """
-    Passeur bridge configuration schema.
+    Passeur configuration schema.
 
-    Used by Python tests to validate config files.
-    Actual bridge (Node.js) loads these same YAML files.
+    Two-layer architecture:
+    - Python FastAPI (external): Resilience proxy on api_port
+    - Node.js Bridge (internal): Blockchain operations on bridge_port
     """
 
     model_config = SettingsConfigDict(
@@ -138,9 +140,23 @@ class PasseurConfig(BaseSettings):
         extra="allow",
     )
 
-    # Bridge configuration
-    bridge_host: str = Field(default="0.0.0.0")
-    bridge_port: int = Field(default=8766, ge=1024, le=65535)
+    # Python FastAPI (external - public API)
+    api_host: str = Field(default="0.0.0.0")
+    api_port: int = Field(
+        default=8766,
+        ge=1024,
+        le=65535,
+        description="External port for Python FastAPI proxy",
+    )
+
+    # Node.js bridge (internal - localhost only)
+    bridge_host: str = Field(default="127.0.0.1")
+    bridge_port: int = Field(
+        default=8768,
+        ge=1024,
+        le=65535,
+        description="Internal port for Node.js bridge",
+    )
 
     # Service URLs (Docker DNS)
     courier_url: str = Field(
@@ -177,6 +193,12 @@ class PasseurConfig(BaseSettings):
 
     # Redis
     redis: RedisConfig = Field(default_factory=RedisConfig)
+
+    @computed_field
+    @property
+    def bridge_url(self) -> str:
+        """Computed bridge URL for internal communication."""
+        return f"http://{self.bridge_host}:{self.bridge_port}"
 
     @field_validator("log_level")
     @classmethod

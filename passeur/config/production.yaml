@@ -1,9 +1,13 @@
 # Passeur Production Configuration
 # Non-sensitive defaults for production
 
-# Bridge server
-bridge_host: "0.0.0.0"
-bridge_port: 8766
+# Bridge server (INTERNAL - Python on 8766 will proxy here)
+bridge_host: "127.0.0.1"
+bridge_port: 8768
+
+# Python FastAPI (external API)
+api_host: "0.0.0.0"
+api_port: 8766
 
 # Service Discovery (Docker DNS)
 courier_url: "http://courier:8765"
@@ -31,7 +35,7 @@ resilience:
       failure_threshold: 3
       success_threshold: 2
       timeout: 60.0
-  
+
   # Retry patterns
   retry:
     transaction_submission:
@@ -46,18 +50,18 @@ resilience:
       max_delay: 5.0
       exponential_base: 2.0
       jitter: true
-  
+
   # Timeouts
   timeouts:
     rpc_call: 10.0
     transaction_confirmation: 30.0
     bridge_call: 15.0
-  
+
   # Rate Limiting (enabled for production)
   rate_limiting:
     rpc_calls_per_second: 10.0
     burst_size: 20
-  
+
   # Idempotency TTL (days)
   idempotency:
     financial_operations: 7
