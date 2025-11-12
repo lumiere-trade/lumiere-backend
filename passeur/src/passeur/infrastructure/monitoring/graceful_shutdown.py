@@ -8,8 +8,6 @@ Coordinates cleanup on SIGTERM/SIGINT:
 4. Flush event buffers
 """
 
-import asyncio
-import signal
 from typing import Callable, List
 
 from shared.lifecycle import GracefulShutdown as SharedGracefulShutdown
@@ -18,7 +16,7 @@ from shared.lifecycle import GracefulShutdown as SharedGracefulShutdown
 class PasseurGracefulShutdown:
     """
     Passeur-specific graceful shutdown coordinator.
-    
+
     Wraps shared GracefulShutdown with Passeur-specific cleanup logic.
     """
 
@@ -45,7 +43,7 @@ class PasseurGracefulShutdown:
     def wait_for_signal(self) -> None:
         """
         Block until shutdown signal received.
-        
+
         This is the main blocking call that keeps the service running.
         """
         self.shared_shutdown.wait_for_signal()
@@ -53,7 +51,7 @@ class PasseurGracefulShutdown:
     async def shutdown(self) -> None:
         """
         Execute shutdown sequence.
-        
+
         Called automatically on SIGTERM/SIGINT.
         """
         await self.shared_shutdown.shutdown()

@@ -4,22 +4,21 @@ Transaction manager with idempotency guarantees.
 Ensures exactly-once execution for financial operations.
 """
 
-import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-from shared.resilience import IdempotencyKey, idempotent
+from shared.resilience import IdempotencyKey
 
+from passeur.infrastructure.blockchain.bridge_client import BridgeClient
+from passeur.infrastructure.blockchain.solana_rpc_client import SolanaRPCClient
 from passeur.infrastructure.cache.redis_idempotency_store import (
     RedisIdempotencyStore,
 )
-from passeur.infrastructure.blockchain.bridge_client import BridgeClient
-from passeur.infrastructure.blockchain.solana_rpc_client import SolanaRPCClient
 
 
 class TransactionManager:
     """
     Manages blockchain transactions with idempotency.
-    
+
     CRITICAL: All financial operations MUST use this manager to prevent:
     - Double withdrawals
     - Duplicate deposits
@@ -74,26 +73,26 @@ class TransactionManager:
             escrow_account=escrow_account,
             strategy_id=strategy_id,
         )
-        
+
         # Check if already executed
         if await self.store.exists_async(idempotency_key):
             cached_result = await self.store.get_async(idempotency_key)
             return cached_result
-        
+
         # Execute withdrawal
         result = await self.bridge.withdraw_from_escrow(
             escrow_account=escrow_account,
             amount=amount,
             strategy_id=strategy_id,
         )
-        
+
         # Store result (7 days TTL for financial operations)
         await self.store.set_async(
             idempotency_key,
             result,
             ttl=7 * 24 * 60 * 60,  # 7 days
         )
-        
+
         return result
 
     async def deposit_to_escrow(
@@ -125,26 +124,26 @@ class TransactionManager:
             escrow_account=escrow_account,
             user_signature=user_signature,
         )
-        
+
         # Check if already executed
         if await self.store.exists_async(idempotency_key):
             cached_result = await self.store.get_async(idempotency_key)
             return cached_result
-        
+
         # Execute deposit
         result = await self.bridge.deposit_to_escrow(
             escrow_account=escrow_account,
             amount=amount,
             user_signature=user_signature,
         )
-        
+
         # Store result (7 days TTL)
         await self.store.set_async(
             idempotency_key,
             result,
             ttl=7 * 24 * 60 * 60,
         )
-        
+
         return result
 
     async def initialize_escrow(
@@ -173,23 +172,23 @@ class TransactionManager:
             user_pubkey=user_pubkey,
             subscription_id=subscription_id,
         )
-        
+
         # Check if already executed
         if await self.store.exists_async(idempotency_key):
             cached_result = await self.store.get_async(idempotency_key)
             return cached_result
-        
+
         # Execute initialization
         result = await self.bridge.initialize_escrow(
             user_pubkey=user_pubkey,
             subscription_id=subscription_id,
         )
-        
+
         # Store result (3 days TTL for security operations)
         await self.store.set_async(
             idempotency_key,
             result,
             ttl=3 * 24 * 60 * 60,
         )
-        
+
         return result

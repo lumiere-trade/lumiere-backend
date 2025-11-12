@@ -9,8 +9,6 @@ FastAPI application with resilience patterns:
 - Idempotency
 """
 
-import asyncio
-import signal
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -35,7 +33,6 @@ from passeur.infrastructure.monitoring.passeur_health_checker import (
 from passeur.presentation.api.routes import health_router
 from passeur.presentation.api.routes.health import set_health_checker
 
-
 # Global instances
 settings = get_settings()
 shutdown_handler: PasseurGracefulShutdown = None
@@ -48,7 +45,7 @@ redis_store: RedisIdempotencyStore = None
 async def lifespan(app: FastAPI):
     """
     Application lifespan manager.
-    
+
     Handles startup and shutdown:
     - Initialize Redis
     - Start health server
@@ -56,14 +53,18 @@ async def lifespan(app: FastAPI):
     - Setup graceful shutdown
     """
     global shutdown_handler, health_server, metrics_server, redis_store
-    
+
     # Startup
     print("Starting Passeur...")
-    
+
     # Initialize Redis idempotency store
     redis_store = RedisIdempotencyStore()
-    print(f"Redis idempotency store initialized: {settings.redis.host}:{settings.redis.port}")
-    
+    print(
+        f"Redis idempotency store initialized: {
+            settings.redis.host}:{
+            settings.redis.port}"
+    )
+
     # Initialize clients
     rpc_client = SolanaRPCClient()
     bridge_client = BridgeClient()
@@ -72,25 +73,25 @@ async def lifespan(app: FastAPI):
         rpc_client=rpc_client,
         idempotency_store=redis_store,
     )
-    
+
     # Store in app state
     app.state.rpc_client = rpc_client
     app.state.bridge_client = bridge_client
     app.state.transaction_manager = transaction_manager
     app.state.redis_store = redis_store
-    
+
     # Health checker
     health_checker = PasseurHealthChecker(
-        redis_client=redis_store.redis if hasattr(redis_store, 'redis') else None,
+        redis_client=redis_store.redis if hasattr(redis_store, "redis") else None,
     )
     set_health_checker(health_checker)
-    
+
     # Start health server
     if settings.health.port:
         health_server = HealthServer(health_checker, port=settings.health.port)
         health_server.start_in_background()
         print(f"Health server started on port {settings.health.port}")
-    
+
     # Start metrics server
     if settings.metrics.enabled and settings.metrics.port:
         metrics_server = MetricsServer(
@@ -99,29 +100,29 @@ async def lifespan(app: FastAPI):
         )
         metrics_server.start_in_background()
         print(f"Metrics server started on port {settings.metrics.port}")
-    
+
     # Setup graceful shutdown
     shutdown_handler = PasseurGracefulShutdown(timeout=30.0)
-    
+
     async def cleanup_redis():
         if redis_store:
             await redis_store.close()
             print("Redis connection closed")
-    
+
     shutdown_handler.register_cleanup(cleanup_redis)
-    
+
     print(f"Passeur started successfully on port {settings.bridge_port}")
     print(f"Health checks: http://localhost:{settings.health.port}/health")
     print(f"Metrics: http://localhost:{settings.metrics.port}/metrics")
-    
+
     yield
-    
+
     # Shutdown
     print("Shutting down Passeur...")
-    
+
     if shutdown_handler:
         await shutdown_handler.shutdown()
-    
+
     print("Passeur stopped")
 
 
@@ -156,12 +157,12 @@ async def root():
 def main():
     """
     Main entry point.
-    
+
     Run with: python -m passeur.main
     Or: uvicorn passeur.main:app --host 0.0.0.0 --port 8766
     """
     import uvicorn
-    
+
     uvicorn.run(
         app,
         host=settings.bridge_host,
