@@ -63,8 +63,8 @@ RUN pip install --no-cache-dir \
 # Create logs directory
 RUN mkdir -p logs
 
-# Expose port (development uses 9765, but E2E tests override with PORT env var)
-EXPOSE 9765
+# Expose ports (development: 9765=API, 9790=Metrics, 9791=Health)
+EXPOSE 9765 9790 9791
 
 # Health check (uses PORT env var if set, defaults to 9765)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
@@ -108,8 +108,8 @@ ENV PATH=/home/courier_user/.local/bin:$PATH
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Expose port (production uses 8765)
-EXPOSE 8765
+# Expose ports (production: 8765=API, 8790=Metrics, 8791=Health)
+EXPOSE 8765 8790 8791
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
