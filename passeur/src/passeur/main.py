@@ -30,7 +30,12 @@ from passeur.infrastructure.monitoring.graceful_shutdown import (
 from passeur.infrastructure.monitoring.passeur_health_checker import (
     PasseurHealthChecker,
 )
-from passeur.presentation.api.routes import health_router
+from passeur.presentation.api.routes import (
+    health_router,
+    escrow_router,
+    transaction_router,
+    wallet_router,
+)
 from passeur.presentation.api.routes.health import set_health_checker
 
 # Global instances
@@ -60,9 +65,8 @@ async def lifespan(app: FastAPI):
     # Initialize Redis idempotency store
     redis_store = RedisIdempotencyStore()
     print(
-        f"Redis idempotency store initialized: {
-            settings.redis.host}:{
-            settings.redis.port}"
+        f"Redis idempotency store initialized: "
+        f"{settings.redis.host}:{settings.redis.port}"
     )
 
     # Initialize clients
@@ -82,13 +86,17 @@ async def lifespan(app: FastAPI):
 
     # Health checker
     health_checker = PasseurHealthChecker(
-        redis_client=redis_store.redis if hasattr(redis_store, "redis") else None,
+        redis_client=(
+            redis_store.redis if hasattr(redis_store, "redis") else None
+        ),
     )
     set_health_checker(health_checker)
 
     # Start health server
     if settings.health.port:
-        health_server = HealthServer(health_checker, port=settings.health.port)
+        health_server = HealthServer(
+            health_checker, port=settings.health.port
+        )
         health_server.start_in_background()
         print(f"Health server started on port {settings.health.port}")
 
@@ -136,6 +144,9 @@ app = FastAPI(
 
 # Register routes
 app.include_router(health_router)
+app.include_router(escrow_router)
+app.include_router(transaction_router)
+app.include_router(wallet_router)
 
 
 @app.get("/")
@@ -150,6 +161,10 @@ async def root():
             "liveness": "/health/live",
             "readiness": "/health/ready",
             "metrics": f"http://localhost:{settings.metrics.port}/metrics",
+            "escrow": "/escrow",
+            "transaction": "/transaction",
+            "wallet": "/wallet",
+            "docs": "/docs",
         },
     }
 

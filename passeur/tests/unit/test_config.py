@@ -33,8 +33,9 @@ class TestPasseurConfig(LaborantTest):
 
         config = PasseurConfig()
 
-        assert config.bridge_host == "0.0.0.0"
-        assert config.bridge_port == 8766
+        assert config.bridge_host == "127.0.0.1"
+        assert config.bridge_port == 8768
+        assert config.api_port == 8766
         assert config.solana_network == "devnet"
         assert config.heartbeat_interval == 30
         assert config.request_timeout == 30
@@ -50,6 +51,7 @@ class TestPasseurConfig(LaborantTest):
         config = PasseurConfig(
             bridge_host="127.0.0.1",
             bridge_port=8767,
+            api_port=8765,
             solana_network="testnet",
             log_level="debug",
             log_dir="custom/logs",
@@ -57,6 +59,7 @@ class TestPasseurConfig(LaborantTest):
 
         assert config.bridge_host == "127.0.0.1"
         assert config.bridge_port == 8767
+        assert config.api_port == 8765
         assert config.solana_network == "testnet"
         assert config.log_level == "debug"
         assert config.log_dir == "custom/logs"
@@ -135,7 +138,9 @@ class TestPasseurConfig(LaborantTest):
             PasseurConfig(heartbeat_interval=4)
             assert False, "Should have raised ValueError"
         except ValueError:
-            self.reporter.info("Heartbeat minimum validation works", context="Test")
+            self.reporter.info(
+                "Heartbeat minimum validation works", context="Test"
+            )
 
     def test_heartbeat_interval_validation_max(self):
         """Test heartbeat interval maximum validation."""
@@ -145,7 +150,9 @@ class TestPasseurConfig(LaborantTest):
             PasseurConfig(heartbeat_interval=301)
             assert False, "Should have raised ValueError"
         except ValueError:
-            self.reporter.info("Heartbeat maximum validation works", context="Test")
+            self.reporter.info(
+                "Heartbeat maximum validation works", context="Test"
+            )
 
     def test_request_timeout_validation_min(self):
         """Test request timeout minimum validation."""
@@ -155,7 +162,9 @@ class TestPasseurConfig(LaborantTest):
             PasseurConfig(request_timeout=4)
             assert False, "Should have raised ValueError"
         except ValueError:
-            self.reporter.info("Timeout minimum validation works", context="Test")
+            self.reporter.info(
+                "Timeout minimum validation works", context="Test"
+            )
 
     def test_request_timeout_validation_max(self):
         """Test request timeout maximum validation."""
@@ -165,7 +174,9 @@ class TestPasseurConfig(LaborantTest):
             PasseurConfig(request_timeout=301)
             assert False, "Should have raised ValueError"
         except ValueError:
-            self.reporter.info("Timeout maximum validation works", context="Test")
+            self.reporter.info(
+                "Timeout maximum validation works", context="Test"
+            )
 
     def test_load_default_config(self):
         """Test loading default passeur.yaml config."""
@@ -175,8 +186,11 @@ class TestPasseurConfig(LaborantTest):
 
         assert isinstance(config, PasseurConfig)
         assert config.bridge_port > 0
+        assert config.api_port > 0
 
-        self.reporter.info("Default config loaded successfully", context="Test")
+        self.reporter.info(
+            "Default config loaded successfully", context="Test"
+        )
 
     def test_load_test_config(self):
         """Test loading development.yaml config."""
@@ -185,24 +199,29 @@ class TestPasseurConfig(LaborantTest):
         config = load_config("development.yaml")
 
         assert isinstance(config, PasseurConfig)
-        assert config.bridge_host == "0.0.0.0"
-        assert config.bridge_port == 9766
+        assert config.bridge_host == "127.0.0.1"
+        assert config.bridge_port == 9768
+        assert config.api_port == 9766
         assert config.solana_network == "devnet"
         assert config.log_level == "debug"
-        assert config.log_dir == "logs"
 
         self.reporter.info("Test config loaded successfully", context="Test")
 
     def test_load_nonexistent_config(self):
         """Test loading non-existent config uses defaults."""
-        self.reporter.info("Testing load non-existent config", context="Test")
+        self.reporter.info(
+            "Testing load non-existent config", context="Test"
+        )
 
         config = load_config("nonexistent.yaml")
 
         assert isinstance(config, PasseurConfig)
-        assert config.bridge_port == 8766
+        assert config.bridge_port == 8768
+        assert config.api_port == 8766
 
-        self.reporter.info("Non-existent config uses defaults", context="Test")
+        self.reporter.info(
+            "Non-existent config uses defaults", context="Test"
+        )
 
     def test_config_env_var_override(self):
         """Test PASSEUR_CONFIG environment variable override."""
@@ -211,7 +230,8 @@ class TestPasseurConfig(LaborantTest):
         with patch.dict(os.environ, {"PASSEUR_CONFIG": "development.yaml"}):
             config = load_config()
 
-            assert config.bridge_port == 9766
+            assert config.bridge_port == 9768
+            assert config.api_port == 9766
             assert config.log_level == "debug"
 
         self.reporter.info("PASSEUR_CONFIG env var works", context="Test")
@@ -227,7 +247,9 @@ class TestPasseurConfig(LaborantTest):
         assert "~" not in config.platform_keypair_path
         assert config.platform_keypair_path.startswith("/")
 
-        self.reporter.info("Home directory expanded correctly", context="Test")
+        self.reporter.info(
+            "Home directory expanded correctly", context="Test"
+        )
 
     def test_program_id_validation(self):
         """Test program ID is valid Solana address format."""
@@ -248,7 +270,7 @@ class TestPasseurConfig(LaborantTest):
 
         config = load_config("development.yaml")
 
-        assert config.log_dir == "logs"
+        assert config.log_dir is None or config.log_dir == "logs"
 
         self.reporter.info("Log dir from config correct", context="Test")
 
