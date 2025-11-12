@@ -156,7 +156,7 @@ class Settings(BaseSettings):
         description="Maximum array field size in messages",
     )
 
-    # Event Validation (NEW - Phase 2.1)
+    # Event Validation
     max_event_size: int = Field(
         default=1_048_576,  # 1MB
         ge=1024,
@@ -179,6 +179,54 @@ class Settings(BaseSettings):
     # Logging (mapped from YAML 'log_level')
     log_level: str = Field(default="info")
     log_file: Optional[str] = Field(default=None)
+
+    # Observability - Health Checks
+    HEALTH_CHECK_ENABLED: bool = Field(
+        default=True,
+        description="Enable dedicated health check server",
+    )
+    HEALTH_HOST: str = Field(
+        default="0.0.0.0",
+        description="Health check server host",
+    )
+    HEALTH_PORT: int = Field(
+        default=9091,
+        ge=1024,
+        le=65535,
+        description="Health check server port",
+    )
+
+    # Observability - Metrics
+    METRICS_ENABLED: bool = Field(
+        default=True,
+        description="Enable dedicated Prometheus metrics server",
+    )
+    METRICS_HOST: str = Field(
+        default="0.0.0.0",
+        description="Metrics server host",
+    )
+    METRICS_PORT: int = Field(
+        default=9090,
+        ge=1024,
+        le=65535,
+        description="Prometheus metrics server port",
+    )
+
+    # Observability - Tracing
+    TRACING_ENABLED: bool = Field(
+        default=False,
+        description="Enable OpenTelemetry distributed tracing",
+    )
+    JAEGER_ENDPOINT: Optional[str] = Field(
+        default=None,
+        description="Jaeger OTLP endpoint (e.g., http://jaeger:4318)",
+    )
+    TRACE_SAMPLE_RATE: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description="Trace sampling rate (0.0-1.0)",
+    )
 
     @field_validator("log_level")
     @classmethod
@@ -228,7 +276,7 @@ def load_config(
     env_map = {
         "production": (".env.production", "production.yaml"),
         "development": (".env.development", "development.yaml"),
-        "test": (".env.test", "test.yaml"),  # FIXED: Now uses .env.test
+        "test": (".env.test", "test.yaml"),
     }
 
     # Load .env file FIRST (before Settings initialization)
