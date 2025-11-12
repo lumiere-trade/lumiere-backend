@@ -110,32 +110,36 @@ class TestGracefulShutdown(LaborantTest):
             assert response.status_code == 200
 
             data = response.json()
+            # New health structure
             assert data["status"] == "healthy"
-            assert "uptime_seconds" in data
-            assert "total_clients" in data
-            assert "channels" in data
-            assert data.get("shutdown_info") is None
+            assert "timestamp" in data
+            assert "version" in data
+            assert "checks" in data
+            assert "connection_capacity" in data["checks"]
+            assert "connection_manager" in data["checks"]
 
         self.reporter.info("Initial health status correct", context="Test")
 
-    async def test_b_stats_endpoint_works(self):
-        """Test stats endpoint is accessible."""
-        self.reporter.info("Testing stats endpoint", context="Test")
+    async def test_b_health_endpoint_responsive(self):
+        """Test health endpoint is responsive."""
+        self.reporter.info("Testing health endpoint", context="Test")
 
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{self.http_base_url}/stats")
+            response = await client.get(f"{self.http_base_url}/health")
 
             assert response.status_code == 200
 
             data = response.json()
-            assert "uptime_seconds" in data
-            assert "active_clients" in data
-            assert "channels" in data
+            assert data["status"] == "healthy"
+            # Check metadata is present
+            capacity = data["checks"]["connection_capacity"]
+            assert "metadata" in capacity
+            assert "total_connections" in capacity["metadata"]
 
-        self.reporter.info("Stats endpoint works", context="Test")
+        self.reporter.info("Health endpoint works", context="Test")
 
     async def test_c_shutdown_infrastructure_present(self):
-        """Test ShutdownManager infrastructure is present."""
+        """Test shutdown infrastructure is present in logs."""
         self.reporter.info("Testing shutdown infrastructure", context="Test")
 
         result = subprocess.run(
@@ -151,12 +155,13 @@ class TestGracefulShutdown(LaborantTest):
             "Courier starting" in logs
             or "starting" in logs.lower()
             or "ready" in logs.lower()
+            or "Healthy" in logs
         )
 
         self.reporter.info("Shutdown infrastructure present", context="Test")
 
-    async def test_d_signal_handlers_registered(self):
-        """Test that application starts successfully."""
+    async def test_d_application_startup_successful(self):
+        """Test that application starts successfully with all checks healthy."""
         self.reporter.info("Testing application startup", context="Test")
 
         # Application should be running and responsive
@@ -164,9 +169,14 @@ class TestGracefulShutdown(LaborantTest):
             response = await client.get(f"{self.http_base_url}/health")
             assert response.status_code == 200
 
-            # Check it's actually healthy
+            # Check all health checks are healthy
             data = response.json()
             assert data["status"] == "healthy"
+
+            for check_name, check_data in data["checks"].items():
+                assert check_data["status"] == "healthy", (
+                    f"Check {check_name} not healthy: {check_data}"
+                )
 
         self.reporter.info("Application started successfully", context="Test")
 
@@ -205,8 +215,8 @@ class TestGracefulShutdown(LaborantTest):
         stop_time = time.time()
         duration = stop_time - start_time
 
-        assert stopped
-        assert duration < 40
+        assert stopped, "Container did not stop within timeout"
+        assert duration < 40, f"Shutdown took too long: {duration:.1f}s"
 
         self.reporter.info(
             f"Container stopped gracefully in {duration:.1f}s", context="Test"

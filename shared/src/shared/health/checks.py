@@ -4,10 +4,10 @@ Health check definitions and status types.
 Defines health check interface and status enums.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Optional, Protocol
+from typing import Any, Dict, Optional, Protocol
 
 
 class HealthStatus(str, Enum):
@@ -31,8 +31,9 @@ class HealthCheck:
     message: Optional[str] = None
     duration: Optional[float] = None
     timestamp: Optional[datetime] = None
+    metadata: Optional[Dict[str, Any]] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, any]:
+    def to_dict(self) -> Dict[str, Any]:
         """
         Convert to dictionary.
 
@@ -53,6 +54,9 @@ class HealthCheck:
         if self.timestamp:
             result["timestamp"] = self.timestamp.isoformat()
 
+        if self.metadata:
+            result["metadata"] = self.metadata
+
         return result
 
 
@@ -69,7 +73,7 @@ class HealthReport:
     version: str
     timestamp: datetime
 
-    def to_dict(self) -> Dict[str, any]:
+    def to_dict(self) -> Dict[str, Any]:
         """
         Convert to dictionary for JSON response.
 
@@ -85,6 +89,7 @@ class HealthReport:
                     "status": check.status.value,
                     "message": check.message,
                     "duration": check.duration,
+                    **({"metadata": check.metadata} if check.metadata else {}),
                 }
                 for name, check in self.checks.items()
             },

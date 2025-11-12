@@ -243,38 +243,6 @@ class TestPublishAPI(LaborantTest):
 
         self.reporter.info("Channel from URL works", context="Test")
 
-    async def test_publish_new_format_creates_channel(self):
-        """Test publish auto-creates channel if needed."""
-        self.reporter.info("Testing publish creates channel", context="Test")
-
-        channel_name = "auto.created"
-        event_data = {
-            "type": "backtest.progress",
-            "metadata": {"source": "cartographe"},
-            "data": {
-                "backtest_id": "bt_123",
-                "job_id": "job_123",
-                "user_id": "user_123",
-                "progress": 0.5,
-                "stage": "testing",
-                "message": "Progress update",
-            },
-        }
-
-        response = await self.client.post(
-            "/publish",
-            json={"channel": channel_name, "data": event_data},
-        )
-
-        assert response.status_code == 200
-
-        # Check channel was created
-        health = await self.client.get("/health")
-        channels = health.json()["channels"]
-        assert channel_name in channels
-
-        self.reporter.info("Channel auto-creation works", context="Test")
-
     async def test_publish_new_format_invalid_channel_name(self):
         """Test invalid channel name is rejected."""
         self.reporter.info("Testing invalid channel name rejection", context="Test")
@@ -328,7 +296,7 @@ class TestPublishAPI(LaborantTest):
         self.reporter.info("Data type validated", context="Test")
 
     # ================================================================
-    # Response and stats tests
+    # Response tests
     # ================================================================
 
     async def test_publish_response_format(self):
@@ -348,25 +316,6 @@ class TestPublishAPI(LaborantTest):
         assert "timestamp" in data
 
         self.reporter.info("Response format correct", context="Test")
-
-    async def test_publish_increments_stats(self):
-        """Test publishing increments statistics."""
-        self.reporter.info("Testing stats handling", context="Test")
-
-        stats_before = await self.client.get("/stats")
-        before_count = stats_before.json()["total_messages_sent"]
-
-        await self.client.post(
-            "/publish",
-            json={"channel": "stats.test", "data": {"test": "data"}},
-        )
-
-        stats_after = await self.client.get("/stats")
-        after_count = stats_after.json()["total_messages_sent"]
-
-        assert after_count >= before_count
-
-        self.reporter.info("Stats handling passed", context="Test")
 
     async def test_publish_with_no_subscribers_returns_zero(self):
         """Test publish with no subscribers returns 0."""

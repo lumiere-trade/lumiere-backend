@@ -111,6 +111,16 @@ class TestFullFlow(LaborantTest):
 
         raise RuntimeError("Courier API not accessible after 30 seconds")
 
+    def _get_total_connections(self, health_response: dict) -> int:
+        """Extract total connections from health response."""
+        try:
+            return health_response["checks"]["connection_capacity"]["metadata"][
+                "total_connections"
+            ]
+        except (KeyError, TypeError):
+            # Fallback for older response format
+            return health_response.get("total_clients", 0)
+
     async def test_full_flow_connect_publish_receive(self):
         """Test complete flow: connect, publish, receive message."""
         self.reporter.info("Testing full connect-publish-receive", context="Test")
@@ -347,7 +357,7 @@ class TestFullFlow(LaborantTest):
 
         async with httpx.AsyncClient() as client:
             before = await client.get(f"{self.http_base_url}/health")
-            count_before = before.json()["total_clients"]
+            count_before = self._get_total_connections(before.json())
 
             self.reporter.info(
                 f"Baseline connections: {count_before}",
@@ -361,7 +371,7 @@ class TestFullFlow(LaborantTest):
                 await asyncio.sleep(0.5)
 
                 during = await client.get(f"{self.http_base_url}/health")
-                count_during = during.json()["total_clients"]
+                count_during = self._get_total_connections(during.json())
 
                 # Should have exactly 2 more connections
                 assert count_during == count_before + 2, (
@@ -372,7 +382,7 @@ class TestFullFlow(LaborantTest):
             await asyncio.sleep(2.0)
 
             after = await client.get(f"{self.http_base_url}/health")
-            count_after = after.json()["total_clients"]
+            count_after = self._get_total_connections(after.json())
 
             # Robust check: allow small tolerance for async timing
             leaked = count_after - count_before

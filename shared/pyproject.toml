@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shared"
-version = "0.3.0"
+version = "0.3.1"
 description = "Shared utilities for Lumière trading system"
 requires-python = ">=3.11"
 dependencies = [
