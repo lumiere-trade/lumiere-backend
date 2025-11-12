@@ -16,3 +16,68 @@ request_timeout: 30
 # Logging
 log_level: "info"
 log_dir: "logs"
+
+# Blockchain
+solana_network: "mainnet-beta"
+
+# Resilience - Circuit Breakers (strict for production)
+resilience:
+  circuit_breakers:
+    solana_rpc:
+      failure_threshold: 5
+      success_threshold: 3
+      timeout: 30.0
+    bridge_server:
+      failure_threshold: 3
+      success_threshold: 2
+      timeout: 60.0
+  
+  # Retry patterns
+  retry:
+    transaction_submission:
+      max_attempts: 3
+      initial_delay: 2.0
+      max_delay: 10.0
+      exponential_base: 2.0
+      jitter: true
+    rpc_query:
+      max_attempts: 5
+      initial_delay: 0.5
+      max_delay: 5.0
+      exponential_base: 2.0
+      jitter: true
+  
+  # Timeouts
+  timeouts:
+    rpc_call: 10.0
+    transaction_confirmation: 30.0
+    bridge_call: 15.0
+  
+  # Rate Limiting (enabled for production)
+  rate_limiting:
+    rpc_calls_per_second: 10.0
+    burst_size: 20
+  
+  # Idempotency TTL (days)
+  idempotency:
+    financial_operations: 7
+    security_operations: 3
+    query_operations: 1
+
+# Health Checks
+health:
+  port: 8793
+  check_interval: 30
+
+# Metrics
+metrics:
+  port: 8792
+  enabled: true
+
+# Redis
+redis:
+  host: "lumiere-prod-redis"
+  port: 6379
+  db: 0
+  socket_timeout: 5.0
+  socket_connect_timeout: 5.0
