@@ -1,9 +1,6 @@
 # Passeur Test Configuration
 # For integration and E2E tests
 
-# Environment
-ENV: test
-
 # Bridge server
 bridge_host: "0.0.0.0"
 bridge_port: 7766
@@ -13,8 +10,73 @@ courier_url: "http://courier:7765"
 pourtier_url: "http://pourtier:7000"
 
 # Connection settings (fast for tests)
-heartbeat_interval: 10
-request_timeout: 15
+heartbeat_interval: 5
+request_timeout: 5
 
 # Logging (verbose + stdout)
 log_level: "debug"
+
+# Blockchain
+solana_network: "devnet"
+
+# Resilience - Circuit Breakers (permissive for tests)
+resilience:
+  circuit_breakers:
+    solana_rpc:
+      failure_threshold: 3
+      success_threshold: 1
+      timeout: 10.0
+    bridge_server:
+      failure_threshold: 2
+      success_threshold: 1
+      timeout: 10.0
+  
+  # Retry patterns (minimal for fast tests)
+  retry:
+    transaction_submission:
+      max_attempts: 2
+      initial_delay: 0.1
+      max_delay: 1.0
+      exponential_base: 2.0
+      jitter: true
+    rpc_query:
+      max_attempts: 2
+      initial_delay: 0.1
+      max_delay: 0.5
+      exponential_base: 2.0
+      jitter: true
+  
+  # Timeouts (short for fast tests)
+  timeouts:
+    rpc_call: 5.0
+    transaction_confirmation: 10.0
+    bridge_call: 5.0
+  
+  # Rate Limiting (disabled for tests)
+  rate_limiting:
+    rpc_calls_per_second: 1000.0
+    burst_size: 1000
+  
+  # Idempotency TTL (short for tests)
+  idempotency:
+    financial_operations: 1
+    security_operations: 1
+    query_operations: 1
+
+# Health Checks (disabled for tests)
+health:
+  port: 7793
+  check_interval: 10
+
+# Metrics (disabled for tests)
+metrics:
+  port: 7792
+  enabled: false
+
+# Redis
+redis:
+  host: "lumiere-test-redis"
+  port: 6379
+  db: 2
+  socket_timeout: 2.0
+  socket_connect_timeout: 2.0

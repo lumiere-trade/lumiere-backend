@@ -14,3 +14,68 @@ request_timeout: 15
 
 # Logging (verbose + stdout for Docker)
 log_level: "debug"
+
+# Blockchain
+solana_network: "devnet"
+
+# Resilience - Circuit Breakers (permissive for dev)
+resilience:
+  circuit_breakers:
+    solana_rpc:
+      failure_threshold: 10
+      success_threshold: 2
+      timeout: 30.0
+    bridge_server:
+      failure_threshold: 5
+      success_threshold: 2
+      timeout: 60.0
+  
+  # Retry patterns (more attempts for dev)
+  retry:
+    transaction_submission:
+      max_attempts: 5
+      initial_delay: 1.0
+      max_delay: 5.0
+      exponential_base: 2.0
+      jitter: true
+    rpc_query:
+      max_attempts: 7
+      initial_delay: 0.3
+      max_delay: 3.0
+      exponential_base: 2.0
+      jitter: true
+  
+  # Timeouts (longer for dev)
+  timeouts:
+    rpc_call: 30.0
+    transaction_confirmation: 60.0
+    bridge_call: 30.0
+  
+  # Rate Limiting (disabled for dev)
+  rate_limiting:
+    rpc_calls_per_second: 100.0
+    burst_size: 200
+  
+  # Idempotency TTL (shorter for dev)
+  idempotency:
+    financial_operations: 1
+    security_operations: 1
+    query_operations: 1
+
+# Health Checks
+health:
+  port: 9793
+  check_interval: 30
+
+# Metrics
+metrics:
+  port: 9792
+  enabled: true
+
+# Redis
+redis:
+  host: "lumiere-dev-redis"
+  port: 6379
+  db: 1
+  socket_timeout: 5.0
+  socket_connect_timeout: 5.0
