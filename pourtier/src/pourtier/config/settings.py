@@ -238,7 +238,12 @@ def load_config(
     """
     Load configuration from YAML files and environment variables.
 
-    Priority: ENV vars > environment-specific YAML > default YAML > defaults
+    Priority (highest to lowest):
+    1. Environment variables (from system/docker-compose)
+    2. .env file (fallback for missing env vars)
+    3. Environment-specific YAML (development.yaml, test.yaml, production.yaml)
+    4. Default YAML (default.yaml)
+    5. Pydantic field defaults
 
     Args:
         config_file: Optional YAML config filename override
@@ -257,11 +262,10 @@ def load_config(
 
     environment = env or os.getenv("ENV", "production")
 
-    # FIXED: Map test environment to .env.test
     env_map = {
         "production": (".env.production", "production.yaml"),
         "development": (".env.development", "development.yaml"),
-        "test": (".env.test", "test.yaml"),  # ✅ FIXED: Now uses .env.test
+        "test": (".env.test", "test.yaml"),
     }
 
     if env_file is None:
@@ -272,9 +276,11 @@ def load_config(
         if config_file is None:
             config_file = default_config_file
 
+    # Load .env file WITHOUT overriding existing environment variables
+    # This ensures docker-compose env vars take precedence
     env_file_path = project_root / env_file
     if env_file_path.exists():
-        load_dotenv(env_file_path, override=True)
+        load_dotenv(env_file_path, override=False)
 
     default_config_path = config_dir / "default.yaml"
     merged_config = {}
