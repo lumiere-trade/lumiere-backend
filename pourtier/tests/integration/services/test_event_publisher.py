@@ -189,9 +189,9 @@ class TestEventPublisher(LaborantTest):
 
             stats = response.json()
 
-            # Verify stats structure
+            # Verify stats structure (using correct field names from Courier API)
             assert "total_messages_sent" in stats
-            assert "active_clients" in stats
+            assert "total_connections" in stats
             assert "channels" in stats
 
             self.reporter.info(
@@ -199,7 +199,7 @@ class TestEventPublisher(LaborantTest):
                 context="Test",
             )
             self.reporter.info(
-                f"Active clients: {stats['active_clients']}", context="Test"
+                f"Total connections: {stats['total_connections']}", context="Test"
             )
 
         self.reporter.info("Courier stats verified", context="Test")
