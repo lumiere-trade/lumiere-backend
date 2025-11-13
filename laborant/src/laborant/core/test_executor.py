@@ -4,6 +4,7 @@ Test executor - runs test files and parses their results.
 Executes tests as subprocess and parses JSON output.
 """
 
+import os
 import subprocess
 import sys
 import time
@@ -67,6 +68,10 @@ class TestExecutor:
         start_time = time.time()
 
         try:
+            # Prepare environment with ENV=test for test execution
+            test_env = os.environ.copy()
+            test_env["ENV"] = "test"
+
             # Run test file as subprocess
             result = subprocess.run(
                 [sys.executable, str(test_file)],
@@ -74,6 +79,7 @@ class TestExecutor:
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
+                env=test_env,
             )
 
             duration = time.time() - start_time
