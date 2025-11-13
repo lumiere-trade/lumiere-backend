@@ -66,7 +66,7 @@ class TestEscrowE2E(LaborantTest):
         self.reporter.info("=" * 60, context="Setup")
 
         # Use development.yaml config for devnet settings
-        self.test_config = load_config("development.yaml")
+        self.test_config = load_config()
 
         # Connect to running passeur container (Python FastAPI)
         self.passeur_url = f"http://localhost:{self.test_config.api_port}"
