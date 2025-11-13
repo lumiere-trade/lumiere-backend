@@ -20,7 +20,6 @@ from shared.reporter import SystemReporter
 from courier.config.settings import Settings, load_config
 from courier.di import Container
 from courier.infrastructure.monitoring import (
-    CourierGracefulShutdown,
     CourierHealthChecker,
 )
 from courier.presentation.api.dependencies import set_container

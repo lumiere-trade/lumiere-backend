@@ -20,17 +20,17 @@ def get_connection_manager(container: Container = Depends(get_container)):
 def get_stats(connection_manager=Depends(get_connection_manager)):
     """
     Get Courier service statistics.
-    
+
     Returns operational metrics including:
     - Total active connections
     - Active channels and their subscriber counts
     - Message delivery statistics (future)
-    
+
     Returns:
         Statistics dict
     """
     channels = connection_manager.get_all_channels()
-    
+
     return {
         "total_connections": connection_manager.get_total_connections(),
         "active_channels": len(channels),
