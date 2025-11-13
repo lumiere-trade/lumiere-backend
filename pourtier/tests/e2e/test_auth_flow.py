@@ -5,9 +5,11 @@ Tests new auth flow:
 1. Verify wallet signature
 2. Get legal documents
 3. Create account with legal acceptance
+import asyncio
 4. Login existing user
 
 Uses Alice test wallet for authentication.
+import asyncio
 
 Usage:
     laborant pourtier --e2e
@@ -62,7 +64,7 @@ class TestAuthFlow(LaborantTest):
         self.reporter.info("Setting up E2E test environment...", context="Setup")
 
         settings = get_settings()
-        TestAuthFlow.api_base_url = f"http://pourtier:{settings.API_PORT}"
+        TestAuthFlow.api_base_url = f"http://localhost:{settings.API_PORT}"
         TestAuthFlow.alice_wallet = PlatformWallets.get_test_alice_address()
 
         self.reporter.info(f"API URL: {self.api_base_url}", context="Setup")
@@ -135,15 +137,13 @@ class TestAuthFlow(LaborantTest):
                         return
             except Exception:
                 if attempt < max_attempts - 1:
-                    await self._async_sleep(1)
+                    await asyncio.sleep(1)
 
         raise RuntimeError("API not accessible")
 
     async def test_01_health_check(self):
         """Test health check endpoint."""
-        self.reporter.info(
-            "Testing health endpoint...", context="Test"
-        )
+        self.reporter.info("Testing health endpoint...", context="Test")
 
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{self.api_base_url}/health")
@@ -153,9 +153,7 @@ class TestAuthFlow(LaborantTest):
             data = response.json()
             assert data["status"] in ["healthy", "degraded"]
 
-            self.reporter.info(
-                "Health check passed", context="Test"
-            )
+            self.reporter.info("Health check passed", context="Test")
 
     async def test_02_get_legal_documents(self):
         """Test getting active legal documents."""

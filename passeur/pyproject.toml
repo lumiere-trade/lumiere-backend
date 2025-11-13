@@ -11,7 +11,10 @@ requires-python = ">=3.11"
 license = {text = "MIT"}
 
 dependencies = [
-    "shared==0.3.1",
+    "shared==0.3.2",
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.23.0",
+    "redis>=5.0.0",
     "pyyaml>=6.0",
     "aiohttp>=3.9.0",
     "pydantic>=2.0.0",

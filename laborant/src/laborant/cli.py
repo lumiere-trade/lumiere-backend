@@ -38,20 +38,14 @@ def install_hook(project_root: Path, reporter: SystemReporter) -> int:
         Exit code (0 = success, 1 = failure)
     """
     reporter.info("", context="CLI")
-    reporter.info(
-        "Installing Laborant pre-commit hook", context="CLI"
-    )
+    reporter.info("Installing Laborant pre-commit hook", context="CLI")
     reporter.info("", context="CLI")
 
     # Check if git repository
     git_dir = project_root / ".git"
     if not git_dir.exists():
-        reporter.error(
-            "Not a git repository", context="CLI"
-        )
-        reporter.info(
-            "Run this command from project root", context="CLI"
-        )
+        reporter.error("Not a git repository", context="CLI")
+        reporter.info("Run this command from project root", context="CLI")
         reporter.info("", context="CLI")
         return 1
 
@@ -64,29 +58,21 @@ def install_hook(project_root: Path, reporter: SystemReporter) -> int:
 
     # Check if hook already exists
     if hook_path.exists():
-        reporter.warning(
-            "Pre-commit hook already exists", context="CLI"
-        )
+        reporter.warning("Pre-commit hook already exists", context="CLI")
         reporter.info(f"Location: {hook_path}", context="CLI")
         reporter.info("", context="CLI")
 
         # Ask for confirmation (read from stdin)
-        reporter.info(
-            "Overwrite existing hook? (y/N): ", context="CLI"
-        )
+        reporter.info("Overwrite existing hook? (y/N): ", context="CLI")
 
         try:
             response = input().strip().lower()
             if response not in ["y", "yes"]:
-                reporter.info(
-                    "Installation cancelled", context="CLI"
-                )
+                reporter.info("Installation cancelled", context="CLI")
                 reporter.info("", context="CLI")
                 return 0
         except (EOFError, KeyboardInterrupt):
-            reporter.info(
-                "\nInstallation cancelled", context="CLI"
-            )
+            reporter.info("\nInstallation cancelled", context="CLI")
             reporter.info("", context="CLI")
             return 0
 
@@ -97,9 +83,7 @@ def install_hook(project_root: Path, reporter: SystemReporter) -> int:
     template_path = laborant_root / "hooks" / "pre-commit.template"
 
     if not template_path.exists():
-        reporter.error(
-            "Hook template not found", context="CLI"
-        )
+        reporter.error("Hook template not found", context="CLI")
         reporter.error(f"Expected: {template_path}", context="CLI")
         reporter.info("", context="CLI")
         return 1
@@ -121,17 +105,13 @@ def install_hook(project_root: Path, reporter: SystemReporter) -> int:
             "The hook will run automatically before each commit",
             context="CLI",
         )
-        reporter.info(
-            "To skip: git commit --no-verify", context="CLI"
-        )
+        reporter.info("To skip: git commit --no-verify", context="CLI")
         reporter.info("", context="CLI")
 
         return 0
 
     except Exception as e:
-        reporter.error(
-            f"Failed to install hook: {e}", context="CLI"
-        )
+        reporter.error(f"Failed to install hook: {e}", context="CLI")
         reporter.info("", context="CLI")
         return 1
 
@@ -155,9 +135,7 @@ def list_components(project_root: Path, reporter: SystemReporter) -> int:
     reporter.info("", context="CLI")
 
     if not components:
-        reporter.info(
-            "No components with tests found.", context="CLI"
-        )
+        reporter.info("No components with tests found.", context="CLI")
         reporter.info("", context="CLI")
         return 0
 
@@ -180,9 +158,7 @@ def list_components(project_root: Path, reporter: SystemReporter) -> int:
             )
 
     reporter.info("", context="CLI")
-    reporter.info(
-        f"Total: {len(components)} component(s)", context="CLI"
-    )
+    reporter.info(f"Total: {len(components)} component(s)", context="CLI")
     reporter.info("", context="CLI")
 
     return 0
@@ -209,9 +185,7 @@ def dry_run(
         Exit code (0)
     """
     reporter.info("", context="CLI")
-    reporter.info(
-        "Laborant (Dry run - no execution)", context="CLI"
-    )
+    reporter.info("Laborant (Dry run - no execution)", context="CLI")
     reporter.info("", context="CLI")
 
     # Determine components
@@ -235,9 +209,7 @@ def dry_run(
         detector = ChangeDetector(project_root, reporter)
 
         if not detector.is_git_repository():
-            reporter.warning(
-                "Not a git repository", context="CLI"
-            )
+            reporter.warning("Not a git repository", context="CLI")
             reporter.info("", context="CLI")
             return 0
 
@@ -254,9 +226,7 @@ def dry_run(
         reporter.info("", context="CLI")
         reporter.info("Changed files:", context="CLI")
         for f in relevant:
-            reporter.info(
-                f"  {f.relative_to(project_root)}", context="CLI"
-            )
+            reporter.info(f"  {f.relative_to(project_root)}", context="CLI")
         reporter.info("", context="CLI")
 
     if not target_components:
@@ -274,9 +244,7 @@ def dry_run(
 
     for component in sorted(target_components):
         if not mapper.has_tests(component):
-            reporter.warning(
-                f"  {component} (no tests)", context="CLI"
-            )
+            reporter.warning(f"  {component} (no tests)", context="CLI")
             continue
 
         test_files = mapper.discover_test_files(component, categories)
@@ -295,9 +263,7 @@ def dry_run(
                 continue
 
             for test_file in test_files[category]:
-                reporter.info(
-                    f"      {category}/{test_file.name}", context="CLI"
-                )
+                reporter.info(f"      {category}/{test_file.name}", context="CLI")
                 total_files += 1
 
         reporter.info("", context="CLI")
@@ -545,15 +511,11 @@ Examples:
             return install_hook(project_root, cli_reporter)
 
     except KeyboardInterrupt:
-        cli_reporter.warning(
-            "\nTest run interrupted by user", context="CLI"
-        )
+        cli_reporter.warning("\nTest run interrupted by user", context="CLI")
         return 2
 
     except Exception as e:
-        cli_reporter.error(
-            f"Fatal error: {e}", context="CLI"
-        )
+        cli_reporter.error(f"Fatal error: {e}", context="CLI")
         if args.verbose:
             import traceback
 

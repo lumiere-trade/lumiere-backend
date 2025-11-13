@@ -174,9 +174,9 @@ class TestGracefulShutdown(LaborantTest):
             assert data["status"] == "healthy"
 
             for check_name, check_data in data["checks"].items():
-                assert check_data["status"] == "healthy", (
-                    f"Check {check_name} not healthy: {check_data}"
-                )
+                assert (
+                    check_data["status"] == "healthy"
+                ), f"Check {check_name} not healthy: {check_data}"
 
         self.reporter.info("Application started successfully", context="Test")
 

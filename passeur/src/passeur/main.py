@@ -9,6 +9,7 @@ FastAPI application with resilience patterns:
 - Idempotency
 """
 
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -90,19 +91,29 @@ async def lifespan(app: FastAPI):
     )
     set_health_checker(health_checker)
 
-    # Start health server
+    # Start health server in background thread
     if settings.health.port:
         health_server = HealthServer(health_checker, port=settings.health.port)
-        health_server.start_in_background()
+        health_thread = threading.Thread(
+            target=health_server.start,
+            daemon=True,
+            name="HealthServer",
+        )
+        health_thread.start()
         print(f"Health server started on port {settings.health.port}")
 
-    # Start metrics server
+    # Start metrics server in background thread
     if settings.metrics.enabled and settings.metrics.port:
         metrics_server = MetricsServer(
             host="0.0.0.0",
             port=settings.metrics.port,
         )
-        metrics_server.start_in_background()
+        metrics_thread = threading.Thread(
+            target=metrics_server.start,
+            daemon=True,
+            name="MetricsServer",
+        )
+        metrics_thread.start()
         print(f"Metrics server started on port {settings.metrics.port}")
 
     # Setup graceful shutdown
@@ -126,6 +137,14 @@ async def lifespan(app: FastAPI):
 
     if shutdown_handler:
         await shutdown_handler.shutdown()
+
+    if metrics_server:
+        metrics_server.shutdown()
+        print("Metrics server shut down")
+
+    if health_server:
+        health_server.shutdown()
+        print("Health server shut down")
 
     print("Passeur stopped")
 

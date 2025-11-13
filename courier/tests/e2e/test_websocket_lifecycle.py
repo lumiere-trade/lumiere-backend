@@ -343,11 +343,11 @@ class TestWebSocketLifecycle(LaborantTest):
             await asyncio.sleep(2.0)
 
             health = await client.get("http://localhost:7765/health")
-            
+
             # Main assertion: total connections should be 0 after disconnect
             connections = self._get_total_connections(health.json())
             assert connections == 0, f"Expected 0 connections, got {connections}"
-            
+
             # Channel cleanup is best-effort (timing varies)
             channels = self._get_channel_names(health.json())
             if channel not in channels:

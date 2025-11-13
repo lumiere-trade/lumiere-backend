@@ -31,12 +31,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.settings = get_settings()
         self.container = get_container()
 
-        # Initialize rate limiter if Redis enabled
-        if self.settings.REDIS_ENABLED:
+        # Initialize rate limiter if Redis enabled AND connected
+        if (
+            self.settings.REDIS_ENABLED
+            and self.container._cache_client is not None
+            and hasattr(self.container._cache_client, "_client")
+            and self.container._cache_client._client is not None
+        ):
+            # Convert requests per second to requests per minute
+            rpm = int(self.settings.RATE_LIMIT_REQUESTS_PER_SECOND * 60)
+
             self.rate_limiter = RateLimiter(
                 cache_client=self.container.cache_client,
-                default_requests_per_minute=self.settings.RATE_LIMIT_RPM,
-                default_burst_size=self.settings.RATE_LIMIT_BURST,
+                default_requests_per_minute=rpm,
+                default_burst_size=self.settings.RATE_LIMIT_BURST_SIZE,
             )
         else:
             self.rate_limiter = None
@@ -147,7 +155,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         """
         Normalize endpoint for rate limit tracking.
 
-        Groups similar endpoints together (e.g., /api/users/123 → /api/users/:id)
+        Groups similar endpoints together.
 
         Args:
             path: Request path
@@ -158,7 +166,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Remove trailing slash
         path = path.rstrip("/")
 
-        # Simple normalization (can be enhanced with regex)
+        # Simple normalization
         # Replace UUID-like segments with :id
         segments = path.split("/")
         normalized = []

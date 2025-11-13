@@ -17,7 +17,7 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from threading import Lock
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Tuple, Type
 
 from .exceptions import CircuitBreakerOpenError
 
@@ -40,12 +40,16 @@ class CircuitBreakerConfig:
         success_threshold: Number of successes to close from half-open
         timeout: Seconds to wait before trying half-open
         half_open_max_calls: Max concurrent calls in half-open state
+        expected_exceptions: Tuple of exception types that count as failures.
+                           If None, all exceptions count as failures.
+                           Other exceptions pass through without counting.
     """
 
     failure_threshold: int = 5
     success_threshold: int = 2
     timeout: float = 60.0
     half_open_max_calls: int = 3
+    expected_exceptions: Optional[Tuple[Type[Exception], ...]] = None
 
 
 class CircuitBreaker:
@@ -143,8 +147,10 @@ class CircuitBreaker:
             result = func(*args, **kwargs)
             self._on_success()
             return result
-        except Exception:
-            self._on_failure()
+        except Exception as e:
+            # Only count as failure if it's an expected exception type
+            if self._should_count_as_failure(e):
+                self._on_failure()
             raise
 
     async def call_async(self, func: Callable, *args, **kwargs) -> Any:
@@ -179,9 +185,30 @@ class CircuitBreaker:
             result = await func(*args, **kwargs)
             self._on_success()
             return result
-        except Exception:
-            self._on_failure()
+        except Exception as e:
+            # Only count as failure if it's an expected exception type
+            if self._should_count_as_failure(e):
+                self._on_failure()
             raise
+
+    def _should_count_as_failure(self, exception: Exception) -> bool:
+        """
+        Determine if exception should count as a failure.
+
+        If expected_exceptions is None, all exceptions count as failures.
+        Otherwise, only exceptions matching the expected types count.
+
+        Args:
+            exception: The exception that occurred
+
+        Returns:
+            True if should count as failure, False otherwise
+        """
+        if self.config.expected_exceptions is None:
+            # No filter - all exceptions count
+            return True
+        # Only count if it matches expected exception types
+        return isinstance(exception, self.config.expected_exceptions)
 
     def _can_attempt(self) -> bool:
         """

@@ -39,14 +39,14 @@ resilience:
     transaction_submission:
       max_attempts: 2
       initial_delay: 0.1
-      max_delay: 1.0
-      exponential_base: 2.0
+      max_delay: 2.0
+      backoff_multiplier: 2.0
       jitter: false
     rpc_query:
       max_attempts: 3
       initial_delay: 0.1
-      max_delay: 0.5
-      exponential_base: 2.0
+      max_delay: 2.0
+      backoff_multiplier: 2.0
       jitter: false
 
   # Timeouts (short for tests)
@@ -58,7 +58,7 @@ resilience:
   # Rate Limiting (disabled for tests)
   rate_limiting:
     rpc_calls_per_second: 1000.0
-    burst_size: 2000
+    burst_size: 1000
 
   # Idempotency TTL (very short for tests)
   idempotency:

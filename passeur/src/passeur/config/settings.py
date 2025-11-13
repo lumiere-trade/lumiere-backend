@@ -31,7 +31,7 @@ class RetryConfig(BaseSettings):
     max_attempts: int = Field(default=3, ge=1, le=10)
     initial_delay: float = Field(default=1.0, ge=0.1, le=10.0)
     max_delay: float = Field(default=30.0, ge=1.0, le=300.0)
-    exponential_base: float = Field(default=2.0, ge=1.0, le=10.0)
+    backoff_multiplier: float = Field(default=2.0, ge=1.0, le=10.0)
     jitter: bool = Field(default=True)
 
 
@@ -82,14 +82,14 @@ class ResilienceConfig(BaseSettings):
                 "max_attempts": 3,
                 "initial_delay": 2.0,
                 "max_delay": 10.0,
-                "exponential_base": 2.0,
+                "backoff_multiplier": 2.0,
                 "jitter": True,
             },
             "rpc_query": {
                 "max_attempts": 5,
                 "initial_delay": 0.5,
                 "max_delay": 5.0,
-                "exponential_base": 2.0,
+                "backoff_multiplier": 2.0,
                 "jitter": True,
             },
         }

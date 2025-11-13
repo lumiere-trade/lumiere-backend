@@ -27,7 +27,7 @@ class PasseurGracefulShutdown:
         Args:
             timeout: Maximum time to wait for graceful shutdown
         """
-        self.shared_shutdown = SharedGracefulShutdown(timeout=timeout)
+        self.shared_shutdown = SharedGracefulShutdown()
         self._cleanup_handlers: List[Callable] = []
 
     def register_cleanup(self, handler: Callable) -> None:

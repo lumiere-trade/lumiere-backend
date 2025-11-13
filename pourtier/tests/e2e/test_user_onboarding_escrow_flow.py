@@ -69,7 +69,7 @@ class TestUserOnboardingEscrowFlow(LaborantTest):
 
         settings = get_settings()
         TestUserOnboardingEscrowFlow.api_base_url = (
-            f"http://pourtier:{settings.API_PORT}"
+            f"http://localhost:{settings.API_PORT}"
         )
         TestUserOnboardingEscrowFlow.passeur_url = settings.PASSEUR_URL
         TestUserOnboardingEscrowFlow.rpc_url = settings.SOLANA_RPC_URL

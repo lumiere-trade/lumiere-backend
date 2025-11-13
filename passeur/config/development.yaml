@@ -40,13 +40,13 @@ resilience:
       max_attempts: 5
       initial_delay: 1.0
       max_delay: 5.0
-      exponential_base: 2.0
+      backoff_multiplier: 2.0
       jitter: true
     rpc_query:
       max_attempts: 7
       initial_delay: 0.3
       max_delay: 3.0
-      exponential_base: 2.0
+      backoff_multiplier: 2.0
       jitter: true
 
   # Timeouts (longer for dev)

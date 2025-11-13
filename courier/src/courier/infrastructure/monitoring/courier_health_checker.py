@@ -120,9 +120,7 @@ class CourierHealthChecker(HealthChecker):
             # Metadata for machine consumption
             metadata = {
                 "total_connections": total_connections,
-                "max_connections": (
-                    max_connections if max_connections > 0 else None
-                ),
+                "max_connections": (max_connections if max_connections > 0 else None),
             }
 
             # No limit configured - always healthy
