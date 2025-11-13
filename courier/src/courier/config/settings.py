@@ -290,7 +290,7 @@ def load_config(
 
     env_file_path = project_root / env_file
     if env_file_path.exists():
-        load_dotenv(env_file_path, override=True)
+        load_dotenv(env_file_path, override=False)
 
     # Load default config
     default_config_path = config_dir / "default.yaml"
