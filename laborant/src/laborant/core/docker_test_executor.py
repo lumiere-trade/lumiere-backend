@@ -7,6 +7,7 @@ test containers. Provides clean separation between orchestration and execution.
 Uses component-level docker-compose-test.yaml files.
 """
 
+import os
 import subprocess
 import time
 from datetime import datetime
@@ -144,7 +145,7 @@ class DockerTestExecutor:
 
         if not compose_file:
             self.reporter.info(
-                f"No docker-compose-test.yaml found for {component} - will run tests on host",
+                f"No docker-compose-test.yaml for {component} - tests on host",
                 context="DockerTestExecutor",
             )
             # No infrastructure needed - component runs on host
@@ -177,7 +178,7 @@ class DockerTestExecutor:
                     "up",
                     "-d",
                 ],
-                cwd=str(compose_file.parent),  # Run from component directory
+                cwd=str(compose_file.parent),
                 capture_output=True,
                 text=True,
                 check=True,
@@ -306,13 +307,18 @@ class DockerTestExecutor:
             start_time = time.time()
 
             try:
-                # Execute test file directly on host
+                # Prepare environment with ENV=test
+                test_env = os.environ.copy()
+                test_env['ENV'] = 'test'
+
+                # Execute test file directly on host with ENV=test
                 result = subprocess.run(
                     ["python", str(test_file)],
                     cwd=str(self.project_root / component),
                     capture_output=True,
                     text=True,
                     timeout=self.timeout,
+                    env=test_env,
                 )
 
                 duration = time.time() - start_time
@@ -392,7 +398,7 @@ class DockerTestExecutor:
         start_time = time.time()
 
         try:
-            # Execute test in container using unittest (not pytest)
+            # Execute test in container
             result = subprocess.run(
                 [
                     "docker",
@@ -438,12 +444,14 @@ class DockerTestExecutor:
 
             if test_result.success:
                 self.reporter.debug(
-                    f"{test_result.passed}/{test_result.total} passed ({duration:.2f}s)",
+                    f"{test_result.passed}/{test_result.total} passed "
+                    f"({duration:.2f}s)",
                     context="DockerTestExecutor",
                 )
             else:
                 self.reporter.debug(
-                    f"{test_result.failed + test_result.errors} failed ({duration:.2f}s)",
+                    f"{test_result.failed + test_result.errors} failed "
+                    f"({duration:.2f}s)",
                     context="DockerTestExecutor",
                 )
 
