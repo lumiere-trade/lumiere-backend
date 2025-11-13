@@ -27,6 +27,7 @@ from courier.presentation.api.dependencies import set_container
 from courier.presentation.api.routes import (
     health_router,
     publish_router,
+    stats_router,
     websocket_router,
 )
 
@@ -131,6 +132,7 @@ class CourierApp:
         # Register routes from presentation layer
         app.include_router(websocket_router)
         app.include_router(publish_router)
+        app.include_router(stats_router)
         app.include_router(health_router)
 
         return app
