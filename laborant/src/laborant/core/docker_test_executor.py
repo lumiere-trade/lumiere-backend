@@ -309,7 +309,7 @@ class DockerTestExecutor:
             try:
                 # Prepare environment with ENV=test
                 test_env = os.environ.copy()
-                test_env['ENV'] = 'test'
+                test_env["ENV"] = "test"
 
                 # Execute test file directly on host with ENV=test
                 result = subprocess.run(
