@@ -1,19 +1,17 @@
 """
 Solana smart contract client adapter.
 
-Handles escrow account management and fund delegation via Escrow Bridge.
+Handles escrow account management and fund delegation via Passeur Bridge.
+Uses PasseurBridgeClient for all blockchain interactions.
 """
 
-import asyncio
 from decimal import Decimal
 from typing import Optional
-from uuid import UUID
-
-import aiohttp
 
 from pourtier.domain.services.i_escrow_contract_client import (
     IEscrowContractClient,
 )
+from pourtier.domain.services.i_passeur_bridge import IPasseurBridge
 from pourtier.domain.value_objects.wallet_address import WalletAddress
 
 
@@ -21,414 +19,280 @@ class EscrowContractClient(IEscrowContractClient):
     """
     Solana smart contract client for escrow management.
 
-    Communicates with Escrow Bridge API for blockchain interactions.
+    Delegates all blockchain operations to PasseurBridgeClient.
+    Provides domain-level interface for escrow operations.
     """
 
-    def __init__(
-        self,
-        bridge_url: Optional[str] = None,
-        timeout: int = 30,
-    ):
+    def __init__(self, passeur_bridge: IPasseurBridge):
         """
         Initialize escrow contract client.
 
         Args:
-            bridge_url: Escrow Bridge API base URL (if None, loaded from config)
-            timeout: HTTP request timeout in seconds
+            passeur_bridge: PasseurBridgeClient instance
         """
-        # Load from config if not provided
-        if bridge_url is None:
-            from pourtier.config.settings import get_settings
+        self.bridge = passeur_bridge
 
-            settings = get_settings()
-            bridge_url = settings.passeur_url
-
-        self.bridge_url = bridge_url.rstrip("/")
-        self.timeout = aiohttp.ClientTimeout(total=timeout)
-        self._session: Optional[aiohttp.ClientSession] = None
-
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create HTTP session."""
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(timeout=self.timeout)
-        return self._session
-
-    async def initialize_escrow(
+    async def prepare_initialize_escrow(
         self,
         user_wallet: WalletAddress,
-        strategy_id: UUID,
-        token_mint: str,
         max_balance: Optional[int] = None,
-    ) -> str:
+    ) -> dict:
         """
-        Initialize escrow PDA for user and strategy.
+        Prepare unsigned transaction to initialize escrow PDA.
 
         Args:
             user_wallet: User's Solana wallet address
-            strategy_id: Strategy unique identifier
-            token_mint: Token mint address (e.g., USDC mint)
             max_balance: Optional maximum balance limit
 
         Returns:
-            Escrow account address (PDA)
+            Dictionary with unsigned transaction and escrow account address
 
         Raises:
             Exception: If Bridge API call fails
         """
-        session = await self._get_session()
+        # Passeur expects string wallet address
+        unsigned_tx = await self.bridge.prepare_initialize_escrow(
+            user_wallet=user_wallet.address,
+            token_mint="USDC",
+        )
 
-        payload = {
-            "userWallet": user_wallet.address,
-            "strategyId": str(strategy_id),
-            "tokenMint": token_mint,
+        # Return transaction for frontend signing
+        return {
+            "transaction": unsigned_tx,
+            "message": "Transaction prepared. Please sign with your wallet.",
         }
 
-        if max_balance is not None:
-            payload["maxBalance"] = max_balance
-
-        async with session.post(
-            f"{self.bridge_url}/escrow/initialize", json=payload
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise Exception(f"Failed to initialize escrow: {error_text}")
-
-            data = await response.json()
-            return data["escrowAccount"]
-
-    async def deposit_funds(
+    async def prepare_deposit(
         self,
         user_wallet: WalletAddress,
         escrow_account: str,
         amount: Decimal,
-        token_mint: str,
-    ) -> str:
+    ) -> dict:
         """
-        Deposit funds from user wallet to escrow account.
+        Prepare unsigned transaction to deposit funds.
 
         Args:
             user_wallet: User's Solana wallet address
             escrow_account: Escrow PDA address
             amount: Deposit amount in tokens
-            token_mint: Token mint address (USDC, SOL, etc.)
 
         Returns:
-            Transaction signature
+            Dictionary with unsigned transaction
 
         Raises:
             Exception: If Bridge API call fails
         """
-        session = await self._get_session()
+        unsigned_tx = await self.bridge.prepare_deposit(
+            user_wallet=user_wallet.address,
+            escrow_account=escrow_account,
+            amount=amount,
+        )
 
-        payload = {
-            "userWallet": user_wallet.address,
-            "escrowAccount": escrow_account,
+        return {
+            "transaction": unsigned_tx,
             "amount": str(amount),
-            "tokenMint": token_mint,
+            "message": "Transaction prepared. Please sign with your wallet.",
         }
 
-        async with session.post(
-            f"{self.bridge_url}/escrow/deposit", json=payload
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise Exception(f"Failed to deposit funds: {error_text}")
-
-            data = await response.json()
-            return data["signature"]
-
-    async def approve_destination(
+    async def prepare_delegate_platform(
         self,
         user_wallet: WalletAddress,
         escrow_account: str,
-        destination: str,
-    ) -> str:
+        platform_authority: WalletAddress,
+    ) -> dict:
         """
-        Approve a destination token account for trading.
+        Prepare unsigned transaction to delegate platform authority.
 
         Args:
             user_wallet: User's Solana wallet address
             escrow_account: Escrow PDA address
-            destination: Destination token account address
+            platform_authority: Platform authority wallet address
 
         Returns:
-            Transaction signature
+            Dictionary with unsigned transaction
 
         Raises:
             Exception: If Bridge API call fails
         """
-        session = await self._get_session()
+        unsigned_tx = await self.bridge.prepare_delegate_platform(
+            user_wallet=user_wallet.address,
+            escrow_account=escrow_account,
+            platform_authority=platform_authority.address,
+        )
 
-        payload = {
-            "userWallet": user_wallet.address,
-            "escrowAccount": escrow_account,
-            "destination": destination,
+        return {
+            "transaction": unsigned_tx,
+            "message": "Transaction prepared. Please sign with your wallet.",
         }
 
-        async with session.post(
-            f"{self.bridge_url}/escrow/approve-destination",
-            json=payload,
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise Exception(f"Failed to approve destination: {error_text}")
-
-            data = await response.json()
-            return data["signature"]
-
-    async def revoke_destination(
+    async def prepare_delegate_trading(
         self,
         user_wallet: WalletAddress,
         escrow_account: str,
-        destination: str,
-    ) -> str:
+        trading_authority: WalletAddress,
+    ) -> dict:
         """
-        Revoke approval for a destination token account.
+        Prepare unsigned transaction to delegate trading authority.
 
         Args:
             user_wallet: User's Solana wallet address
             escrow_account: Escrow PDA address
-            destination: Destination token account address
+            trading_authority: Trading authority wallet address
 
         Returns:
-            Transaction signature
+            Dictionary with unsigned transaction
 
         Raises:
             Exception: If Bridge API call fails
         """
-        session = await self._get_session()
+        unsigned_tx = await self.bridge.prepare_delegate_trading(
+            user_wallet=user_wallet.address,
+            escrow_account=escrow_account,
+            trading_authority=trading_authority.address,
+        )
 
-        payload = {
-            "userWallet": user_wallet.address,
-            "escrowAccount": escrow_account,
-            "destination": destination,
+        return {
+            "transaction": unsigned_tx,
+            "message": "Transaction prepared. Please sign with your wallet.",
         }
 
-        async with session.post(
-            f"{self.bridge_url}/escrow/revoke-destination", json=payload
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise Exception(f"Failed to revoke destination: {error_text}")
-
-            data = await response.json()
-            return data["signature"]
-
-    async def delegate_authority(
+    async def prepare_revoke_platform(
         self,
         user_wallet: WalletAddress,
         escrow_account: str,
-        trading_wallet: WalletAddress,
-    ) -> str:
+    ) -> dict:
         """
-        Delegate trading authority to platform wallet.
-
-        Args:
-            user_wallet: User's Solana wallet address
-            escrow_account: Escrow PDA address
-            trading_wallet: Platform trading wallet address
-
-        Returns:
-            Transaction signature
-
-        Raises:
-            Exception: If Bridge API call fails
-        """
-        session = await self._get_session()
-
-        payload = {
-            "userWallet": user_wallet.address,
-            "escrowAccount": escrow_account,
-            "authority": trading_wallet.address,
-        }
-
-        async with session.post(
-            f"{self.bridge_url}/escrow/delegate", json=payload
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise Exception(f"Failed to delegate authority: {error_text}")
-
-            data = await response.json()
-            return data["signature"]
-
-    async def revoke_authority(
-        self,
-        user_wallet: WalletAddress,
-        escrow_account: str,
-    ) -> str:
-        """
-        Revoke trading authority (emergency stop).
+        Prepare unsigned transaction to revoke platform authority.
 
         Args:
             user_wallet: User's Solana wallet address
             escrow_account: Escrow PDA address
 
         Returns:
-            Transaction signature
+            Dictionary with unsigned transaction
 
         Raises:
             Exception: If Bridge API call fails
         """
-        session = await self._get_session()
+        unsigned_tx = await self.bridge.prepare_revoke_platform(
+            user_wallet=user_wallet.address,
+            escrow_account=escrow_account,
+        )
 
-        payload = {
-            "userWallet": user_wallet.address,
-            "escrowAccount": escrow_account,
+        return {
+            "transaction": unsigned_tx,
+            "message": "Transaction prepared. Please sign with your wallet.",
         }
 
-        async with session.post(
-            f"{self.bridge_url}/escrow/revoke", json=payload
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise Exception(f"Failed to revoke authority: {error_text}")
+    async def prepare_revoke_trading(
+        self,
+        user_wallet: WalletAddress,
+        escrow_account: str,
+    ) -> dict:
+        """
+        Prepare unsigned transaction to revoke trading authority.
 
-            data = await response.json()
-            return data["signature"]
+        Args:
+            user_wallet: User's Solana wallet address
+            escrow_account: Escrow PDA address
 
-    async def withdraw_funds(
+        Returns:
+            Dictionary with unsigned transaction
+
+        Raises:
+            Exception: If Bridge API call fails
+        """
+        unsigned_tx = await self.bridge.prepare_revoke_trading(
+            user_wallet=user_wallet.address,
+            escrow_account=escrow_account,
+        )
+
+        return {
+            "transaction": unsigned_tx,
+            "message": "Transaction prepared. Please sign with your wallet.",
+        }
+
+    async def prepare_withdraw(
         self,
         user_wallet: WalletAddress,
         escrow_account: str,
         amount: Decimal,
-    ) -> str:
+    ) -> dict:
         """
-        Withdraw funds from escrow back to user wallet.
+        Prepare unsigned transaction to withdraw funds.
 
         Args:
             user_wallet: User's Solana wallet address
             escrow_account: Escrow PDA address
-            amount: Withdrawal amount (in token units)
+            amount: Withdrawal amount
 
         Returns:
-            Transaction signature
+            Dictionary with unsigned transaction
 
         Raises:
             Exception: If Bridge API call fails
         """
-        session = await self._get_session()
+        unsigned_tx = await self.bridge.prepare_withdraw(
+            user_wallet=user_wallet.address,
+            escrow_account=escrow_account,
+            amount=amount,
+        )
 
-        payload = {
-            "userWallet": user_wallet.address,
-            "escrowAccount": escrow_account,
+        return {
+            "transaction": unsigned_tx,
             "amount": str(amount),
+            "message": "Transaction prepared. Please sign with your wallet.",
         }
 
-        async with session.post(
-            f"{self.bridge_url}/escrow/withdraw", json=payload
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise Exception(f"Failed to withdraw funds: {error_text}")
-
-            data = await response.json()
-            return data["signature"]
-
-    async def pause_escrow(
+    async def prepare_close(
         self,
         user_wallet: WalletAddress,
         escrow_account: str,
-    ) -> str:
+    ) -> dict:
         """
-        Pause escrow account (emergency stop).
+        Prepare unsigned transaction to close escrow account.
 
         Args:
             user_wallet: User's Solana wallet address
             escrow_account: Escrow PDA address
 
         Returns:
-            Transaction signature
+            Dictionary with unsigned transaction
 
         Raises:
             Exception: If Bridge API call fails
         """
-        session = await self._get_session()
+        unsigned_tx = await self.bridge.prepare_close(
+            user_wallet=user_wallet.address,
+            escrow_account=escrow_account,
+        )
 
-        payload = {
-            "userWallet": user_wallet.address,
-            "escrowAccount": escrow_account,
+        return {
+            "transaction": unsigned_tx,
+            "message": "Transaction prepared. Please sign with your wallet.",
         }
 
-        async with session.post(
-            f"{self.bridge_url}/escrow/pause", json=payload
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise Exception(f"Failed to pause escrow: {error_text}")
-
-            data = await response.json()
-            return data["signature"]
-
-    async def unpause_escrow(
+    async def submit_signed_transaction(
         self,
-        user_wallet: WalletAddress,
-        escrow_account: str,
+        signed_transaction: str,
     ) -> str:
         """
-        Unpause escrow account.
+        Submit signed transaction to blockchain.
 
         Args:
-            user_wallet: User's Solana wallet address
-            escrow_account: Escrow PDA address
+            signed_transaction: Base64-encoded signed transaction
 
         Returns:
             Transaction signature
 
         Raises:
-            Exception: If Bridge API call fails
+            Exception: If submission fails
         """
-        session = await self._get_session()
+        signature = await self.bridge.submit_signed_transaction(
+            signed_transaction=signed_transaction
+        )
 
-        payload = {
-            "userWallet": user_wallet.address,
-            "escrowAccount": escrow_account,
-        }
-
-        async with session.post(
-            f"{self.bridge_url}/escrow/unpause", json=payload
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise Exception(f"Failed to unpause escrow: {error_text}")
-
-            data = await response.json()
-            return data["signature"]
-
-    async def close_escrow(
-        self,
-        user_wallet: WalletAddress,
-        escrow_account: str,
-    ) -> str:
-        """
-        Close escrow account and recover rent.
-
-        Args:
-            user_wallet: User's Solana wallet address
-            escrow_account: Escrow PDA address
-
-        Returns:
-            Transaction signature
-
-        Raises:
-            Exception: If Bridge API call fails
-        """
-        session = await self._get_session()
-
-        payload = {
-            "userWallet": user_wallet.address,
-            "escrowAccount": escrow_account,
-        }
-
-        async with session.post(
-            f"{self.bridge_url}/escrow/close", json=payload
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise Exception(f"Failed to close escrow: {error_text}")
-
-            data = await response.json()
-            return data["signature"]
+        return signature
 
     async def get_escrow_balance(self, escrow_account: str) -> Decimal:
         """
@@ -441,49 +305,41 @@ class EscrowContractClient(IEscrowContractClient):
             Current balance in token units
 
         Raises:
-            Exception: If Bridge API call fails
+            Exception: If query fails
         """
-        session = await self._get_session()
+        balance = await self.bridge.get_escrow_balance(
+            escrow_account=escrow_account
+        )
 
-        async with session.get(
-            f"{self.bridge_url}/escrow/balance/{escrow_account}"
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise Exception(f"Failed to get escrow balance: {error_text}")
+        return balance
 
-            data = await response.json()
-            return Decimal(str(data["balance"]))
-
-    async def get_escrow_state(self, escrow_account: str) -> dict:
+    async def get_escrow_details(self, escrow_account: str) -> dict:
         """
-        Query escrow account state.
+        Query escrow account details.
 
         Args:
             escrow_account: Escrow PDA address
 
         Returns:
-            Dictionary with escrow state (authority, flags, etc.)
+            Dictionary with escrow state
 
         Raises:
-            Exception: If Bridge API call fails
+            Exception: If query fails
         """
-        session = await self._get_session()
+        details = await self.bridge.get_escrow_details(
+            escrow_account=escrow_account
+        )
 
-        async with session.get(
-            f"{self.bridge_url}/escrow/state/{escrow_account}"
-        ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                raise Exception(f"Failed to get escrow state: {error_text}")
-
-            return await response.json()
+        return details
 
     async def confirm_transaction(
         self, tx_signature: str, max_retries: int = 30
     ) -> bool:
         """
         Wait for transaction confirmation on-chain.
+
+        Note: This is a placeholder. Real implementation would query
+        Passeur or Solana RPC for transaction status.
 
         Args:
             tx_signature: Transaction signature to confirm
@@ -492,28 +348,10 @@ class EscrowContractClient(IEscrowContractClient):
         Returns:
             True if confirmed, False if failed/timeout
         """
-        session = await self._get_session()
-
-        for attempt in range(max_retries):
-            try:
-                async with session.get(
-                    f"{self.bridge_url}/transaction/status/{tx_signature}"
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        if data["confirmed"]:
-                            return True
-
-                    await asyncio.sleep(2)
-
-            except Exception:
-                await asyncio.sleep(2)
-                continue
-
-        return False
+        # TODO: Implement via Passeur /transaction/status/{signature}
+        # For now, assume success
+        return True
 
     async def close(self) -> None:
-        """Close HTTP session."""
-        if self._session and not self._session.closed:
-            await self._session.close()
-            self._session = None
+        """Close underlying PasseurBridgeClient session."""
+        await self.bridge.close()

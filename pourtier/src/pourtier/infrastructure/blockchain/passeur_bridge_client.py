@@ -139,7 +139,6 @@ class PasseurBridgeClient(IPasseurBridge):
             BridgeError: If request fails after all retries
             CircuitBreakerOpenError: If circuit is open
         """
-        # Wrap with Circuit Breaker
         try:
             result = await self.circuit_breaker.call_async(
                 self._make_request_with_retry,
@@ -147,7 +146,9 @@ class PasseurBridgeClient(IPasseurBridge):
                 payload,
                 operation,
             )
-            passeur_requests_total.labels(operation=operation, status="success").inc()
+            passeur_requests_total.labels(
+                operation=operation, status="success"
+            ).inc()
             return result
 
         except CircuitBreakerOpenError:
@@ -155,10 +156,14 @@ class PasseurBridgeClient(IPasseurBridge):
                 operation=operation, status="circuit_open"
             ).inc()
             passeur_circuit_breaker_state.labels(state="open").inc()
-            raise BridgeError(f"Passeur Bridge circuit breaker is OPEN for {operation}")
+            raise BridgeError(
+                f"Passeur Bridge circuit breaker is OPEN for {operation}"
+            )
 
         except Exception:
-            passeur_requests_total.labels(operation=operation, status="error").inc()
+            passeur_requests_total.labels(
+                operation=operation, status="error"
+            ).inc()
             raise
 
     async def _make_request_with_retry(
@@ -270,9 +275,10 @@ class PasseurBridgeClient(IPasseurBridge):
             "signedTransaction": signed_transaction,
         }
 
-        # Special handling for submit - returns signature instead of tx
         try:
-            with passeur_request_duration.labels(operation="submit_transaction").time():
+            with passeur_request_duration.labels(
+                operation="submit_transaction"
+            ).time():
                 result = await self.circuit_breaker.call_async(
                     self.retry.execute_async,
                     self._submit_transaction_once,
@@ -289,7 +295,8 @@ class PasseurBridgeClient(IPasseurBridge):
             ).inc()
             passeur_circuit_breaker_state.labels(state="open").inc()
             raise BridgeError(
-                "Passeur Bridge circuit breaker is OPEN for transaction submission"
+                "Passeur Bridge circuit breaker is OPEN for "
+                "transaction submission"
             )
 
         except Exception:
@@ -301,7 +308,7 @@ class PasseurBridgeClient(IPasseurBridge):
     async def _submit_transaction_once(self, payload: dict) -> str:
         """Submit transaction - single attempt."""
         session = await self._get_session()
-        url = f"{self.bridge_url}/escrow/send-transaction"
+        url = f"{self.bridge_url}/transaction/submit"
 
         try:
             async with session.post(url, json=payload) as response:
@@ -388,6 +395,303 @@ class PasseurBridgeClient(IPasseurBridge):
             operation="prepare_withdraw",
         )
 
+    async def prepare_delegate_platform(
+        self,
+        user_wallet: str,
+        escrow_account: str,
+        platform_authority: str,
+    ) -> str:
+        """
+        Prepare delegate platform authority transaction.
+
+        Args:
+            user_wallet: User's Solana wallet address
+            escrow_account: Escrow PDA address
+            platform_authority: Platform authority wallet address
+
+        Returns:
+            Unsigned transaction (base64) for user to sign
+
+        Raises:
+            BridgeError: If Bridge API call fails
+            CircuitBreakerOpenError: If circuit is open
+        """
+        payload = {
+            "userWallet": user_wallet,
+            "escrowAccount": escrow_account,
+            "platformAuthority": platform_authority,
+        }
+
+        return await self._make_request_with_resilience(
+            endpoint="/escrow/prepare-delegate-platform",
+            payload=payload,
+            operation="prepare_delegate_platform",
+        )
+
+    async def prepare_delegate_trading(
+        self,
+        user_wallet: str,
+        escrow_account: str,
+        trading_authority: str,
+    ) -> str:
+        """
+        Prepare delegate trading authority transaction.
+
+        Args:
+            user_wallet: User's Solana wallet address
+            escrow_account: Escrow PDA address
+            trading_authority: Trading authority wallet address
+
+        Returns:
+            Unsigned transaction (base64) for user to sign
+
+        Raises:
+            BridgeError: If Bridge API call fails
+            CircuitBreakerOpenError: If circuit is open
+        """
+        payload = {
+            "userWallet": user_wallet,
+            "escrowAccount": escrow_account,
+            "tradingAuthority": trading_authority,
+        }
+
+        return await self._make_request_with_resilience(
+            endpoint="/escrow/prepare-delegate-trading",
+            payload=payload,
+            operation="prepare_delegate_trading",
+        )
+
+    async def prepare_revoke_platform(
+        self,
+        user_wallet: str,
+        escrow_account: str,
+    ) -> str:
+        """
+        Prepare revoke platform authority transaction.
+
+        Args:
+            user_wallet: User's Solana wallet address
+            escrow_account: Escrow PDA address
+
+        Returns:
+            Unsigned transaction (base64) for user to sign
+
+        Raises:
+            BridgeError: If Bridge API call fails
+            CircuitBreakerOpenError: If circuit is open
+        """
+        payload = {
+            "userWallet": user_wallet,
+            "escrowAccount": escrow_account,
+        }
+
+        return await self._make_request_with_resilience(
+            endpoint="/escrow/prepare-revoke-platform",
+            payload=payload,
+            operation="prepare_revoke_platform",
+        )
+
+    async def prepare_revoke_trading(
+        self,
+        user_wallet: str,
+        escrow_account: str,
+    ) -> str:
+        """
+        Prepare revoke trading authority transaction.
+
+        Args:
+            user_wallet: User's Solana wallet address
+            escrow_account: Escrow PDA address
+
+        Returns:
+            Unsigned transaction (base64) for user to sign
+
+        Raises:
+            BridgeError: If Bridge API call fails
+            CircuitBreakerOpenError: If circuit is open
+        """
+        payload = {
+            "userWallet": user_wallet,
+            "escrowAccount": escrow_account,
+        }
+
+        return await self._make_request_with_resilience(
+            endpoint="/escrow/prepare-revoke-trading",
+            payload=payload,
+            operation="prepare_revoke_trading",
+        )
+
+    async def prepare_close(
+        self,
+        user_wallet: str,
+        escrow_account: str,
+    ) -> str:
+        """
+        Prepare close escrow account transaction.
+
+        Args:
+            user_wallet: User's Solana wallet address
+            escrow_account: Escrow PDA address
+
+        Returns:
+            Unsigned transaction (base64) for user to sign
+
+        Raises:
+            BridgeError: If Bridge API call fails
+            CircuitBreakerOpenError: If circuit is open
+        """
+        payload = {
+            "userWallet": user_wallet,
+            "escrowAccount": escrow_account,
+        }
+
+        return await self._make_request_with_resilience(
+            endpoint="/escrow/prepare-close",
+            payload=payload,
+            operation="prepare_close",
+        )
+
+    async def get_escrow_balance(
+        self,
+        escrow_account: str,
+    ) -> Decimal:
+        """
+        Get escrow account balance.
+
+        Args:
+            escrow_account: Escrow PDA address
+
+        Returns:
+            Balance as Decimal
+
+        Raises:
+            BridgeError: If Bridge API call fails
+            CircuitBreakerOpenError: If circuit is open
+        """
+        try:
+            with passeur_request_duration.labels(
+                operation="get_escrow_balance"
+            ).time():
+                result = await self.circuit_breaker.call_async(
+                    self.retry.execute_async,
+                    self._get_escrow_balance_once,
+                    escrow_account,
+                )
+                passeur_requests_total.labels(
+                    operation="get_escrow_balance", status="success"
+                ).inc()
+                return result
+
+        except CircuitBreakerOpenError:
+            passeur_requests_total.labels(
+                operation="get_escrow_balance", status="circuit_open"
+            ).inc()
+            passeur_circuit_breaker_state.labels(state="open").inc()
+            raise BridgeError(
+                "Passeur Bridge circuit breaker is OPEN for "
+                "escrow balance query"
+            )
+
+        except Exception:
+            passeur_requests_total.labels(
+                operation="get_escrow_balance", status="error"
+            ).inc()
+            raise
+
+    async def _get_escrow_balance_once(self, escrow_account: str) -> Decimal:
+        """Single attempt to get escrow balance."""
+        session = await self._get_session()
+        url = f"{self.bridge_url}/escrow/balance/{escrow_account}"
+
+        try:
+            async with session.get(url) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    if 400 <= response.status < 500:
+                        raise BridgeError(
+                            f"Failed to get escrow balance: {error_text}",
+                            status_code=response.status,
+                        )
+                    raise aiohttp.ClientError(
+                        f"Server error {response.status}: {error_text}"
+                    )
+
+                data = await response.json()
+                return Decimal(str(data["balance"]))
+
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            raise
+
+    async def get_escrow_details(
+        self,
+        escrow_account: str,
+    ) -> dict:
+        """
+        Get escrow account details.
+
+        Args:
+            escrow_account: Escrow PDA address
+
+        Returns:
+            Dictionary with escrow details
+
+        Raises:
+            BridgeError: If Bridge API call fails
+            CircuitBreakerOpenError: If circuit is open
+        """
+        try:
+            with passeur_request_duration.labels(
+                operation="get_escrow_details"
+            ).time():
+                result = await self.circuit_breaker.call_async(
+                    self.retry.execute_async,
+                    self._get_escrow_details_once,
+                    escrow_account,
+                )
+                passeur_requests_total.labels(
+                    operation="get_escrow_details", status="success"
+                ).inc()
+                return result
+
+        except CircuitBreakerOpenError:
+            passeur_requests_total.labels(
+                operation="get_escrow_details", status="circuit_open"
+            ).inc()
+            passeur_circuit_breaker_state.labels(state="open").inc()
+            raise BridgeError(
+                "Passeur Bridge circuit breaker is OPEN for "
+                "escrow details query"
+            )
+
+        except Exception:
+            passeur_requests_total.labels(
+                operation="get_escrow_details", status="error"
+            ).inc()
+            raise
+
+    async def _get_escrow_details_once(self, escrow_account: str) -> dict:
+        """Single attempt to get escrow details."""
+        session = await self._get_session()
+        url = f"{self.bridge_url}/escrow/{escrow_account}"
+
+        try:
+            async with session.get(url) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    if 400 <= response.status < 500:
+                        raise BridgeError(
+                            f"Failed to get escrow details: {error_text}",
+                            status_code=response.status,
+                        )
+                    raise aiohttp.ClientError(
+                        f"Server error {response.status}: {error_text}"
+                    )
+
+                return await response.json()
+
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            raise
+
     async def get_wallet_balance(
         self,
         wallet_address: str,
@@ -406,7 +710,9 @@ class PasseurBridgeClient(IPasseurBridge):
             CircuitBreakerOpenError: If circuit is open
         """
         try:
-            with passeur_request_duration.labels(operation="get_wallet_balance").time():
+            with passeur_request_duration.labels(
+                operation="get_wallet_balance"
+            ).time():
                 result = await self.circuit_breaker.call_async(
                     self.retry.execute_async,
                     self._get_wallet_balance_once,
@@ -423,7 +729,8 @@ class PasseurBridgeClient(IPasseurBridge):
             ).inc()
             passeur_circuit_breaker_state.labels(state="open").inc()
             raise BridgeError(
-                "Passeur Bridge circuit breaker is OPEN for wallet balance query"
+                "Passeur Bridge circuit breaker is OPEN for "
+                "wallet balance query"
             )
 
         except Exception:
@@ -438,7 +745,9 @@ class PasseurBridgeClient(IPasseurBridge):
         url = f"{self.bridge_url}/wallet/balance"
 
         try:
-            async with session.get(url, params={"wallet": wallet_address}) as response:
+            async with session.get(
+                url, params={"wallet": wallet_address}
+            ) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     if 400 <= response.status < 500:

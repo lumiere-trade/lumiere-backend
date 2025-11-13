@@ -12,21 +12,21 @@ from passeur.domain.exceptions import (
     BridgeTimeoutException,
 )
 from passeur.presentation.schemas.escrow import (
-    PrepareInitializeRequest,
-    PrepareInitializeResponse,
-    PrepareDelegatePlatformRequest,
-    PrepareDelegateTradingRequest,
-    PrepareDelegateResponse,
-    PrepareRevokeRequest,
-    PrepareRevokeResponse,
-    PrepareDepositRequest,
-    PrepareDepositResponse,
-    PrepareWithdrawRequest,
-    PrepareWithdrawResponse,
+    EscrowBalanceResponse,
+    EscrowDetailsResponse,
     PrepareCloseRequest,
     PrepareCloseResponse,
-    EscrowDetailsResponse,
-    EscrowBalanceResponse,
+    PrepareDelegatePlatformRequest,
+    PrepareDelegateResponse,
+    PrepareDelegateTradingRequest,
+    PrepareDepositRequest,
+    PrepareDepositResponse,
+    PrepareInitializeRequest,
+    PrepareInitializeResponse,
+    PrepareRevokeRequest,
+    PrepareRevokeResponse,
+    PrepareWithdrawRequest,
+    PrepareWithdrawResponse,
 )
 
 router = APIRouter(prefix="/escrow", tags=["escrow"])
@@ -54,9 +54,7 @@ async def prepare_initialize(
     idempotency_key = f"escrow:init:{request_data.userWallet}"
     ttl = settings.resilience.idempotency.financial_operations * 86400
 
-    is_duplicate, cached = await redis_store.check_and_store(
-        idempotency_key, ttl
-    )
+    is_duplicate, cached = await redis_store.check_and_store(idempotency_key, ttl)
 
     if is_duplicate and cached:
         return PrepareInitializeResponse(**cached)
@@ -107,14 +105,10 @@ async def prepare_delegate_platform(
     redis_store = req.app.state.redis_store
     settings = get_settings()
 
-    idempotency_key = (
-        f"escrow:delegate-platform:{request_data.escrowAccount}"
-    )
+    idempotency_key = f"escrow:delegate-platform:{request_data.escrowAccount}"
     ttl = settings.resilience.idempotency.security_operations * 86400
 
-    is_duplicate, cached = await redis_store.check_and_store(
-        idempotency_key, ttl
-    )
+    is_duplicate, cached = await redis_store.check_and_store(idempotency_key, ttl)
 
     if is_duplicate and cached:
         return PrepareDelegateResponse(**cached)
@@ -166,14 +160,10 @@ async def prepare_delegate_trading(
     redis_store = req.app.state.redis_store
     settings = get_settings()
 
-    idempotency_key = (
-        f"escrow:delegate-trading:{request_data.escrowAccount}"
-    )
+    idempotency_key = f"escrow:delegate-trading:{request_data.escrowAccount}"
     ttl = settings.resilience.idempotency.security_operations * 86400
 
-    is_duplicate, cached = await redis_store.check_and_store(
-        idempotency_key, ttl
-    )
+    is_duplicate, cached = await redis_store.check_and_store(idempotency_key, ttl)
 
     if is_duplicate and cached:
         return PrepareDelegateResponse(**cached)
@@ -225,14 +215,10 @@ async def prepare_revoke_platform(
     redis_store = req.app.state.redis_store
     settings = get_settings()
 
-    idempotency_key = (
-        f"escrow:revoke-platform:{request_data.escrowAccount}"
-    )
+    idempotency_key = f"escrow:revoke-platform:{request_data.escrowAccount}"
     ttl = settings.resilience.idempotency.security_operations * 86400
 
-    is_duplicate, cached = await redis_store.check_and_store(
-        idempotency_key, ttl
-    )
+    is_duplicate, cached = await redis_store.check_and_store(idempotency_key, ttl)
 
     if is_duplicate and cached:
         return PrepareRevokeResponse(**cached)
@@ -283,14 +269,10 @@ async def prepare_revoke_trading(
     redis_store = req.app.state.redis_store
     settings = get_settings()
 
-    idempotency_key = (
-        f"escrow:revoke-trading:{request_data.escrowAccount}"
-    )
+    idempotency_key = f"escrow:revoke-trading:{request_data.escrowAccount}"
     ttl = settings.resilience.idempotency.security_operations * 86400
 
-    is_duplicate, cached = await redis_store.check_and_store(
-        idempotency_key, ttl
-    )
+    is_duplicate, cached = await redis_store.check_and_store(idempotency_key, ttl)
 
     if is_duplicate and cached:
         return PrepareRevokeResponse(**cached)
@@ -342,14 +324,11 @@ async def prepare_deposit(
     settings = get_settings()
 
     idempotency_key = (
-        f"escrow:deposit:{request_data.escrowAccount}:"
-        f"{request_data.amount}"
+        f"escrow:deposit:{request_data.escrowAccount}:" f"{request_data.amount}"
     )
     ttl = settings.resilience.idempotency.financial_operations * 86400
 
-    is_duplicate, cached = await redis_store.check_and_store(
-        idempotency_key, ttl
-    )
+    is_duplicate, cached = await redis_store.check_and_store(idempotency_key, ttl)
 
     if is_duplicate and cached:
         return PrepareDepositResponse(**cached)
@@ -401,17 +380,11 @@ async def prepare_withdraw(
     redis_store = req.app.state.redis_store
     settings = get_settings()
 
-    amount_key = (
-        str(request_data.amount) if request_data.amount else "all"
-    )
-    idempotency_key = (
-        f"escrow:withdraw:{request_data.escrowAccount}:{amount_key}"
-    )
+    amount_key = str(request_data.amount) if request_data.amount else "all"
+    idempotency_key = f"escrow:withdraw:{request_data.escrowAccount}:{amount_key}"
     ttl = settings.resilience.idempotency.financial_operations * 86400
 
-    is_duplicate, cached = await redis_store.check_and_store(
-        idempotency_key, ttl
-    )
+    is_duplicate, cached = await redis_store.check_and_store(idempotency_key, ttl)
 
     if is_duplicate and cached:
         return PrepareWithdrawResponse(**cached)
@@ -466,9 +439,7 @@ async def prepare_close(
     idempotency_key = f"escrow:close:{request_data.escrowAccount}"
     ttl = settings.resilience.idempotency.financial_operations * 86400
 
-    is_duplicate, cached = await redis_store.check_and_store(
-        idempotency_key, ttl
-    )
+    is_duplicate, cached = await redis_store.check_and_store(idempotency_key, ttl)
 
     if is_duplicate and cached:
         return PrepareCloseResponse(**cached)
