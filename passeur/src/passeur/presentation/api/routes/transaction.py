@@ -38,14 +38,10 @@ async def submit_transaction(
     redis_store = req.app.state.redis_store
     settings = get_settings()
 
-    idempotency_key = (
-        f"tx:submit:{request_data.signedTransaction[:16]}"
-    )
+    idempotency_key = f"tx:submit:{request_data.signedTransaction[:16]}"
     ttl = settings.resilience.idempotency.financial_operations * 86400
 
-    is_duplicate, cached = await redis_store.check_and_store(
-        idempotency_key, ttl
-    )
+    is_duplicate, cached = await redis_store.check_and_store(idempotency_key, ttl)
 
     if is_duplicate and cached:
         return SubmitTransactionResponse(**cached)

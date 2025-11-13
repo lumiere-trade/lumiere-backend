@@ -53,6 +53,12 @@ def get_escrow_query_service():
     return container.escrow_query_service
 
 
+def get_idempotency_store():
+    """Get IdempotencyStore dependency (optional)."""
+    container = get_container()
+    return container.idempotency_store
+
+
 def get_program_id() -> str:
     """Get Solana escrow program ID from settings."""
     return get_settings().ESCROW_PROGRAM_ID
@@ -157,6 +163,7 @@ def get_verify_wallet_signature(
 def get_initialize_escrow(
     session: AsyncSession = Depends(get_db_session),
     passeur_bridge=Depends(get_passeur_bridge),
+    idempotency_store=Depends(get_idempotency_store),
     program_id: str = Depends(get_program_id),
 ):
     """Get InitializeEscrow use case dependency."""
@@ -171,6 +178,7 @@ def get_initialize_escrow(
         escrow_transaction_repository=escrow_tx_repo,
         passeur_bridge=passeur_bridge,
         program_id=program_id,
+        idempotency_store=idempotency_store,
     )
 
 
@@ -178,6 +186,7 @@ def get_deposit_to_escrow(
     session: AsyncSession = Depends(get_db_session),
     passeur_bridge=Depends(get_passeur_bridge),
     escrow_query_service=Depends(get_escrow_query_service),
+    idempotency_store=Depends(get_idempotency_store),
     program_id: str = Depends(get_program_id),
 ):
     """Get DepositToEscrow use case dependency."""
@@ -193,6 +202,7 @@ def get_deposit_to_escrow(
         passeur_bridge=passeur_bridge,
         escrow_query_service=escrow_query_service,
         program_id=program_id,
+        idempotency_store=idempotency_store,
     )
 
 
@@ -200,10 +210,13 @@ def get_withdraw_from_escrow(
     session: AsyncSession = Depends(get_db_session),
     passeur_bridge=Depends(get_passeur_bridge),
     escrow_query_service=Depends(get_escrow_query_service),
+    idempotency_store=Depends(get_idempotency_store),
     program_id: str = Depends(get_program_id),
 ):
     """Get WithdrawFromEscrow use case dependency."""
-    from pourtier.application.use_cases.withdraw_from_escrow import WithdrawFromEscrow
+    from pourtier.application.use_cases.withdraw_from_escrow import (
+        WithdrawFromEscrow,
+    )
 
     container = get_container()
     user_repo = container.get_user_repository(session)
@@ -215,6 +228,7 @@ def get_withdraw_from_escrow(
         passeur_bridge=passeur_bridge,
         escrow_query_service=escrow_query_service,
         program_id=program_id,
+        idempotency_store=idempotency_store,
     )
 
 
@@ -319,7 +333,9 @@ def get_create_subscription(
     program_id: str = Depends(get_program_id),
 ):
     """Get CreateSubscription use case dependency."""
-    from pourtier.application.use_cases.create_subscription import CreateSubscription
+    from pourtier.application.use_cases.create_subscription import (
+        CreateSubscription,
+    )
 
     container = get_container()
     user_repo = container.get_user_repository(session)

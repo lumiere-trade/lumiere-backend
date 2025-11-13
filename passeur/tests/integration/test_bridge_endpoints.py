@@ -25,34 +25,32 @@ class TestPasseurEndpoints(LaborantTest):
     def setup(self):
         """Setup before all tests - create TestClient and mock dependencies."""
         self.reporter.info("Setting up TestClient...", context="Setup")
-        
+
         # Test addresses (44 chars - valid Solana base58 format)
         self.test_wallet = "11111111111111111111111111111111111111111111"
         self.test_escrow = "22222222222222222222222222222222222222222222"
         self.test_authority = "33333333333333333333333333333333333333333333"
-        
+
         # Create mocks
         self.mock_bridge_client = MagicMock()
         self.mock_redis_store = MagicMock()
-        
+
         # Setup app.state with mocks
         app.state.bridge_client = self.mock_bridge_client
         app.state.redis_store = self.mock_redis_store
-        
+
         # Create TestClient
         self.client = TestClient(app)
-        
-        self.reporter.info(
-            "TestClient ready with mocked dependencies", context="Setup"
-        )
+
+        self.reporter.info("TestClient ready with mocked dependencies", context="Setup")
 
     def teardown(self):
         """Cleanup after all tests."""
-        if hasattr(app.state, 'bridge_client'):
-            delattr(app.state, 'bridge_client')
-        if hasattr(app.state, 'redis_store'):
-            delattr(app.state, 'redis_store')
-        
+        if hasattr(app.state, "bridge_client"):
+            delattr(app.state, "bridge_client")
+        if hasattr(app.state, "redis_store"):
+            delattr(app.state, "redis_store")
+
         self.reporter.info("Cleanup complete", context="Teardown")
 
     def test_health_endpoint(self):
@@ -88,13 +86,9 @@ class TestPasseurEndpoints(LaborantTest):
 
     def test_prepare_initialize_success(self):
         """Test /escrow/prepare-initialize with valid params."""
-        self.reporter.info(
-            "Testing prepare-initialize success", context="Test"
-        )
+        self.reporter.info("Testing prepare-initialize success", context="Test")
 
-        self.mock_redis_store.check_and_store = AsyncMock(
-            return_value=(False, None)
-        )
+        self.mock_redis_store.check_and_store = AsyncMock(return_value=(False, None))
         self.mock_redis_store.store_result = AsyncMock()
 
         self.mock_bridge_client.prepare_initialize = AsyncMock(
@@ -129,9 +123,7 @@ class TestPasseurEndpoints(LaborantTest):
 
     def test_prepare_initialize_idempotency(self):
         """Test idempotency returns cached result."""
-        self.reporter.info(
-            "Testing prepare-initialize idempotency", context="Test"
-        )
+        self.reporter.info("Testing prepare-initialize idempotency", context="Test")
 
         cached_result = {
             "success": True,
@@ -160,9 +152,7 @@ class TestPasseurEndpoints(LaborantTest):
 
     def test_prepare_initialize_validation(self):
         """Test /escrow/prepare-initialize validates required fields."""
-        self.reporter.info(
-            "Testing prepare-initialize validation", context="Test"
-        )
+        self.reporter.info("Testing prepare-initialize validation", context="Test")
 
         response = self.client.post(
             "/escrow/prepare-initialize",
@@ -171,19 +161,13 @@ class TestPasseurEndpoints(LaborantTest):
 
         assert response.status_code == 422
 
-        self.reporter.info(
-            "Validation rejected missing fields", context="Test"
-        )
+        self.reporter.info("Validation rejected missing fields", context="Test")
 
     def test_prepare_delegate_platform_success(self):
         """Test /escrow/prepare-delegate-platform success."""
-        self.reporter.info(
-            "Testing prepare-delegate-platform", context="Test"
-        )
+        self.reporter.info("Testing prepare-delegate-platform", context="Test")
 
-        self.mock_redis_store.check_and_store = AsyncMock(
-            return_value=(False, None)
-        )
+        self.mock_redis_store.check_and_store = AsyncMock(return_value=(False, None))
         self.mock_redis_store.store_result = AsyncMock()
 
         self.mock_bridge_client.prepare_delegate_platform = AsyncMock(
@@ -213,13 +197,9 @@ class TestPasseurEndpoints(LaborantTest):
 
     def test_prepare_delegate_trading_success(self):
         """Test /escrow/prepare-delegate-trading success."""
-        self.reporter.info(
-            "Testing prepare-delegate-trading", context="Test"
-        )
+        self.reporter.info("Testing prepare-delegate-trading", context="Test")
 
-        self.mock_redis_store.check_and_store = AsyncMock(
-            return_value=(False, None)
-        )
+        self.mock_redis_store.check_and_store = AsyncMock(return_value=(False, None))
         self.mock_redis_store.store_result = AsyncMock()
 
         self.mock_bridge_client.prepare_delegate_trading = AsyncMock(
@@ -250,9 +230,7 @@ class TestPasseurEndpoints(LaborantTest):
         """Test /escrow/prepare-deposit success."""
         self.reporter.info("Testing prepare-deposit", context="Test")
 
-        self.mock_redis_store.check_and_store = AsyncMock(
-            return_value=(False, None)
-        )
+        self.mock_redis_store.check_and_store = AsyncMock(return_value=(False, None))
         self.mock_redis_store.store_result = AsyncMock()
 
         self.mock_bridge_client.prepare_deposit = AsyncMock(
@@ -285,9 +263,7 @@ class TestPasseurEndpoints(LaborantTest):
         """Test /escrow/prepare-withdraw success."""
         self.reporter.info("Testing prepare-withdraw", context="Test")
 
-        self.mock_redis_store.check_and_store = AsyncMock(
-            return_value=(False, None)
-        )
+        self.mock_redis_store.check_and_store = AsyncMock(return_value=(False, None))
         self.mock_redis_store.store_result = AsyncMock()
 
         self.mock_bridge_client.prepare_withdraw = AsyncMock(
@@ -319,9 +295,7 @@ class TestPasseurEndpoints(LaborantTest):
         """Test /transaction/submit success."""
         self.reporter.info("Testing transaction submit", context="Test")
 
-        self.mock_redis_store.check_and_store = AsyncMock(
-            return_value=(False, None)
-        )
+        self.mock_redis_store.check_and_store = AsyncMock(return_value=(False, None))
         self.mock_redis_store.store_result = AsyncMock()
 
         self.mock_bridge_client.submit_transaction = AsyncMock(
@@ -395,9 +369,7 @@ class TestPasseurEndpoints(LaborantTest):
 
     def test_get_transaction_status_success(self):
         """Test GET /transaction/status/{signature} success."""
-        self.reporter.info(
-            "Testing get transaction status", context="Test"
-        )
+        self.reporter.info("Testing get transaction status", context="Test")
 
         self.mock_bridge_client.get_transaction_status = AsyncMock(
             return_value={
@@ -411,9 +383,7 @@ class TestPasseurEndpoints(LaborantTest):
 
         test_signature = "5" * 88
 
-        response = self.client.get(
-            f"/transaction/status/{test_signature}"
-        )
+        response = self.client.get(f"/transaction/status/{test_signature}")
 
         assert response.status_code == 200
         data = response.json()
@@ -438,9 +408,7 @@ class TestPasseurEndpoints(LaborantTest):
             }
         )
 
-        response = self.client.get(
-            f"/wallet/balance?wallet={self.test_wallet}"
-        )
+        response = self.client.get(f"/wallet/balance?wallet={self.test_wallet}")
 
         assert response.status_code == 200
         data = response.json()

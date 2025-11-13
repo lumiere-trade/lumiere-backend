@@ -62,9 +62,7 @@ class TestEscrowE2E(LaborantTest):
     def setup(self):
         """Setup before all tests - connect to running passeur container."""
         self.reporter.info("=" * 60, context="Setup")
-        self.reporter.info(
-            "SETTING UP E2E TEST (USER-BASED ESCROW)", context="Setup"
-        )
+        self.reporter.info("SETTING UP E2E TEST (USER-BASED ESCROW)", context="Setup")
         self.reporter.info("=" * 60, context="Setup")
 
         # Use development.yaml config for devnet settings
@@ -75,18 +73,14 @@ class TestEscrowE2E(LaborantTest):
 
         # Verify passeur is running
         try:
-            response = requests.get(
-                f"{self.passeur_url}/health", timeout=5
-            )
+            response = requests.get(f"{self.passeur_url}/health", timeout=5)
             if response.status_code != 200:
                 raise Exception("Passeur health check failed")
             self.reporter.info(
                 f"Passeur is running: {self.passeur_url}", context="Setup"
             )
         except Exception as e:
-            self.reporter.error(
-                f"Passeur not accessible: {e}", context="Setup"
-            )
+            self.reporter.error(f"Passeur not accessible: {e}", context="Setup")
             raise Exception(
                 "Passeur container not running. Start with: "
                 "docker-compose -f docker-compose-dev.yaml up -d passeur"
@@ -101,12 +95,9 @@ class TestEscrowE2E(LaborantTest):
         self.test_escrow_account = None
         self.deposit_amount = 10.0
 
+        self.reporter.info(f"Passeur ready: {self.passeur_url}", context="Setup")
         self.reporter.info(
-            f"Passeur ready: {self.passeur_url}", context="Setup"
-        )
-        self.reporter.info(
-            f"Test user Alice: "
-            f"{PlatformWallets.get_test_alice_address()[:8]}...",
+            f"Test user Alice: " f"{PlatformWallets.get_test_alice_address()[:8]}...",
             context="Setup",
         )
         self.reporter.info(
@@ -129,9 +120,7 @@ class TestEscrowE2E(LaborantTest):
 
     def test_01_initialize_escrow(self):
         """Test initializing user-based escrow (no strategy_id)."""
-        self.reporter.info(
-            "Testing user-based escrow initialization", context="Test"
-        )
+        self.reporter.info("Testing user-based escrow initialization", context="Test")
 
         expected_escrow = derive_user_escrow_pda(
             PlatformWallets.get_test_alice_address(),
@@ -157,18 +146,12 @@ class TestEscrowE2E(LaborantTest):
 
             self.test_escrow_account = escrow_account
 
-            self.reporter.info(
-                f"Escrow: {escrow_account[:8]}...", context="Test"
-            )
-            self.reporter.info(
-                f"Signature: {signature[:8]}...", context="Test"
-            )
+            self.reporter.info(f"Escrow: {escrow_account[:8]}...", context="Test")
+            self.reporter.info(f"Signature: {signature[:8]}...", context="Test")
 
         except Exception as e:
             if "already in use" in str(e).lower():
-                self.reporter.info(
-                    "Escrow exists (race condition)", context="Test"
-                )
+                self.reporter.info("Escrow exists (race condition)", context="Test")
                 self.test_escrow_account = expected_escrow
             else:
                 raise
@@ -196,14 +179,8 @@ class TestEscrowE2E(LaborantTest):
 
         escrow = data["data"]
         assert escrow["user"] == PlatformWallets.get_test_alice_address()
-        assert (
-            escrow["platformAuthority"]
-            == "11111111111111111111111111111111"
-        )
-        assert (
-            escrow["tradingAuthority"]
-            == "11111111111111111111111111111111"
-        )
+        assert escrow["platformAuthority"] == "11111111111111111111111111111111"
+        assert escrow["tradingAuthority"] == "11111111111111111111111111111111"
         assert escrow["isPlatformActive"] is False
         assert escrow["isTradingActive"] is False
 
@@ -228,9 +205,7 @@ class TestEscrowE2E(LaborantTest):
             amount=self.deposit_amount,
         )
 
-        self.reporter.info(
-            f"Deposited {self.deposit_amount} USDC", context="Test"
-        )
+        self.reporter.info(f"Deposited {self.deposit_amount} USDC", context="Test")
         self.reporter.info(f"Signature: {signature[:8]}...", context="Test")
 
     def test_05_wait_for_confirmation(self):
@@ -241,15 +216,12 @@ class TestEscrowE2E(LaborantTest):
 
     def test_06_get_balance_after_deposit(self):
         """Test getting balance after deposit."""
-        self.reporter.info(
-            "Testing balance after deposit", context="Test"
-        )
+        self.reporter.info("Testing balance after deposit", context="Test")
 
         assert self.test_escrow_account is not None
 
         response = requests.get(
-            f"{self.passeur_url}/escrow/balance/"
-            f"{self.test_escrow_account}",
+            f"{self.passeur_url}/escrow/balance/" f"{self.test_escrow_account}",
             timeout=10,
         )
 
@@ -265,9 +237,7 @@ class TestEscrowE2E(LaborantTest):
 
     def test_07_delegate_platform_authority(self):
         """Test delegating platform authority."""
-        self.reporter.info(
-            "Testing delegate platform authority", context="Test"
-        )
+        self.reporter.info("Testing delegate platform authority", context="Test")
 
         assert self.test_escrow_account is not None
 
@@ -293,9 +263,7 @@ class TestEscrowE2E(LaborantTest):
 
     def test_09_verify_platform_authority_delegated(self):
         """Verify platform authority is delegated."""
-        self.reporter.info(
-            "Verifying platform authority delegated", context="Test"
-        )
+        self.reporter.info("Verifying platform authority delegated", context="Test")
 
         assert self.test_escrow_account is not None
 
@@ -312,8 +280,7 @@ class TestEscrowE2E(LaborantTest):
         assert escrow["isPlatformActive"] is True
 
         self.reporter.info(
-            f"Platform Authority: "
-            f"{escrow['platformAuthority'][:8]}...",
+            f"Platform Authority: " f"{escrow['platformAuthority'][:8]}...",
             context="Test",
         )
         self.reporter.info(
@@ -323,9 +290,7 @@ class TestEscrowE2E(LaborantTest):
 
     def test_10_delegate_trading_authority(self):
         """Test delegating trading authority."""
-        self.reporter.info(
-            "Testing delegate trading authority", context="Test"
-        )
+        self.reporter.info("Testing delegate trading authority", context="Test")
 
         assert self.test_escrow_account is not None
 
@@ -351,9 +316,7 @@ class TestEscrowE2E(LaborantTest):
 
     def test_12_verify_trading_authority_delegated(self):
         """Verify trading authority is delegated."""
-        self.reporter.info(
-            "Verifying trading authority delegated", context="Test"
-        )
+        self.reporter.info("Verifying trading authority delegated", context="Test")
 
         assert self.test_escrow_account is not None
 
@@ -380,9 +343,7 @@ class TestEscrowE2E(LaborantTest):
 
     def test_13_revoke_platform_authority(self):
         """Test revoking platform authority."""
-        self.reporter.info(
-            "Testing revoke platform authority", context="Test"
-        )
+        self.reporter.info("Testing revoke platform authority", context="Test")
 
         assert self.test_escrow_account is not None
 
@@ -404,9 +365,7 @@ class TestEscrowE2E(LaborantTest):
 
     def test_15_verify_platform_authority_revoked(self):
         """Verify platform authority is revoked."""
-        self.reporter.info(
-            "Verifying platform authority revoked", context="Test"
-        )
+        self.reporter.info("Verifying platform authority revoked", context="Test")
 
         assert self.test_escrow_account is not None
 
@@ -424,8 +383,7 @@ class TestEscrowE2E(LaborantTest):
         assert escrow["isPlatformActive"] is False
 
         self.reporter.info(
-            f"Platform Authority: "
-            f"{escrow['platformAuthority'][:8]}...",
+            f"Platform Authority: " f"{escrow['platformAuthority'][:8]}...",
             context="Test",
         )
         self.reporter.info(
@@ -435,9 +393,7 @@ class TestEscrowE2E(LaborantTest):
 
     def test_16_revoke_trading_authority(self):
         """Test revoking trading authority."""
-        self.reporter.info(
-            "Testing revoke trading authority", context="Test"
-        )
+        self.reporter.info("Testing revoke trading authority", context="Test")
 
         assert self.test_escrow_account is not None
 
@@ -459,9 +415,7 @@ class TestEscrowE2E(LaborantTest):
 
     def test_18_verify_trading_authority_revoked(self):
         """Verify trading authority is revoked."""
-        self.reporter.info(
-            "Verifying trading authority revoked", context="Test"
-        )
+        self.reporter.info("Verifying trading authority revoked", context="Test")
 
         assert self.test_escrow_account is not None
 
@@ -508,15 +462,12 @@ class TestEscrowE2E(LaborantTest):
 
     def test_21_verify_balance_after_withdraw(self):
         """Verify balance after withdraw."""
-        self.reporter.info(
-            "Verifying balance after withdraw", context="Test"
-        )
+        self.reporter.info("Verifying balance after withdraw", context="Test")
 
         assert self.test_escrow_account is not None
 
         response = requests.get(
-            f"{self.passeur_url}/escrow/balance/"
-            f"{self.test_escrow_account}",
+            f"{self.passeur_url}/escrow/balance/" f"{self.test_escrow_account}",
             timeout=10,
         )
 
@@ -563,9 +514,7 @@ class TestEscrowE2E(LaborantTest):
         else:
             data = response.json()
             if not data.get("success"):
-                self.reporter.info(
-                    "Escrow not accessible (closed)", context="Test"
-                )
+                self.reporter.info("Escrow not accessible (closed)", context="Test")
 
 
 if __name__ == "__main__":

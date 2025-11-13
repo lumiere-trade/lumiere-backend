@@ -10,10 +10,10 @@ from pydantic import BaseModel, Field
 class WalletBalanceResponse(BaseModel):
     """
     Response from GET /wallet/balance.
-    
+
     Returns wallet token balance.
     """
-    
+
     success: bool = Field(..., description="Query success status")
     balance: float = Field(..., description="Balance in USDC (human-readable)")
     balanceLamports: str = Field(..., description="Balance in lamports (raw)")

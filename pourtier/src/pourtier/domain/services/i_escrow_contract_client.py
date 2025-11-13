@@ -2,12 +2,13 @@
 Escrow contract client service interface.
 
 Defines operations for interacting with the Solana escrow smart contract.
+Uses prepare-sign-submit pattern for security (backend never touches
+private keys).
 """
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Optional
-from uuid import UUID
 
 from pourtier.domain.value_objects.wallet_address import WalletAddress
 
@@ -16,159 +17,190 @@ class IEscrowContractClient(ABC):
     """
     Abstract service interface for Solana escrow contract interaction.
 
+    NEW ARCHITECTURE (Passeur Phase 2):
+    - User-based escrow (no strategy_id)
+    - Prepare-sign-submit pattern
+    - Returns unsigned transactions for frontend signing
+    - Separate platform and trading authority delegation
+
     Manages escrow accounts and trading authority delegation:
-    - Initialize escrow PDA
-    - Deposit funds to escrow
-    - Approve trading destinations
-    - Delegate trading authority to platform
-    - Revoke authority (emergency stop)
-    - Withdraw funds back to user
-    - Close escrow account
+    - Prepare initialize escrow PDA transaction
+    - Prepare deposit funds transaction
+    - Prepare delegate authority transactions (platform/trading)
+    - Prepare revoke authority transactions (platform/trading)
+    - Prepare withdraw funds transaction
+    - Prepare close escrow account transaction
+    - Submit signed transactions
+    - Query escrow balance and details
     """
 
     @abstractmethod
-    async def initialize_escrow(
+    async def prepare_initialize_escrow(
         self,
         user_wallet: WalletAddress,
-        strategy_id: UUID,
-        token_mint: str,
         max_balance: Optional[int] = None,
-    ) -> str:
+    ) -> dict:
         """
-        Initialize escrow PDA for user and strategy.
+        Prepare unsigned transaction to initialize escrow PDA.
+
+        Note: User-based escrow (no strategy_id). One escrow per user.
+        PDA derivation: seeds = [b"escrow", bytes(user_pubkey)]
 
         Args:
             user_wallet: User's Solana wallet address
-            strategy_id: Strategy unique identifier (UUID)
-            token_mint: Token mint address (e.g., USDC mint)
             max_balance: Optional maximum balance limit (in token units)
 
         Returns:
-            Escrow account address (PDA)
+            Dictionary with:
+            {
+                "transaction": str (base64 unsigned transaction),
+                "escrowAccount": str (PDA address),
+                "bump": int
+            }
 
         Raises:
-            ContractError: If initialization fails
+            ContractError: If preparation fails
         """
 
     @abstractmethod
-    async def deposit_funds(
+    async def prepare_deposit(
         self,
         user_wallet: WalletAddress,
         escrow_account: str,
         amount: Decimal,
-        token_mint: str,
-    ) -> str:
+    ) -> dict:
         """
-        Deposit funds from user wallet to escrow account.
+        Prepare unsigned transaction to deposit funds to escrow.
 
         Args:
             user_wallet: User's Solana wallet address
             escrow_account: Escrow PDA address
             amount: Deposit amount in tokens
-            token_mint: Token mint address (USDC, SOL, etc.)
 
         Returns:
-            Transaction signature
+            Dictionary with:
+            {
+                "transaction": str (base64 unsigned transaction),
+                "amount": str
+            }
 
         Raises:
-            ContractError: If deposit fails
+            ContractError: If preparation fails
         """
 
     @abstractmethod
-    async def approve_destination(
+    async def prepare_delegate_platform(
         self,
         user_wallet: WalletAddress,
         escrow_account: str,
-        destination: str,
-    ) -> str:
+        platform_authority: WalletAddress,
+    ) -> dict:
         """
-        Approve a destination token account for trading.
+        Prepare unsigned transaction to delegate platform authority.
+
+        Platform authority can manage escrow configuration.
 
         Args:
             user_wallet: User's Solana wallet address
             escrow_account: Escrow PDA address
-            destination: Destination token account address
+            platform_authority: Platform authority wallet address
 
         Returns:
-            Transaction signature
+            Dictionary with:
+            {
+                "transaction": str (base64 unsigned transaction)
+            }
 
         Raises:
-            ContractError: If approval fails
+            ContractError: If preparation fails
         """
 
     @abstractmethod
-    async def revoke_destination(
+    async def prepare_delegate_trading(
         self,
         user_wallet: WalletAddress,
         escrow_account: str,
-        destination: str,
-    ) -> str:
+        trading_authority: WalletAddress,
+    ) -> dict:
         """
-        Revoke approval for a destination token account.
+        Prepare unsigned transaction to delegate trading authority.
+
+        Trading authority can execute trades from escrow.
 
         Args:
             user_wallet: User's Solana wallet address
             escrow_account: Escrow PDA address
-            destination: Destination token account address
+            trading_authority: Trading authority wallet address
 
         Returns:
-            Transaction signature
+            Dictionary with:
+            {
+                "transaction": str (base64 unsigned transaction)
+            }
 
         Raises:
-            ContractError: If revocation fails
+            ContractError: If preparation fails
         """
 
     @abstractmethod
-    async def delegate_authority(
+    async def prepare_revoke_platform(
         self,
         user_wallet: WalletAddress,
         escrow_account: str,
-        trading_wallet: WalletAddress,
-    ) -> str:
+    ) -> dict:
         """
-        Delegate trading authority to platform wallet.
+        Prepare unsigned transaction to revoke platform authority.
 
-        Args:
-            user_wallet: User's Solana wallet address
-            escrow_account: Escrow PDA address
-            trading_wallet: Platform trading wallet address
-
-        Returns:
-            Transaction signature
-
-        Raises:
-            ContractError: If delegation fails
-        """
-
-    @abstractmethod
-    async def revoke_authority(
-        self,
-        user_wallet: WalletAddress,
-        escrow_account: str,
-    ) -> str:
-        """
-        Revoke trading authority (emergency stop).
+        Emergency stop for platform access.
 
         Args:
             user_wallet: User's Solana wallet address
             escrow_account: Escrow PDA address
 
         Returns:
-            Transaction signature
+            Dictionary with:
+            {
+                "transaction": str (base64 unsigned transaction)
+            }
 
         Raises:
-            ContractError: If revocation fails
+            ContractError: If preparation fails
         """
 
     @abstractmethod
-    async def withdraw_funds(
+    async def prepare_revoke_trading(
+        self,
+        user_wallet: WalletAddress,
+        escrow_account: str,
+    ) -> dict:
+        """
+        Prepare unsigned transaction to revoke trading authority.
+
+        Emergency stop for trading.
+
+        Args:
+            user_wallet: User's Solana wallet address
+            escrow_account: Escrow PDA address
+
+        Returns:
+            Dictionary with:
+            {
+                "transaction": str (base64 unsigned transaction)
+            }
+
+        Raises:
+            ContractError: If preparation fails
+        """
+
+    @abstractmethod
+    async def prepare_withdraw(
         self,
         user_wallet: WalletAddress,
         escrow_account: str,
         amount: Decimal,
-    ) -> str:
+    ) -> dict:
         """
-        Withdraw funds from escrow back to user wallet.
+        Prepare unsigned transaction to withdraw funds from escrow.
 
         Args:
             user_wallet: User's Solana wallet address
@@ -176,70 +208,58 @@ class IEscrowContractClient(ABC):
             amount: Withdrawal amount (in token units)
 
         Returns:
-            Transaction signature
+            Dictionary with:
+            {
+                "transaction": str (base64 unsigned transaction),
+                "amount": str
+            }
 
         Raises:
-            ContractError: If withdrawal fails
+            ContractError: If preparation fails
         """
 
     @abstractmethod
-    async def pause_escrow(
+    async def prepare_close(
         self,
         user_wallet: WalletAddress,
         escrow_account: str,
-    ) -> str:
+    ) -> dict:
         """
-        Pause escrow account (emergency stop).
+        Prepare unsigned transaction to close escrow account.
+
+        Recovers rent from closed account.
 
         Args:
             user_wallet: User's Solana wallet address
             escrow_account: Escrow PDA address
 
         Returns:
-            Transaction signature
+            Dictionary with:
+            {
+                "transaction": str (base64 unsigned transaction)
+            }
 
         Raises:
-            ContractError: If pause fails
+            ContractError: If preparation fails
         """
 
     @abstractmethod
-    async def unpause_escrow(
+    async def submit_signed_transaction(
         self,
-        user_wallet: WalletAddress,
-        escrow_account: str,
+        signed_transaction: str,
     ) -> str:
         """
-        Unpause escrow account.
+        Submit signed transaction to blockchain.
 
         Args:
-            user_wallet: User's Solana wallet address
-            escrow_account: Escrow PDA address
+            signed_transaction: Base64-encoded signed transaction
+                (signed by user in frontend)
 
         Returns:
-            Transaction signature
+            Transaction signature (hash)
 
         Raises:
-            ContractError: If unpause fails
-        """
-
-    @abstractmethod
-    async def close_escrow(
-        self,
-        user_wallet: WalletAddress,
-        escrow_account: str,
-    ) -> str:
-        """
-        Close escrow account and recover rent.
-
-        Args:
-            user_wallet: User's Solana wallet address
-            escrow_account: Escrow PDA address
-
-        Returns:
-            Transaction signature
-
-        Raises:
-            ContractError: If close fails
+            ContractError: If submission fails
         """
 
     @abstractmethod
@@ -258,15 +278,15 @@ class IEscrowContractClient(ABC):
         """
 
     @abstractmethod
-    async def get_escrow_state(self, escrow_account: str) -> dict:
+    async def get_escrow_details(self, escrow_account: str) -> dict:
         """
-        Query escrow account state.
+        Query escrow account details.
 
         Args:
             escrow_account: Escrow PDA address
 
         Returns:
-            Dictionary with escrow state (authority, flags, etc.)
+            Dictionary with escrow state (authority, flags, balance, etc.)
 
         Raises:
             ContractError: If query fails

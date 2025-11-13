@@ -138,9 +138,7 @@ class TestPasseurConfig(LaborantTest):
             PasseurConfig(heartbeat_interval=4)
             assert False, "Should have raised ValueError"
         except ValueError:
-            self.reporter.info(
-                "Heartbeat minimum validation works", context="Test"
-            )
+            self.reporter.info("Heartbeat minimum validation works", context="Test")
 
     def test_heartbeat_interval_validation_max(self):
         """Test heartbeat interval maximum validation."""
@@ -150,9 +148,7 @@ class TestPasseurConfig(LaborantTest):
             PasseurConfig(heartbeat_interval=301)
             assert False, "Should have raised ValueError"
         except ValueError:
-            self.reporter.info(
-                "Heartbeat maximum validation works", context="Test"
-            )
+            self.reporter.info("Heartbeat maximum validation works", context="Test")
 
     def test_request_timeout_validation_min(self):
         """Test request timeout minimum validation."""
@@ -162,9 +158,7 @@ class TestPasseurConfig(LaborantTest):
             PasseurConfig(request_timeout=4)
             assert False, "Should have raised ValueError"
         except ValueError:
-            self.reporter.info(
-                "Timeout minimum validation works", context="Test"
-            )
+            self.reporter.info("Timeout minimum validation works", context="Test")
 
     def test_request_timeout_validation_max(self):
         """Test request timeout maximum validation."""
@@ -174,9 +168,7 @@ class TestPasseurConfig(LaborantTest):
             PasseurConfig(request_timeout=301)
             assert False, "Should have raised ValueError"
         except ValueError:
-            self.reporter.info(
-                "Timeout maximum validation works", context="Test"
-            )
+            self.reporter.info("Timeout maximum validation works", context="Test")
 
     def test_load_default_config(self):
         """Test loading default passeur.yaml config."""
@@ -188,9 +180,7 @@ class TestPasseurConfig(LaborantTest):
         assert config.bridge_port > 0
         assert config.api_port > 0
 
-        self.reporter.info(
-            "Default config loaded successfully", context="Test"
-        )
+        self.reporter.info("Default config loaded successfully", context="Test")
 
     def test_load_test_config(self):
         """Test loading development.yaml config."""
@@ -209,9 +199,7 @@ class TestPasseurConfig(LaborantTest):
 
     def test_load_nonexistent_config(self):
         """Test loading non-existent config uses defaults."""
-        self.reporter.info(
-            "Testing load non-existent config", context="Test"
-        )
+        self.reporter.info("Testing load non-existent config", context="Test")
 
         config = load_config("nonexistent.yaml")
 
@@ -219,9 +207,7 @@ class TestPasseurConfig(LaborantTest):
         assert config.bridge_port == 8768
         assert config.api_port == 8766
 
-        self.reporter.info(
-            "Non-existent config uses defaults", context="Test"
-        )
+        self.reporter.info("Non-existent config uses defaults", context="Test")
 
     def test_config_env_var_override(self):
         """Test PASSEUR_CONFIG environment variable override."""
@@ -247,9 +233,7 @@ class TestPasseurConfig(LaborantTest):
         assert "~" not in config.platform_keypair_path
         assert config.platform_keypair_path.startswith("/")
 
-        self.reporter.info(
-            "Home directory expanded correctly", context="Test"
-        )
+        self.reporter.info("Home directory expanded correctly", context="Test")
 
     def test_program_id_validation(self):
         """Test program ID is valid Solana address format."""

@@ -31,8 +31,8 @@ from passeur.infrastructure.monitoring.passeur_health_checker import (
     PasseurHealthChecker,
 )
 from passeur.presentation.api.routes import (
-    health_router,
     escrow_router,
+    health_router,
     transaction_router,
     wallet_router,
 )
@@ -86,17 +86,13 @@ async def lifespan(app: FastAPI):
 
     # Health checker
     health_checker = PasseurHealthChecker(
-        redis_client=(
-            redis_store.redis if hasattr(redis_store, "redis") else None
-        ),
+        redis_client=(redis_store.redis if hasattr(redis_store, "redis") else None),
     )
     set_health_checker(health_checker)
 
     # Start health server
     if settings.health.port:
-        health_server = HealthServer(
-            health_checker, port=settings.health.port
-        )
+        health_server = HealthServer(health_checker, port=settings.health.port)
         health_server.start_in_background()
         print(f"Health server started on port {settings.health.port}")
 

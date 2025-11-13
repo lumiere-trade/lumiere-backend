@@ -1,7 +1,8 @@
 """
 Passeur Bridge interface.
 
-Defines operations for preparing unsigned blockchain transactions and querying blockchain state.
+Defines operations for preparing unsigned blockchain transactions and
+querying blockchain state.
 """
 
 from abc import ABC, abstractmethod
@@ -94,6 +95,146 @@ class IPasseurBridge(ABC):
 
         Returns:
             Unsigned transaction (base64) for user to sign
+
+        Raises:
+            BridgeError: If Bridge API call fails
+        """
+
+    @abstractmethod
+    async def prepare_delegate_platform(
+        self,
+        user_wallet: str,
+        escrow_account: str,
+        platform_authority: str,
+    ) -> str:
+        """
+        Prepare delegate platform authority transaction.
+
+        Args:
+            user_wallet: User's Solana wallet address
+            escrow_account: Escrow PDA address
+            platform_authority: Platform authority wallet address
+
+        Returns:
+            Unsigned transaction (base64) for user to sign
+
+        Raises:
+            BridgeError: If Bridge API call fails
+        """
+
+    @abstractmethod
+    async def prepare_delegate_trading(
+        self,
+        user_wallet: str,
+        escrow_account: str,
+        trading_authority: str,
+    ) -> str:
+        """
+        Prepare delegate trading authority transaction.
+
+        Args:
+            user_wallet: User's Solana wallet address
+            escrow_account: Escrow PDA address
+            trading_authority: Trading authority wallet address
+
+        Returns:
+            Unsigned transaction (base64) for user to sign
+
+        Raises:
+            BridgeError: If Bridge API call fails
+        """
+
+    @abstractmethod
+    async def prepare_revoke_platform(
+        self,
+        user_wallet: str,
+        escrow_account: str,
+    ) -> str:
+        """
+        Prepare revoke platform authority transaction.
+
+        Args:
+            user_wallet: User's Solana wallet address
+            escrow_account: Escrow PDA address
+
+        Returns:
+            Unsigned transaction (base64) for user to sign
+
+        Raises:
+            BridgeError: If Bridge API call fails
+        """
+
+    @abstractmethod
+    async def prepare_revoke_trading(
+        self,
+        user_wallet: str,
+        escrow_account: str,
+    ) -> str:
+        """
+        Prepare revoke trading authority transaction.
+
+        Args:
+            user_wallet: User's Solana wallet address
+            escrow_account: Escrow PDA address
+
+        Returns:
+            Unsigned transaction (base64) for user to sign
+
+        Raises:
+            BridgeError: If Bridge API call fails
+        """
+
+    @abstractmethod
+    async def prepare_close(
+        self,
+        user_wallet: str,
+        escrow_account: str,
+    ) -> str:
+        """
+        Prepare close escrow account transaction.
+
+        Args:
+            user_wallet: User's Solana wallet address
+            escrow_account: Escrow PDA address
+
+        Returns:
+            Unsigned transaction (base64) for user to sign
+
+        Raises:
+            BridgeError: If Bridge API call fails
+        """
+
+    @abstractmethod
+    async def get_escrow_balance(
+        self,
+        escrow_account: str,
+    ) -> Decimal:
+        """
+        Get escrow account balance.
+
+        Args:
+            escrow_account: Escrow PDA address
+
+        Returns:
+            Balance as Decimal
+
+        Raises:
+            BridgeError: If Bridge API call fails
+        """
+
+    @abstractmethod
+    async def get_escrow_details(
+        self,
+        escrow_account: str,
+    ) -> dict:
+        """
+        Get escrow account details.
+
+        Args:
+            escrow_account: Escrow PDA address
+
+        Returns:
+            Dictionary with escrow details
 
         Raises:
             BridgeError: If Bridge API call fails
