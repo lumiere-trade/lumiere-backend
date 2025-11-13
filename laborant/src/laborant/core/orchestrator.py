@@ -221,9 +221,7 @@ class Laborant:
         changed_files = self.change_detector.get_changed_files()
 
         if not changed_files:
-            self.reporter.info(
-                "No file changes detected", context="Laborant"
-            )
+            self.reporter.info("No file changes detected", context="Laborant")
             return set()
 
         self.reporter.debug(

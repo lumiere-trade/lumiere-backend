@@ -1,6 +1,6 @@
 # ============================================
 # Multi-stage Dockerfile for Passeur
-# Python + Node.js bridge server
+# Python + Node.js bridge server with supervisord
 # Uses Private PyPI Registry for shared package
 # ============================================
 
@@ -10,10 +10,8 @@
 FROM node:18-alpine AS node-builder
 
 WORKDIR /app/bridge
-
 COPY passeur/bridge/package*.json ./
 RUN npm ci
-
 COPY passeur/bridge/ ./
 
 # ============================================
@@ -32,8 +30,9 @@ RUN apt-get update && \
 COPY passeur/pyproject.toml ./
 COPY passeur/src/ ./src/
 
+# Install system-wide (not --user)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --user --no-cache-dir \
+    pip install --no-cache-dir \
     --extra-index-url http://172.17.0.1:10001/simple/ \
     --trusted-host 172.17.0.1 \
     .
@@ -45,29 +44,35 @@ FROM python:3.11-slim AS development
 
 WORKDIR /app
 
+# Install Node.js, supervisor, and curl
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
     gnupg \
+    supervisor \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=python-builder /root/.local /root/.local
+# Copy Python packages from builder (system-wide installation)
+COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=python-builder /usr/local/bin /usr/local/bin
 
-ENV PATH=/root/.local/bin:$PATH
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV NODE_ENV=development
 
-# CRITICAL: Copy bridge with node_modules FIRST
+# Copy bridge with node_modules
 COPY --from=node-builder /app/bridge ./bridge
 
-# Then copy everything else EXCEPT bridge (to avoid overwriting)
+# Copy application code
 COPY passeur/config/ ./config/
 COPY passeur/src/ ./src/
 COPY passeur/tests/ ./tests/
 COPY passeur/pyproject.toml ./pyproject.toml
+
+# Copy supervisord configuration
+COPY passeur/supervisord.conf /etc/supervisor/conf.d/passeur.conf
 
 # Install passeur as editable for development
 RUN pip install --no-cache-dir \
@@ -75,45 +80,57 @@ RUN pip install --no-cache-dir \
     --trusted-host 172.17.0.1 \
     -e ".[dev]"
 
-EXPOSE 8766
+# Expose Python API port (bridge is internal)
+EXPOSE 7766
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8766/health || exit 1
+HEALTHCHECK --interval=10s --timeout=5s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:7766/health || exit 1
 
-CMD ["npm", "run", "dev", "--prefix", "bridge"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/passeur.conf"]
 
 # ============================================
 # Stage 4: Production stage (optimized)
 # ============================================
 FROM python:3.11-slim AS production
 
-RUN useradd -m -u 1000 -s /bin/bash passeur && \
-    apt-get update && \
+# Create non-root user
+RUN useradd -m -u 1000 -s /bin/bash passeur
+
+# Install Node.js, supervisor, and curl
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
     gnupg \
+    supervisor \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY --from=python-builder /root/.local /home/passeur/.local
+# Copy Python packages from builder (system-wide)
+COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=python-builder /usr/local/bin /usr/local/bin
+
+# Copy bridge
 COPY --from=node-builder /app/bridge ./bridge
 
+# Copy application code
 COPY --chown=passeur:passeur passeur/config/ ./config/
 COPY --chown=passeur:passeur passeur/src/ ./src/
 
-USER passeur
+# Copy supervisord configuration
+COPY passeur/supervisord.conf /etc/supervisor/conf.d/passeur.conf
 
-ENV PATH=/home/passeur/.local/bin:$PATH
+USER passeur
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV NODE_ENV=production
 
+# Expose Python API port (bridge is internal)
 EXPOSE 8766
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8766/health || exit 1
 
-CMD ["node", "bridge/server.js"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/passeur.conf"]

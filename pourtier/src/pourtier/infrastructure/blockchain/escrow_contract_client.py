@@ -307,9 +307,7 @@ class EscrowContractClient(IEscrowContractClient):
         Raises:
             Exception: If query fails
         """
-        balance = await self.bridge.get_escrow_balance(
-            escrow_account=escrow_account
-        )
+        balance = await self.bridge.get_escrow_balance(escrow_account=escrow_account)
 
         return balance
 
@@ -326,9 +324,7 @@ class EscrowContractClient(IEscrowContractClient):
         Raises:
             Exception: If query fails
         """
-        details = await self.bridge.get_escrow_details(
-            escrow_account=escrow_account
-        )
+        details = await self.bridge.get_escrow_details(escrow_account=escrow_account)
 
         return details
 

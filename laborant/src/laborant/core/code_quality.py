@@ -316,9 +316,7 @@ class CodeQualityChecker:
             Dict with linting results
         """
         self.reporter.info("", context="CodeQuality")
-        self.reporter.info(
-            f"Linting {component}", context="CodeQuality"
-        )
+        self.reporter.info(f"Linting {component}", context="CodeQuality")
         self.reporter.info("", context="CodeQuality")
 
         # Step 1: Initial scan
@@ -737,9 +735,7 @@ class CodeQualityChecker:
         target = component or "all components"
 
         self.reporter.info("", context="CodeQuality")
-        self.reporter.info(
-            f"Formatting {target}", context="CodeQuality"
-        )
+        self.reporter.info(f"Formatting {target}", context="CodeQuality")
         self.reporter.info("", context="CodeQuality")
 
         all_passed = True
@@ -752,9 +748,7 @@ class CodeQualityChecker:
         black_ok, black_out = self.run_black(component)
 
         if black_ok:
-            self.reporter.info(
-                "  Black: Done", context="CodeQuality"
-            )
+            self.reporter.info("  Black: Done", context="CodeQuality")
         else:
             self.reporter.error(
                 "  Black: FAILED",
@@ -772,9 +766,7 @@ class CodeQualityChecker:
         isort_ok, isort_out = self.run_isort(component)
 
         if isort_ok:
-            self.reporter.info(
-                "  isort: Done", context="CodeQuality"
-            )
+            self.reporter.info("  isort: Done", context="CodeQuality")
         else:
             self.reporter.error(
                 "  isort: FAILED",
@@ -822,9 +814,7 @@ class CodeQualityChecker:
         target = component or "all components"
 
         self.reporter.info("", context="CodeQuality")
-        self.reporter.info(
-            f"Linting {target}", context="CodeQuality"
-        )
+        self.reporter.info(f"Linting {target}", context="CodeQuality")
         self.reporter.info("", context="CodeQuality")
 
         # Step 1: Initial flake8 scan

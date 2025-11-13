@@ -9,6 +9,7 @@ Usage:
 
 import json
 
+import asyncio
 import httpx
 from base58 import b58encode
 from solders.keypair import Keypair
@@ -56,7 +57,7 @@ class TestSubscriptions(LaborantTest):
         self.reporter.info("Setting up E2E test environment...", context="Setup")
 
         settings = get_settings()
-        TestSubscriptions.api_base_url = f"http://pourtier:{settings.API_PORT}"
+        TestSubscriptions.api_base_url = f"http://localhost:{settings.API_PORT}"
         TestSubscriptions.alice_wallet = PlatformWallets.get_test_alice_address()
 
         # Setup database
@@ -135,7 +136,7 @@ class TestSubscriptions(LaborantTest):
                         return
             except Exception:
                 if attempt < max_attempts - 1:
-                    await self._async_sleep(1)
+                    await asyncio.sleep(1)
 
         raise RuntimeError("API not accessible")
 
@@ -189,9 +190,7 @@ class TestSubscriptions(LaborantTest):
                 data = response.json()
                 assert "id" in data
                 TestSubscriptions.subscription_id = data["id"]
-                self.reporter.info(
-                    "Subscription created", context="Test"
-                )
+                self.reporter.info("Subscription created", context="Test")
             else:
                 self.reporter.info(
                     f"Subscription creation returned {response.status_code}",
@@ -223,18 +222,14 @@ class TestSubscriptions(LaborantTest):
 
     async def test_03_unauthorized_access(self):
         """Test rejecting access without auth."""
-        self.reporter.info(
-            "Testing unauthorized access...", context="Test"
-        )
+        self.reporter.info("Testing unauthorized access...", context="Test")
 
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{self.api_base_url}/api/subscriptions")
 
             assert response.status_code in [307, 403, 404]
 
-            self.reporter.info(
-                "Unauthorized access blocked", context="Test"
-            )
+            self.reporter.info("Unauthorized access blocked", context="Test")
 
 
 if __name__ == "__main__":

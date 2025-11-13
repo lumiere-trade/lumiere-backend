@@ -263,8 +263,7 @@ async def websocket_endpoint(
 
                 # Log message processing (only at debug level)
                 reporter.debug(
-                    f"Message processed [conn={connection_id}] [type={message_type}] "
-                    f"[time={processing_time_ms:.2f}ms] [size={validation_result.size_bytes}]",
+                    f"Message processed [conn={connection_id}] [type={message_type}] [time={processing_time_ms:.2f}ms] [size={validation_result.size_bytes}]",
                     context="WebSocket",
                 )
 

@@ -137,9 +137,9 @@ class DIContainer:
         self._user_legal_acceptance_repository: Optional[
             IUserLegalAcceptanceRepository
         ] = None
-        self._escrow_transaction_repository: Optional[
-            IEscrowTransactionRepository
-        ] = None
+        self._escrow_transaction_repository: Optional[IEscrowTransactionRepository] = (
+            None
+        )
 
         # Use Cases (session-scoped, not cached)
         self._authenticate_wallet: Optional[AuthenticateWallet] = None
@@ -197,9 +197,7 @@ class DIContainer:
     def courier_client(self) -> CourierClient:
         """Get Courier client instance."""
         if self._courier_client is None:
-            self._courier_client = CourierClient(
-                courier_url=get_settings().COURIER_URL
-            )
+            self._courier_client = CourierClient(courier_url=get_settings().COURIER_URL)
         return self._courier_client
 
     @property
@@ -339,16 +337,12 @@ class DIContainer:
     def event_publisher(self) -> IEventPublisher:
         """Get event publisher instance."""
         if self._event_publisher is None:
-            self._event_publisher = CourierPublisher(
-                courier_client=self.courier_client
-            )
+            self._event_publisher = CourierPublisher(courier_client=self.courier_client)
         return self._event_publisher
 
     # Repository Getters (Session-scoped)
 
-    def get_user_repository(
-        self, session: AsyncSession = None
-    ) -> IUserRepository:
+    def get_user_repository(self, session: AsyncSession = None) -> IUserRepository:
         """
         Get user repository instance with multi-layer caching.
 
@@ -361,9 +355,7 @@ class DIContainer:
             UserRepository instance or class
         """
         if session is not None:
-            cache = (
-                self.multi_layer_cache if get_settings().REDIS_ENABLED else None
-            )
+            cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
             return UserRepository(session, cache=cache)
         return UserRepository
 
@@ -453,9 +445,7 @@ class DIContainer:
         Returns:
             AuthenticateWallet use case instance
         """
-        cache = (
-            self.multi_layer_cache if get_settings().REDIS_ENABLED else None
-        )
+        cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
         user_repository = UserRepository(session, cache=cache)
 
         return AuthenticateWallet(
@@ -473,9 +463,7 @@ class DIContainer:
         Returns:
             InitializeEscrow use case instance
         """
-        cache = (
-            self.multi_layer_cache if get_settings().REDIS_ENABLED else None
-        )
+        cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
         user_repo = UserRepository(session, cache=cache)
         escrow_tx_repo = EscrowTransactionRepository(session)
 
@@ -497,9 +485,7 @@ class DIContainer:
         Returns:
             DepositToEscrow use case instance
         """
-        cache = (
-            self.multi_layer_cache if get_settings().REDIS_ENABLED else None
-        )
+        cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
         user_repo = UserRepository(session, cache=cache)
         escrow_tx_repo = EscrowTransactionRepository(session)
 
@@ -512,9 +498,7 @@ class DIContainer:
             idempotency_store=self.idempotency_store,
         )
 
-    def get_withdraw_from_escrow(
-        self, session: AsyncSession
-    ) -> WithdrawFromEscrow:
+    def get_withdraw_from_escrow(self, session: AsyncSession) -> WithdrawFromEscrow:
         """
         Get withdraw from escrow use case with idempotency protection.
 
@@ -524,9 +508,7 @@ class DIContainer:
         Returns:
             WithdrawFromEscrow use case instance
         """
-        cache = (
-            self.multi_layer_cache if get_settings().REDIS_ENABLED else None
-        )
+        cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
         user_repo = UserRepository(session, cache=cache)
         escrow_tx_repo = EscrowTransactionRepository(session)
 
@@ -548,9 +530,7 @@ class DIContainer:
     def get_update_user_profile(self) -> UpdateUserProfile:
         """Get update user profile use case."""
 
-    def get_create_subscription(
-        self, session: AsyncSession
-    ) -> CreateSubscription:
+    def get_create_subscription(self, session: AsyncSession) -> CreateSubscription:
         """
         Get create subscription use case with session-scoped repos.
 
@@ -561,9 +541,7 @@ class DIContainer:
             CreateSubscription use case instance
         """
         subscription_repo = SubscriptionRepository(session)
-        cache = (
-            self.multi_layer_cache if get_settings().REDIS_ENABLED else None
-        )
+        cache = self.multi_layer_cache if get_settings().REDIS_ENABLED else None
         user_repo = UserRepository(session, cache=cache)
 
         return CreateSubscription(

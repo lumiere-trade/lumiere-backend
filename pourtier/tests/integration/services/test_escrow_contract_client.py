@@ -8,7 +8,6 @@ Usage:
 """
 
 import json
-from uuid import uuid4
 
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
@@ -50,7 +49,8 @@ class TestEscrowContractClient(LaborantTest):
         )
 
         self.reporter.info(
-            f"Platform pubkey: {self.platform_keypair.pubkey()}", context="Setup"
+            f"Platform pubkey: {self.platform_keypair.pubkey()}",
+            context="Setup",
         )
 
         # Check balance
@@ -86,11 +86,14 @@ class TestEscrowContractClient(LaborantTest):
         response = await self.client.get_balance(pubkey)
         return response.value / 1e9
 
-    def _derive_escrow_pda(
-        self, program_id: Pubkey, user_pubkey: Pubkey, strategy_id: bytes
-    ) -> tuple:
-        """Derive escrow PDA address."""
-        seeds = [b"escrow", bytes(user_pubkey), strategy_id]
+    def _derive_escrow_pda(self, program_id: Pubkey, user_pubkey: Pubkey) -> tuple:
+        """
+        Derive escrow PDA address (USER-BASED, no strategy_id).
+
+        New architecture: One escrow per user.
+        PDA seeds: [b"escrow", bytes(user_pubkey)]
+        """
+        seeds = [b"escrow", bytes(user_pubkey)]
         return Pubkey.find_program_address(seeds, program_id)
 
     async def test_rpc_connection(self):
@@ -113,7 +116,8 @@ class TestEscrowContractClient(LaborantTest):
         assert self.platform_keypair is not None
 
         self.reporter.info(
-            f"Platform pubkey: {self.platform_keypair.pubkey()}", context="Test"
+            f"Platform pubkey: {self.platform_keypair.pubkey()}",
+            context="Test",
         )
 
     async def test_check_wallet_balance(self):
@@ -127,15 +131,14 @@ class TestEscrowContractClient(LaborantTest):
         self.reporter.info(f"Wallet balance: {balance:.4f} SOL", context="Test")
 
     async def test_derive_escrow_pda(self):
-        """Test deriving escrow PDA address."""
-        self.reporter.info("Testing escrow PDA derivation", context="Test")
+        """Test deriving escrow PDA address (USER-BASED)."""
+        self.reporter.info("Testing escrow PDA derivation (user-based)", context="Test")
 
         program_id = Pubkey.from_string(self.program_id)
         user_pubkey = self.platform_keypair.pubkey()
 
-        strategy_id = uuid4().bytes
-
-        escrow_pda, bump = self._derive_escrow_pda(program_id, user_pubkey, strategy_id)
+        # User-based escrow (no strategy_id)
+        escrow_pda, bump = self._derive_escrow_pda(program_id, user_pubkey)
 
         assert escrow_pda is not None
         assert 0 <= bump <= 255
@@ -155,7 +158,8 @@ class TestEscrowContractClient(LaborantTest):
         assert response.value.executable
 
         self.reporter.info(
-            f"Program account verified! Owner: {response.value.owner}", context="Test"
+            f"Program account verified! Owner: {response.value.owner}",
+            context="Test",
         )
 
     async def test_program_idl_check(self):
@@ -175,19 +179,20 @@ class TestEscrowContractClient(LaborantTest):
 
     async def test_escrow_initialization_flow(self):
         """Test full escrow initialization flow (simulated)."""
-        self.reporter.info("Testing escrow initialization flow", context="Test")
+        self.reporter.info(
+            "Testing escrow initialization flow (user-based)", context="Test"
+        )
 
         program_id = Pubkey.from_string(self.program_id)
         user_pubkey = self.platform_keypair.pubkey()
 
-        strategy_id = uuid4().bytes
-
-        escrow_pda, bump = self._derive_escrow_pda(program_id, user_pubkey, strategy_id)
+        # User-based escrow (no strategy_id)
+        escrow_pda, bump = self._derive_escrow_pda(program_id, user_pubkey)
 
         self.reporter.info(f"Would initialize escrow at: {escrow_pda}", context="Test")
         self.reporter.info(f"User: {user_pubkey}", context="Test")
-        self.reporter.info(f"Strategy ID: {strategy_id.hex()}", context="Test")
         self.reporter.info(f"Bump: {bump}", context="Test")
+        self.reporter.info("NOTE: User-based escrow (no strategy_id)", context="Test")
 
         assert escrow_pda is not None
         assert bump is not None

@@ -64,12 +64,12 @@ class SolanaRPCClient:
         # Retry config
         retry_config = self._settings.get_retry_config("rpc_query")
         self.retry = Retry(
-            name="rpc_query",
+            
             config=RetryConfig(
                 max_attempts=retry_config.max_attempts,
                 initial_delay=retry_config.initial_delay,
                 max_delay=retry_config.max_delay,
-                exponential_base=retry_config.exponential_base,
+                backoff_multiplier=retry_config.backoff_multiplier,
                 jitter=retry_config.jitter,
                 retry_on=(
                     aiohttp.ClientError,

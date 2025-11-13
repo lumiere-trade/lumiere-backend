@@ -251,7 +251,7 @@ class LaborantReporter:
         else:
             icon = ""
             icon_style = "red"
-            percentage = f"{(passed/total*100):.1f}%" if total > 0 else "0%"
+            percentage = f"{(passed / total * 100):.1f}%" if total > 0 else "0%"
 
         summary_text = f"Summary: {passed}/{total} passed ({percentage})"
 

@@ -146,9 +146,7 @@ class PasseurBridgeClient(IPasseurBridge):
                 payload,
                 operation,
             )
-            passeur_requests_total.labels(
-                operation=operation, status="success"
-            ).inc()
+            passeur_requests_total.labels(operation=operation, status="success").inc()
             return result
 
         except CircuitBreakerOpenError:
@@ -156,14 +154,10 @@ class PasseurBridgeClient(IPasseurBridge):
                 operation=operation, status="circuit_open"
             ).inc()
             passeur_circuit_breaker_state.labels(state="open").inc()
-            raise BridgeError(
-                f"Passeur Bridge circuit breaker is OPEN for {operation}"
-            )
+            raise BridgeError(f"Passeur Bridge circuit breaker is OPEN for {operation}")
 
         except Exception:
-            passeur_requests_total.labels(
-                operation=operation, status="error"
-            ).inc()
+            passeur_requests_total.labels(operation=operation, status="error").inc()
             raise
 
     async def _make_request_with_retry(
@@ -276,9 +270,7 @@ class PasseurBridgeClient(IPasseurBridge):
         }
 
         try:
-            with passeur_request_duration.labels(
-                operation="submit_transaction"
-            ).time():
+            with passeur_request_duration.labels(operation="submit_transaction").time():
                 result = await self.circuit_breaker.call_async(
                     self.retry.execute_async,
                     self._submit_transaction_once,
@@ -295,8 +287,7 @@ class PasseurBridgeClient(IPasseurBridge):
             ).inc()
             passeur_circuit_breaker_state.labels(state="open").inc()
             raise BridgeError(
-                "Passeur Bridge circuit breaker is OPEN for "
-                "transaction submission"
+                "Passeur Bridge circuit breaker is OPEN for " "transaction submission"
             )
 
         except Exception:
@@ -569,9 +560,7 @@ class PasseurBridgeClient(IPasseurBridge):
             CircuitBreakerOpenError: If circuit is open
         """
         try:
-            with passeur_request_duration.labels(
-                operation="get_escrow_balance"
-            ).time():
+            with passeur_request_duration.labels(operation="get_escrow_balance").time():
                 result = await self.circuit_breaker.call_async(
                     self.retry.execute_async,
                     self._get_escrow_balance_once,
@@ -588,8 +577,7 @@ class PasseurBridgeClient(IPasseurBridge):
             ).inc()
             passeur_circuit_breaker_state.labels(state="open").inc()
             raise BridgeError(
-                "Passeur Bridge circuit breaker is OPEN for "
-                "escrow balance query"
+                "Passeur Bridge circuit breaker is OPEN for " "escrow balance query"
             )
 
         except Exception:
@@ -640,9 +628,7 @@ class PasseurBridgeClient(IPasseurBridge):
             CircuitBreakerOpenError: If circuit is open
         """
         try:
-            with passeur_request_duration.labels(
-                operation="get_escrow_details"
-            ).time():
+            with passeur_request_duration.labels(operation="get_escrow_details").time():
                 result = await self.circuit_breaker.call_async(
                     self.retry.execute_async,
                     self._get_escrow_details_once,
@@ -659,8 +645,7 @@ class PasseurBridgeClient(IPasseurBridge):
             ).inc()
             passeur_circuit_breaker_state.labels(state="open").inc()
             raise BridgeError(
-                "Passeur Bridge circuit breaker is OPEN for "
-                "escrow details query"
+                "Passeur Bridge circuit breaker is OPEN for " "escrow details query"
             )
 
         except Exception:
@@ -710,9 +695,7 @@ class PasseurBridgeClient(IPasseurBridge):
             CircuitBreakerOpenError: If circuit is open
         """
         try:
-            with passeur_request_duration.labels(
-                operation="get_wallet_balance"
-            ).time():
+            with passeur_request_duration.labels(operation="get_wallet_balance").time():
                 result = await self.circuit_breaker.call_async(
                     self.retry.execute_async,
                     self._get_wallet_balance_once,
@@ -729,8 +712,7 @@ class PasseurBridgeClient(IPasseurBridge):
             ).inc()
             passeur_circuit_breaker_state.labels(state="open").inc()
             raise BridgeError(
-                "Passeur Bridge circuit breaker is OPEN for "
-                "wallet balance query"
+                "Passeur Bridge circuit breaker is OPEN for " "wallet balance query"
             )
 
         except Exception:
@@ -745,9 +727,7 @@ class PasseurBridgeClient(IPasseurBridge):
         url = f"{self.bridge_url}/wallet/balance"
 
         try:
-            async with session.get(
-                url, params={"wallet": wallet_address}
-            ) as response:
+            async with session.get(url, params={"wallet": wallet_address}) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     if 400 <= response.status < 500:
