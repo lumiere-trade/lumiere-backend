@@ -107,9 +107,7 @@ class RedisIdempotencyStore(IdempotencyStore):
 
         await self.redis.delete(f"idempotency:{key}")
 
-    async def check_and_store(
-        self, key: str, ttl: int
-    ) -> Tuple[bool, Optional[Any]]:
+    async def check_and_store(self, key: str, ttl: int) -> Tuple[bool, Optional[Any]]:
         """
         Check if key exists and reserve it if not.
 

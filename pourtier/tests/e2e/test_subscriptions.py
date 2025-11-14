@@ -7,9 +7,9 @@ Usage:
     laborant pourtier --e2e
 """
 
+import asyncio
 import json
 
-import asyncio
 import httpx
 from base58 import b58encode
 from solders.keypair import Keypair
