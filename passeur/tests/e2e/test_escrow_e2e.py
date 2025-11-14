@@ -118,6 +118,55 @@ class TestEscrowE2E(LaborantTest):
         self.reporter.info("Cleanup complete", context="Teardown")
         self.reporter.info("=" * 60, context="Teardown")
 
+    def _wait_for_account_ready(self, max_attempts=20, initial_wait=2):
+        """
+        Wait for escrow account to be queryable (transaction confirmed).
+
+        Uses exponential backoff with polling to handle devnet latency.
+
+        Args:
+            max_attempts: Maximum number of polling attempts
+            initial_wait: Initial wait time in seconds before first attempt
+        """
+        self.reporter.info(
+            f"Waiting for account confirmation (max {max_attempts} attempts)...",
+            context="Wait",
+        )
+
+        # Initial wait for transaction propagation
+        time.sleep(initial_wait)
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = requests.get(
+                    f"{self.passeur_url}/escrow/{self.test_escrow_account}",
+                    timeout=5,
+                )
+
+                if response.status_code == 200:
+                    self.reporter.info(
+                        f"Account ready after {attempt} attempt(s)",
+                        context="Wait",
+                    )
+                    return True
+
+            except requests.exceptions.RequestException:
+                pass
+
+            # Exponential backoff: 1s, 2s, 4s, 8s, then 10s max
+            wait_time = min(2 ** (attempt - 1), 10)
+            self.reporter.info(
+                f"Attempt {attempt}/{max_attempts} - waiting {wait_time}s...",
+                context="Wait",
+            )
+            time.sleep(wait_time)
+
+        self.reporter.info(
+            f"Account not ready after {max_attempts} attempts (may still confirm)",
+            context="Wait",
+        )
+        return False
+
     def test_01_initialize_escrow(self):
         """Test initializing user-based escrow (no strategy_id)."""
         self.reporter.info("Testing user-based escrow initialization", context="Test")
@@ -157,10 +206,8 @@ class TestEscrowE2E(LaborantTest):
                 raise
 
     def test_02_wait_for_confirmation(self):
-        """Wait for transaction confirmation."""
-        self.reporter.info("Waiting for confirmation...", context="Test")
-        time.sleep(5)
-        self.reporter.info("Confirmation complete", context="Test")
+        """Wait for transaction confirmation with retry mechanism."""
+        self._wait_for_account_ready()
 
     def test_03_get_escrow_details(self):
         """Test getting escrow details."""
@@ -209,10 +256,8 @@ class TestEscrowE2E(LaborantTest):
         self.reporter.info(f"Signature: {signature[:8]}...", context="Test")
 
     def test_05_wait_for_confirmation(self):
-        """Wait for transaction confirmation."""
-        self.reporter.info("Waiting for confirmation...", context="Test")
-        time.sleep(5)
-        self.reporter.info("Confirmation complete", context="Test")
+        """Wait for transaction confirmation with retry mechanism."""
+        self._wait_for_account_ready()
 
     def test_06_get_balance_after_deposit(self):
         """Test getting balance after deposit."""
@@ -256,10 +301,8 @@ class TestEscrowE2E(LaborantTest):
         self.reporter.info(f"Signature: {signature[:8]}...", context="Test")
 
     def test_08_wait_for_confirmation(self):
-        """Wait for transaction confirmation."""
-        self.reporter.info("Waiting for confirmation...", context="Test")
-        time.sleep(5)
-        self.reporter.info("Confirmation complete", context="Test")
+        """Wait for transaction confirmation with retry mechanism."""
+        self._wait_for_account_ready()
 
     def test_09_verify_platform_authority_delegated(self):
         """Verify platform authority is delegated."""
@@ -309,10 +352,8 @@ class TestEscrowE2E(LaborantTest):
         self.reporter.info(f"Signature: {signature[:8]}...", context="Test")
 
     def test_11_wait_for_confirmation(self):
-        """Wait for transaction confirmation."""
-        self.reporter.info("Waiting for confirmation...", context="Test")
-        time.sleep(5)
-        self.reporter.info("Confirmation complete", context="Test")
+        """Wait for transaction confirmation with retry mechanism."""
+        self._wait_for_account_ready()
 
     def test_12_verify_trading_authority_delegated(self):
         """Verify trading authority is delegated."""
@@ -358,10 +399,8 @@ class TestEscrowE2E(LaborantTest):
         self.reporter.info(f"Signature: {signature[:8]}...", context="Test")
 
     def test_14_wait_for_confirmation(self):
-        """Wait for transaction confirmation."""
-        self.reporter.info("Waiting for confirmation...", context="Test")
-        time.sleep(5)
-        self.reporter.info("Confirmation complete", context="Test")
+        """Wait for transaction confirmation with retry mechanism."""
+        self._wait_for_account_ready()
 
     def test_15_verify_platform_authority_revoked(self):
         """Verify platform authority is revoked."""
@@ -408,10 +447,8 @@ class TestEscrowE2E(LaborantTest):
         self.reporter.info(f"Signature: {signature[:8]}...", context="Test")
 
     def test_17_wait_for_confirmation(self):
-        """Wait for transaction confirmation."""
-        self.reporter.info("Waiting for confirmation...", context="Test")
-        time.sleep(5)
-        self.reporter.info("Confirmation complete", context="Test")
+        """Wait for transaction confirmation with retry mechanism."""
+        self._wait_for_account_ready()
 
     def test_18_verify_trading_authority_revoked(self):
         """Verify trading authority is revoked."""
@@ -455,10 +492,8 @@ class TestEscrowE2E(LaborantTest):
         self.reporter.info(f"Signature: {signature[:8]}...", context="Test")
 
     def test_20_wait_for_confirmation(self):
-        """Wait for transaction confirmation."""
-        self.reporter.info("Waiting for confirmation...", context="Test")
-        time.sleep(5)
-        self.reporter.info("Confirmation complete", context="Test")
+        """Wait for transaction confirmation with retry mechanism."""
+        self._wait_for_account_ready()
 
     def test_21_verify_balance_after_withdraw(self):
         """Verify balance after withdraw."""
@@ -493,10 +528,8 @@ class TestEscrowE2E(LaborantTest):
         self.reporter.info(f"Signature: {signature[:8]}...", context="Test")
 
     def test_23_wait_for_confirmation(self):
-        """Wait for transaction confirmation."""
-        self.reporter.info("Waiting for confirmation...", context="Test")
-        time.sleep(5)
-        self.reporter.info("Confirmation complete", context="Test")
+        """Wait for transaction confirmation with retry mechanism."""
+        self._wait_for_account_ready()
 
     def test_24_verify_escrow_closed(self):
         """Verify escrow is closed."""

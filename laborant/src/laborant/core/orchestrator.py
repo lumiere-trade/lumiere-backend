@@ -21,7 +21,6 @@ from shared.tests.models import TestFileResult
 
 from laborant.core.change_detector import ChangeDetector
 from laborant.core.component_mapper import ComponentMapper
-from laborant.core.docker_test_executor import DockerTestExecutor
 from laborant.core.reporter import LaborantReporter
 from laborant.core.test_executor import TestExecutor
 
@@ -68,9 +67,10 @@ class Laborant:
     Coordinates all components to detect changes, map to tests,
     execute tests, and report results.
 
-    Uses:
-    - TestExecutor for unit tests and lightweight integration tests
-    - DockerTestExecutor for integration/e2e tests requiring infrastructure
+    Test Infrastructure Philosophy:
+    - Test stack is always running via docker-compose-test.yaml
+    - Laborant only executes tests, does not manage Docker
+    - Tests expect services to be already available
     """
 
     def __init__(
@@ -106,11 +106,8 @@ class Laborant:
         self.change_detector = ChangeDetector(self.project_root, self.reporter)
         self.component_mapper = ComponentMapper(self.project_root, self.reporter)
 
-        # Initialize executors
+        # Initialize test executor (single executor, no Docker management)
         self.test_executor = TestExecutor(self.project_root, timeout, self.reporter)
-        self.docker_executor = DockerTestExecutor(
-            self.project_root, timeout, self.reporter
-        )
 
         # Initialize display reporter and Rich console
         self.display_reporter = LaborantReporter()
@@ -196,9 +193,6 @@ class Laborant:
                     )
                     break
 
-        # Cleanup Docker infrastructure if we used it
-        self.docker_executor.cleanup_infrastructure()
-
         # Print final summary
         total_duration = time.time() - start_time
         self._print_final_summary(total_duration)
@@ -246,74 +240,6 @@ class Laborant:
         )
 
         return affected_components
-
-    def _component_needs_docker(self, component_name: str, category: str) -> bool:
-        """
-        Check if component needs Docker for given test category.
-
-        Components need Docker if they have docker-compose-test.yaml file.
-
-        Args:
-            component_name: Component name (e.g., 'courier', 'pourtier')
-            category: Test category (unit, integration, e2e)
-
-        Returns:
-            True if Docker is needed, False otherwise
-        """
-        component_path = self.project_root / component_name
-
-        # E2E tests always need Docker (full stack)
-        if category == "e2e":
-            return True
-
-        # Check for docker-compose-test.yaml (indicates infrastructure needed)
-        if (component_path / "docker-compose-test.yaml").exists():
-            return True
-
-        # No Docker infrastructure found - can run on host
-        return False
-
-    def _get_executor_for_category(
-        self, category: str, component_name: Optional[str] = None
-    ):
-        """
-        Get appropriate executor for test category and component.
-
-        Smart selection based on infrastructure needs:
-        - Unit tests → Host (fast, isolated)
-        - Integration tests → Host (if no Docker) or Docker (if DB/services)
-        - E2E tests → Docker (full stack)
-
-        Args:
-            category: Test category (unit, integration, e2e)
-            component_name: Component name (optional, for smart detection)
-
-        Returns:
-            TestExecutor or DockerTestExecutor
-        """
-        # Unit tests always run on host (fast, isolated)
-        if category == "unit":
-            return self.test_executor
-
-        # Integration tests - smart detection
-        if category == "integration":
-            # Smart detection for integration tests
-            if component_name and not self._component_needs_docker(
-                component_name, category
-            ):
-                # No Docker infrastructure → run on host
-                self.reporter.debug(
-                    f"Running {component_name} integration tests on host "
-                    f"(no Docker needed)",
-                    context="Laborant",
-                )
-                return self.test_executor
-            else:
-                # Has Docker infrastructure → run in Docker
-                return self.docker_executor
-
-        # E2E tests always need Docker
-        return self.docker_executor
 
     def _run_component_tests(
         self,
@@ -385,9 +311,6 @@ class Laborant:
             if categories and category not in categories:
                 continue
 
-            # Get appropriate executor for this category (SMART SELECTION)
-            executor = self._get_executor_for_category(category, component_name)
-
             # Get file count for category
             file_count = len(all_test_files[category])
 
@@ -399,8 +322,10 @@ class Laborant:
 
             # Run each test file in category
             for test_file in all_test_files[category]:
-                # Execute test with appropriate executor
-                result = executor.execute_test_file(test_file, component_name, category)
+                # Execute test with test executor
+                result = self.test_executor.execute_test_file(
+                    test_file, component_name, category
+                )
 
                 # Add to component results
                 component_result.add_result(category, result)
