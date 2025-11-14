@@ -7,6 +7,7 @@ WebSocket broadcasting to UI clients.
 """
 
 import asyncio
+import json
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -127,10 +128,25 @@ class CourierClient:
             logger.error(f"Invalid event structure: {event}")
             return False
 
+        # DETAILED LOGGING: Log request details
+        logger.info(f"Publishing to URL: {url}")
+        logger.info(f"Event payload: {json.dumps(event, indent=2)}")
+
         # Retry logic
         for attempt in range(self.max_retries):
             try:
                 response = await self.client.post(url, json=event)
+
+                # DETAILED LOGGING: Log response details
+                logger.info(f"Response status: {response.status_code}")
+                logger.info(f"Response headers: {dict(response.headers)}")
+                
+                # Always log response body for debugging
+                try:
+                    response_body = response.text
+                    logger.info(f"Response body: {response_body[:500]}")
+                except Exception:
+                    logger.warning("Could not read response body")
 
                 if response.status_code == 200:
                     logger.debug(
@@ -147,7 +163,7 @@ class CourierClient:
                     logger.warning(
                         f"Publish failed "
                         f"(attempt {attempt + 1}/{self.max_retries}): "
-                        f"HTTP {response.status_code}"
+                        f"HTTP {response.status_code}, body: {response.text[:200]}"
                     )
 
             except httpx.TimeoutException:
@@ -163,7 +179,9 @@ class CourierClient:
 
             except Exception as e:
                 logger.error(
-                    f"Publish error " f"(attempt {attempt + 1}/{self.max_retries}): {e}"
+                    f"Publish error "
+                    f"(attempt {attempt + 1}/{self.max_retries}): {e}",
+                    exc_info=True
                 )
 
             # Wait before retry (exponential backoff)
@@ -204,10 +222,25 @@ class CourierClient:
             logger.error(f"Invalid event structure: {event}")
             return False
 
+        # DETAILED LOGGING: Log request details
+        logger.info(f"Publishing to URL: {url}")
+        logger.info(f"Event payload: {json.dumps(event, indent=2)}")
+
         # Retry logic
         for attempt in range(self.max_retries):
             try:
                 response = self.sync_client.post(url, json=event)
+
+                # DETAILED LOGGING: Log response details
+                logger.info(f"Response status: {response.status_code}")
+                logger.info(f"Response headers: {dict(response.headers)}")
+                
+                # Always log response body for debugging
+                try:
+                    response_body = response.text
+                    logger.info(f"Response body: {response_body[:500]}")
+                except Exception:
+                    logger.warning("Could not read response body")
 
                 if response.status_code == 200:
                     logger.debug(
@@ -224,7 +257,7 @@ class CourierClient:
                     logger.warning(
                         f"Publish failed "
                         f"(attempt {attempt + 1}/{self.max_retries}): "
-                        f"HTTP {response.status_code}"
+                        f"HTTP {response.status_code}, body: {response.text[:200]}"
                     )
 
             except httpx.TimeoutException:
@@ -240,7 +273,9 @@ class CourierClient:
 
             except Exception as e:
                 logger.error(
-                    f"Publish error " f"(attempt {attempt + 1}/{self.max_retries}): {e}"
+                    f"Publish error "
+                    f"(attempt {attempt + 1}/{self.max_retries}): {e}",
+                    exc_info=True
                 )
 
             # Wait before retry (exponential backoff)
