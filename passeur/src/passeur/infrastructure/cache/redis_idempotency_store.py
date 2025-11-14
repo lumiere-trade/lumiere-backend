@@ -5,7 +5,7 @@ Implements IdempotencyStore protocol from shared package.
 """
 
 import json
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import redis.asyncio as aioredis
 from shared.resilience import IdempotencyStore
@@ -106,6 +106,53 @@ class RedisIdempotencyStore(IdempotencyStore):
         await self._ensure_connection()
 
         await self.redis.delete(f"idempotency:{key}")
+
+    async def check_and_store(
+        self, key: str, ttl: int
+    ) -> Tuple[bool, Optional[Any]]:
+        """
+        Check if key exists and reserve it if not.
+
+        This is an atomic operation that:
+        1. Checks if the key exists
+        2. If it exists, returns the cached result
+        3. If not, reserves the key with empty value
+
+        Args:
+            key: Idempotency key
+            ttl: Time to live in seconds
+
+        Returns:
+            Tuple of (is_duplicate, cached_result):
+            - (True, result) if key exists (duplicate request)
+            - (False, None) if key is new (first request)
+        """
+        await self._ensure_connection()
+
+        cached_value = await self.get_async(key)
+
+        if cached_value is not None:
+            return (True, cached_value)
+
+        await self.set_async(key, {}, ttl)
+        return (False, None)
+
+    async def store_result(self, key: str, result: Any) -> None:
+        """
+        Store the final result for an idempotency key.
+
+        Updates the reserved key with the actual result.
+        Uses default TTL from settings.
+
+        Args:
+            key: Idempotency key
+            result: Result to store
+        """
+        await self._ensure_connection()
+
+        ttl = self._settings.resilience.idempotency.financial_operations * 86400
+
+        await self.set_async(key, result, ttl)
 
     async def close(self) -> None:
         """Close Redis connection."""
