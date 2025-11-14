@@ -2,7 +2,7 @@
 E2E tests for complete integration flows.
 
 Tests full user journeys combining WebSocket connections and HTTP publish.
-Automatically starts/stops Courier container for testing.
+Uses existing test stack (lumiere-test-courier on port 7765).
 
 Usage:
     laborant courier --e2e
@@ -10,7 +10,6 @@ Usage:
 
 import asyncio
 import json
-import subprocess
 
 import httpx
 import websockets
@@ -25,68 +24,19 @@ class TestFullFlow(LaborantTest):
 
     ws_base_url = "ws://localhost:7765"
     http_base_url = "http://localhost:7765"
-    container_name = "lumiere-test-courier-full-flow-test"
 
     async def async_setup(self):
-        """Setup and start Courier container."""
+        """Setup tests - verify Courier is accessible."""
         self.reporter.info("Setting up full flow tests...", context="Setup")
 
-        await self._start_courier_container()
         await self._wait_for_api()
 
         self.reporter.info("Full flow tests ready", context="Setup")
 
     async def async_teardown(self):
-        """Cleanup and stop Courier container."""
+        """Cleanup after tests."""
         self.reporter.info("Cleaning up full flow tests...", context="Teardown")
-
-        await self._stop_courier_container()
         self.reporter.info("Cleanup complete", context="Teardown")
-
-    async def _start_courier_container(self):
-        """Start Courier container for testing."""
-        self.reporter.info("Starting Courier container...", context="Setup")
-
-        subprocess.run(
-            ["docker", "rm", "-f", self.container_name],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-
-        subprocess.run(
-            [
-                "docker",
-                "run",
-                "-d",
-                "--name",
-                self.container_name,
-                "-p",
-                "7765:7765",
-                "-e",
-                "ENV=test",
-                "-e",
-                "PORT=7765",
-                "-e",
-                "REQUIRE_AUTH=false",
-                "courier:development",
-            ],
-            check=True,
-            stdout=subprocess.DEVNULL,
-        )
-
-        self.reporter.info("Courier container started", context="Setup")
-
-    async def _stop_courier_container(self):
-        """Stop and remove Courier container."""
-        self.reporter.info("Stopping Courier container...", context="Teardown")
-
-        subprocess.run(
-            ["docker", "rm", "-f", self.container_name],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-
-        self.reporter.info("Courier container stopped", context="Teardown")
 
     async def _wait_for_api(self):
         """Wait for API to be ready."""

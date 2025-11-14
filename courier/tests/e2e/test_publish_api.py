@@ -8,7 +8,6 @@ Usage:
 """
 
 import asyncio
-import subprocess
 
 import httpx
 from shared.tests import LaborantTest
@@ -22,73 +21,24 @@ class TestPublishAPI(LaborantTest):
 
     client: httpx.AsyncClient = None
     api_base_url = "http://localhost:7765"
-    container_name = "lumiere-test-courier-test"
 
     async def async_setup(self):
-        """Setup HTTP client and start Courier container."""
+        """Setup HTTP client and verify Courier is accessible."""
         self.reporter.info("Setting up Publish API E2E tests...", context="Setup")
 
-        # Start Courier container
-        await self._start_courier_container()
         await self._wait_for_api()
 
         TestPublishAPI.client = httpx.AsyncClient(base_url=self.api_base_url)
         self.reporter.info("Publish API E2E tests ready", context="Setup")
 
     async def async_teardown(self):
-        """Cleanup HTTP client and stop Courier container."""
+        """Cleanup HTTP client."""
         self.reporter.info("Cleaning up Publish API tests...", context="Teardown")
 
         if TestPublishAPI.client:
             await TestPublishAPI.client.aclose()
 
-        await self._stop_courier_container()
         self.reporter.info("Cleanup complete", context="Teardown")
-
-    async def _start_courier_container(self):
-        """Start Courier container."""
-        self.reporter.info("Starting Courier container...", context="Setup")
-
-        subprocess.run(
-            ["docker", "rm", "-f", self.container_name],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-
-        subprocess.run(
-            [
-                "docker",
-                "run",
-                "-d",
-                "--name",
-                self.container_name,
-                "-p",
-                "7765:7765",
-                "-e",
-                "ENV=test",
-                "-e",
-                "PORT=7765",
-                "-e",
-                "REQUIRE_AUTH=false",
-                "courier:development",
-            ],
-            check=True,
-            stdout=subprocess.DEVNULL,
-        )
-
-        self.reporter.info("Courier container started", context="Setup")
-
-    async def _stop_courier_container(self):
-        """Stop and remove Courier container."""
-        self.reporter.info("Stopping Courier container...", context="Teardown")
-
-        subprocess.run(
-            ["docker", "rm", "-f", self.container_name],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-
-        self.reporter.info("Courier container stopped", context="Teardown")
 
     async def _wait_for_api(self):
         """Wait for API to be ready."""
