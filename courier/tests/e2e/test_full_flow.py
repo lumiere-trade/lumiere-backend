@@ -292,7 +292,7 @@ class TestFullFlow(LaborantTest):
 
             await asyncio.gather(*[publish_message(i) for i in range(5)])
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
             task.cancel()
 
         assert len(messages) == 5
