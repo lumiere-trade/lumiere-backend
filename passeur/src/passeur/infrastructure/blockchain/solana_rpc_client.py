@@ -64,7 +64,6 @@ class SolanaRPCClient:
         # Retry config
         retry_config = self._settings.get_retry_config("rpc_query")
         self.retry = Retry(
-            
             config=RetryConfig(
                 max_attempts=retry_config.max_attempts,
                 initial_delay=retry_config.initial_delay,
