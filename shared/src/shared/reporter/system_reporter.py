@@ -113,15 +113,9 @@ class SystemReporter:
             if os.path.exists(log_file):
                 try:
                     os.remove(log_file)
-                    print(
-                        f"✓ Cleared old log file: {log_file}",
-                        file=sys.stderr,
-                    )
+                    print(f"Cleared old log file: {log_file}", file=sys.stderr)
                 except Exception as e:
-                    print(
-                        f"⚠ Could not clear old log file: {e}",
-                        file=sys.stderr,
-                    )
+                    print(f"Could not clear old log file: {e}", file=sys.stderr)
 
             # File handler
             file_handler = logging.FileHandler(log_file, encoding="utf-8")
@@ -145,7 +139,7 @@ class SystemReporter:
             courier_status += " (unavailable)"
 
         print(
-            f"✓ SystemReporter initialized ({courier_status}): {log_dest}",
+            f"SystemReporter initialized ({courier_status}): {log_dest}",
             file=sys.stderr,
         )
 
@@ -160,18 +154,14 @@ class SystemReporter:
                     if age_days > LOG_RETENTION_DAYS:
                         os.remove(log_file)
                         print(
-                            f"✓ Rotated log file (older than "
-                            f"{LOG_RETENTION_DAYS} days): {log_file}",
+                            f"Rotated log file (older than {LOG_RETENTION_DAYS} days): {log_file}",
                             file=sys.stderr,
                         )
 
                 time.sleep(LOG_CHECK_INTERVAL)
 
             except Exception as e:
-                print(
-                    f"⚠ Retention worker error: {e}",
-                    file=sys.stderr,
-                )
+                print(f"Retention worker error: {e}", file=sys.stderr)
                 time.sleep(LOG_CHECK_INTERVAL)
 
     def _send_to_courier(
@@ -195,13 +185,13 @@ class SystemReporter:
 
             if not success and self.courier_available:
                 self.courier_available = False
-                print(f"⚠ Courier became unavailable", file=sys.stderr)
+                print("Courier became unavailable", file=sys.stderr)
             elif success and not self.courier_available:
                 self.courier_available = True
-                print(f"✓ Courier connection restored", file=sys.stderr)
+                print("Courier connection restored", file=sys.stderr)
 
         except Exception as e:
-            print(f"⚠ Courier publishing failed: {e}", file=sys.stderr)
+            print(f"Courier publishing failed: {e}", file=sys.stderr)
 
     def set_verbose(self, level: int) -> None:
         """Update verbosity level."""

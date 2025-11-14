@@ -140,7 +140,7 @@ class CourierClient:
                 # DETAILED LOGGING: Log response details
                 logger.info(f"Response status: {response.status_code}")
                 logger.info(f"Response headers: {dict(response.headers)}")
-                
+
                 # Always log response body for debugging
                 try:
                     response_body = response.text
@@ -181,7 +181,7 @@ class CourierClient:
                 logger.error(
                     f"Publish error "
                     f"(attempt {attempt + 1}/{self.max_retries}): {e}",
-                    exc_info=True
+                    exc_info=True,
                 )
 
             # Wait before retry (exponential backoff)
@@ -234,7 +234,7 @@ class CourierClient:
                 # DETAILED LOGGING: Log response details
                 logger.info(f"Response status: {response.status_code}")
                 logger.info(f"Response headers: {dict(response.headers)}")
-                
+
                 # Always log response body for debugging
                 try:
                     response_body = response.text
@@ -275,7 +275,7 @@ class CourierClient:
                 logger.error(
                     f"Publish error "
                     f"(attempt {attempt + 1}/{self.max_retries}): {e}",
-                    exc_info=True
+                    exc_info=True,
                 )
 
             # Wait before retry (exponential backoff)
