@@ -2,11 +2,13 @@
 E2E tests for graceful shutdown behavior.
 
 Tests shutdown handling configuration and state.
+Uses separate container on port 7767 (destructive tests).
 
 Usage:
     laborant courier --e2e
 """
 
+import asyncio
 import subprocess
 import time
 
@@ -20,11 +22,11 @@ class TestGracefulShutdown(LaborantTest):
     component_name = "courier"
     test_category = "e2e"
 
-    http_base_url = "http://localhost:7766"
+    http_base_url = "http://localhost:7767"
     container_name = "lumiere-test-courier-shutdown-test"
 
     async def async_setup(self):
-        """Setup test environment."""
+        """Setup test environment with separate container."""
         self.reporter.info("Setting up Shutdown E2E tests...", context="Setup")
 
         await self._start_courier_container()
@@ -56,7 +58,7 @@ class TestGracefulShutdown(LaborantTest):
                 "--name",
                 self.container_name,
                 "-p",
-                "7766:7765",
+                "7767:7765",
                 "-e",
                 "ENV=test",
                 "-e",
@@ -79,8 +81,6 @@ class TestGracefulShutdown(LaborantTest):
 
     async def _wait_for_api(self):
         """Wait for API to be ready."""
-        import asyncio
-
         max_attempts = 30
         for attempt in range(max_attempts):
             try:
