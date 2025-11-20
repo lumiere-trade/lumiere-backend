@@ -232,6 +232,23 @@ async def create_conversation(
     return data
 
 
+@router.get("/conversations")
+async def list_conversations(
+    request: Request,
+    user_id: UUID = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    List conversations with optional filters.
+    Supports query parameters like strategy_id, limit, offset.
+    """
+    query = dict(request.query_params)
+    status_code, data = await _forward_to_architect(
+        "GET", "/api/conversations", user_id, settings, query=query
+    )
+    return data
+
+
 @router.get("/conversations/{conversation_id}")
 async def get_conversation(
     conversation_id: UUID,
