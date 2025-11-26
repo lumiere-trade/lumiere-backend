@@ -50,6 +50,9 @@ class TradingStrategy(ABC):
         self.daily_pnl: float = 0.0
         self.last_reset_date: Optional[datetime] = None
 
+        # State management for indicator history (for crosses detection, lookback)
+        self._prev_indicators: Dict[str, Any] = {}
+
     @abstractmethod
     def check_entry_conditions(
         self,
@@ -85,6 +88,29 @@ class TradingStrategy(ABC):
         Note:
             Plugin compilers may add additional parameters (e.g., indicators)
         """
+
+    def _update_previous_values(self, indicators: Dict[str, Any]) -> None:
+        """Update previous indicator values for next iteration.
+
+        This method should be called after check_entry_conditions() or
+        check_exit_conditions() to store current values for next comparison.
+
+        Args:
+            indicators: Current indicator values to store
+        """
+        self._prev_indicators = indicators.copy()
+
+    def _get_previous_value(self, indicator_name: str, default: Any = 0) -> Any:
+        """Get previous value of an indicator.
+
+        Args:
+            indicator_name: Name of the indicator
+            default: Default value if indicator not found in history
+
+        Returns:
+            Previous value of the indicator or default
+        """
+        return self._prev_indicators.get(indicator_name, default)
 
     def calculate_position_size(
         self,
