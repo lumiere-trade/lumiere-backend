@@ -64,6 +64,10 @@ class Settings(BaseSettings):
         default="http://passeur:8766",
         description="Passeur bridge URL (Docker DNS)",
     )
+    ARCHITECT_URL: str = Field(
+        default="http://architect:9082",
+        description="Architect service URL (Docker DNS)",
+    )
 
     # Database (from environment - REQUIRED in production)
     DATABASE_URL: str = Field(..., description="Database connection URL")

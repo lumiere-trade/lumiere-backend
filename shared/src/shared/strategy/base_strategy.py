@@ -7,7 +7,7 @@ Plugin-specific features (like indicators) are added by plugin compilers.
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from shared.strategy.exceptions import RiskLimitError
 from shared.strategy.position import Position
@@ -50,8 +50,10 @@ class TradingStrategy(ABC):
         self.daily_pnl: float = 0.0
         self.last_reset_date: Optional[datetime] = None
 
-        # State management for indicator history (for crosses detection, lookback)
+        # State management for indicator history
         self._prev_indicators: Dict[str, Any] = {}
+        self._indicator_history: Dict[str, List[Any]] = {}
+        self._max_history_length: int = 100
 
     @abstractmethod
     def check_entry_conditions(
@@ -90,7 +92,7 @@ class TradingStrategy(ABC):
         """
 
     def _update_previous_values(self, indicators: Dict[str, Any]) -> None:
-        """Update previous indicator values for next iteration.
+        """Update previous indicator values and history buffer.
 
         This method should be called after check_entry_conditions() or
         check_exit_conditions() to store current values for next comparison.
@@ -98,7 +100,19 @@ class TradingStrategy(ABC):
         Args:
             indicators: Current indicator values to store
         """
+        # Store for crosses detection (only need 1 previous value)
         self._prev_indicators = indicators.copy()
+
+        # Store in history buffer for highest/lowest detection
+        for name, value in indicators.items():
+            if name not in self._indicator_history:
+                self._indicator_history[name] = []
+
+            self._indicator_history[name].append(value)
+
+            # Limit history size
+            if len(self._indicator_history[name]) > self._max_history_length:
+                self._indicator_history[name].pop(0)
 
     def _get_previous_value(self, indicator_name: str, default: Any = 0) -> Any:
         """Get previous value of an indicator.
@@ -111,6 +125,62 @@ class TradingStrategy(ABC):
             Previous value of the indicator or default
         """
         return self._prev_indicators.get(indicator_name, default)
+
+    def _is_highest(
+        self, value_name: str, current_value: Any, periods: int
+    ) -> bool:
+        """Check if current value is the highest over N periods.
+
+        Args:
+            value_name: Name of the value (indicator or price field)
+            current_value: Current value to check
+            periods: Number of periods to look back
+
+        Returns:
+            True if current value is max over last N periods
+        """
+        if value_name not in self._indicator_history:
+            return False
+
+        history = self._indicator_history[value_name]
+
+        if len(history) < periods:
+            return False
+
+        # Get last N values (including current which was just added)
+        recent_values = history[-periods:]
+
+        try:
+            return current_value == max(recent_values)
+        except (TypeError, ValueError):
+            return False
+
+    def _is_lowest(self, value_name: str, current_value: Any, periods: int) -> bool:
+        """Check if current value is the lowest over N periods.
+
+        Args:
+            value_name: Name of the value (indicator or price field)
+            current_value: Current value to check
+            periods: Number of periods to look back
+
+        Returns:
+            True if current value is min over last N periods
+        """
+        if value_name not in self._indicator_history:
+            return False
+
+        history = self._indicator_history[value_name]
+
+        if len(history) < periods:
+            return False
+
+        # Get last N values (including current which was just added)
+        recent_values = history[-periods:]
+
+        try:
+            return current_value == min(recent_values)
+        except (TypeError, ValueError):
+            return False
 
     def calculate_position_size(
         self,
