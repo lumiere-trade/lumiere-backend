@@ -37,6 +37,7 @@ from pourtier.presentation.api.middleware.request_id_middleware import (
     RequestIDMiddleware,
 )
 from pourtier.presentation.api.routes import (
+    architect,
     auth,
     escrow,
     health,
@@ -199,6 +200,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
     app.include_router(users.router, prefix="/api")
+    app.include_router(architect.router, prefix="/api")
     app.include_router(subscriptions.router, prefix="/api")
     app.include_router(escrow.router, prefix="/api")
     app.include_router(legal.router, prefix="/api")
