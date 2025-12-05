@@ -1,7 +1,8 @@
 """API routes."""
-
 from pourtier.presentation.api.routes import (
+    architect,
     auth,
+    cartographe,
     escrow,
     legal,
     subscriptions,
@@ -10,10 +11,12 @@ from pourtier.presentation.api.routes import (
 )
 
 __all__ = [
+    "architect",
     "auth",
-    "users",
-    "subscriptions",
+    "cartographe",
     "escrow",
     "legal",
+    "subscriptions",
+    "users",
     "wallet",
 ]
