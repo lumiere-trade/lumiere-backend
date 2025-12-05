@@ -5,8 +5,8 @@ Forwards strategy/conversation requests to Architect with X-User-ID header.
 Frontend → Pourtier (JWT validation) → Architect (X-User-ID)
 """
 
-from uuid import UUID
 from typing import Optional
+from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -77,9 +77,11 @@ async def _forward_to_architect(
             if response.status_code >= 400:
                 raise HTTPException(
                     status_code=response.status_code,
-                    detail=response_data.get("detail", "Architect request failed")
-                    if response_data
-                    else "Architect request failed",
+                    detail=(
+                        response_data.get("detail", "Architect request failed")
+                        if response_data
+                        else "Architect request failed"
+                    ),
                 )
 
             return (response.status_code, response_data)
