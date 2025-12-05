@@ -126,9 +126,7 @@ class TradingStrategy(ABC):
         """
         return self._prev_indicators.get(indicator_name, default)
 
-    def _is_highest(
-        self, value_name: str, current_value: Any, periods: int
-    ) -> bool:
+    def _is_highest(self, value_name: str, current_value: Any, periods: int) -> bool:
         """Check if current value is the highest over N periods.
 
         Args:

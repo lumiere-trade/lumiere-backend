@@ -2,6 +2,7 @@
 Shared indicators package.
 Pure calculation implementations with zero external dependencies.
 """
+
 from shared.indicators.adx import ADXIndicator
 from shared.indicators.atr import ATRIndicator
 from shared.indicators.base import BaseIndicator
