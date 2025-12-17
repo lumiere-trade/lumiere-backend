@@ -5,10 +5,10 @@ This is the base class that all TSDL-generated strategies inherit from.
 Plugin-specific features (like indicators) are added by plugin compilers.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-import logging
 
 from shared.strategy.exceptions import RiskLimitError
 from shared.strategy.position import Position
@@ -36,6 +36,8 @@ class TradingStrategy(ABC):
         self.timeframe = timeframe
         self.config = config or {}
 
+        logger.warning(f"[{self.name}] Initializing strategy with config: {self.config}")
+
         # Risk management configuration
         self.max_position_size: Optional[float] = self.config.get("max_position_size")
         self.max_trades_per_day: Optional[int] = self.config.get("max_trades_per_day")
@@ -54,7 +56,7 @@ class TradingStrategy(ABC):
             f"method={self.position_sizing_method}, "
             f"size={self.position_size}, "
             f"percentage={self.position_percentage}, "
-            f"max_position_size={self.max_position_size}"
+            f"max_position_size={self.max_position_size} (as fraction of capital)"
         )
 
         # Trade tracking
@@ -66,6 +68,8 @@ class TradingStrategy(ABC):
         self._prev_indicators: Dict[str, Any] = {}
         self._indicator_history: Dict[str, List[Any]] = {}
         self._max_history_length: int = 100
+
+        logger.warning(f"[{self.name}] Strategy initialization complete")
 
     @abstractmethod
     def check_entry_conditions(
@@ -209,10 +213,11 @@ class TradingStrategy(ABC):
         Raises:
             RiskLimitError: If size exceeds max_position_size
         """
-        # DEBUG: Log position sizing calculation
         logger.warning(
-            f"[{self.name}] Calculating position size: "
-            f"method={self.position_sizing_method}, "
+            f"[{self.name}] === CALCULATING POSITION SIZE ==="
+        )
+        logger.warning(
+            f"[{self.name}] Input: method={self.position_sizing_method}, "
             f"balance={balance:.2f}, price={price:.2f}"
         )
 
@@ -235,13 +240,31 @@ class TradingStrategy(ABC):
                 f"{self.position_sizing_method}"
             )
 
-        if self.max_position_size and size * price > self.max_position_size:
-            raise RiskLimitError(
-                "max_position_size", self.max_position_size, size * price
+        # Check max_position_size limit (as fraction of balance)
+        position_value = size * price
+        
+        if self.max_position_size:
+            max_allowed_value = balance * self.max_position_size
+            logger.warning(
+                f"[{self.name}] Risk check: "
+                f"position_value={position_value:.2f} USDC, "
+                f"max_allowed={max_allowed_value:.2f} USDC "
+                f"(balance * {self.max_position_size})"
             )
+            
+            if position_value > max_allowed_value:
+                logger.error(
+                    f"[{self.name}] RISK LIMIT EXCEEDED! "
+                    f"position_value={position_value:.2f} > "
+                    f"max_allowed={max_allowed_value:.2f}"
+                )
+                raise RiskLimitError(
+                    "max_position_size", max_allowed_value, position_value
+                )
 
         logger.warning(
-            f"[{self.name}] Final position size: {size:.4f} (value: {size * price:.2f} USDC)"
+            f"[{self.name}] Final position size: {size:.4f} "
+            f"(value: {position_value:.2f} USDC) - OK!"
         )
         return size
 
@@ -251,22 +274,41 @@ class TradingStrategy(ABC):
         Returns:
             True if trading is allowed, False otherwise
         """
+        logger.warning(f"[{self.name}] Checking if can trade...")
+
         now = datetime.now()
 
         # Reset daily counters at start of new day
         if self.last_reset_date is None or self.last_reset_date.date() != now.date():
+            logger.warning(
+                f"[{self.name}] New trading day - resetting counters "
+                f"(was: trades={self.trades_today}, pnl={self.daily_pnl:.2f})"
+            )
             self.trades_today = 0
             self.daily_pnl = 0.0
             self.last_reset_date = now
 
         # Check max trades per day
         if self.max_trades_per_day and self.trades_today >= self.max_trades_per_day:
+            logger.warning(
+                f"[{self.name}] Max trades per day reached: "
+                f"{self.trades_today}/{self.max_trades_per_day} - BLOCKED"
+            )
             return False
 
         # Check max daily loss
         if self.max_daily_loss and self.daily_pnl <= -abs(self.max_daily_loss):
+            logger.warning(
+                f"[{self.name}] Max daily loss reached: "
+                f"{self.daily_pnl:.2f} <= -{abs(self.max_daily_loss):.2f} - BLOCKED"
+            )
             return False
 
+        logger.warning(
+            f"[{self.name}] Can trade: YES "
+            f"(trades={self.trades_today}/{self.max_trades_per_day or 'unlimited'}, "
+            f"pnl={self.daily_pnl:.2f})"
+        )
         return True
 
     def record_trade(self, pnl: float) -> None:
@@ -277,6 +319,11 @@ class TradingStrategy(ABC):
         """
         self.trades_today += 1
         self.daily_pnl += pnl
+        logger.warning(
+            f"[{self.name}] Trade recorded: pnl={pnl:.2f}, "
+            f"total_trades_today={self.trades_today}, "
+            f"daily_pnl={self.daily_pnl:.2f}"
+        )
 
     def __repr__(self) -> str:
         """String representation."""
