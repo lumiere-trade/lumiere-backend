@@ -8,9 +8,12 @@ Plugin-specific features (like indicators) are added by plugin compilers.
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+import logging
 
 from shared.strategy.exceptions import RiskLimitError
 from shared.strategy.position import Position
+
+logger = logging.getLogger(__name__)
 
 
 class TradingStrategy(ABC):
@@ -40,10 +43,19 @@ class TradingStrategy(ABC):
 
         # Position sizing configuration
         self.position_sizing_method: str = self.config.get(
-            "position_sizing_method", "fixed"
+            "position_sizing_method", "percentage"
         )
         self.position_size: float = self.config.get("position_size", 0.0)
-        self.position_percentage: float = self.config.get("position_percentage", 0.0)
+        self.position_percentage: float = self.config.get("position_percentage", 10.0)
+
+        # DEBUG: Log position sizing configuration
+        logger.warning(
+            f"[{self.name}] Position sizing initialized: "
+            f"method={self.position_sizing_method}, "
+            f"size={self.position_size}, "
+            f"percentage={self.position_percentage}, "
+            f"max_position_size={self.max_position_size}"
+        )
 
         # Trade tracking
         self.trades_today: int = 0
@@ -197,18 +209,40 @@ class TradingStrategy(ABC):
         Raises:
             RiskLimitError: If size exceeds max_position_size
         """
+        # DEBUG: Log position sizing calculation
+        logger.warning(
+            f"[{self.name}] Calculating position size: "
+            f"method={self.position_sizing_method}, "
+            f"balance={balance:.2f}, price={price:.2f}"
+        )
+
         if self.position_sizing_method == "fixed":
             size = self.position_size / price
+            logger.warning(
+                f"[{self.name}] Fixed sizing: "
+                f"position_size={self.position_size}, calculated_size={size:.4f}"
+            )
         elif self.position_sizing_method == "percentage":
             size = (balance * self.position_percentage / 100) / price
+            logger.warning(
+                f"[{self.name}] Percentage sizing: "
+                f"percentage={self.position_percentage}%, calculated_size={size:.4f}"
+            )
         else:
             size = 0.0
+            logger.error(
+                f"[{self.name}] Unknown position sizing method: "
+                f"{self.position_sizing_method}"
+            )
 
         if self.max_position_size and size * price > self.max_position_size:
             raise RiskLimitError(
                 "max_position_size", self.max_position_size, size * price
             )
 
+        logger.warning(
+            f"[{self.name}] Final position size: {size:.4f} (value: {size * price:.2f} USDC)"
+        )
         return size
 
     def can_trade(self) -> bool:
