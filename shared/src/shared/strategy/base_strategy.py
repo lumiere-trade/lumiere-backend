@@ -38,7 +38,6 @@ class TradingStrategy(ABC):
 
         # Risk management configuration
         self.max_position_size: Optional[float] = self.config.get("max_position_size")
-        self.max_trades_per_day: Optional[int] = self.config.get("max_trades_per_day")
         self.max_daily_loss: Optional[float] = self.config.get("max_daily_loss")
 
         # Position sizing configuration
@@ -48,8 +47,7 @@ class TradingStrategy(ABC):
         self.position_size: float = self.config.get("position_size", 0.0)
         self.position_percentage: float = self.config.get("position_percentage", 10.0)
 
-        # Trade tracking
-        self.trades_today: int = 0
+        # Trade tracking for daily loss limit
         self.daily_pnl: float = 0.0
         self.last_reset_date: Optional[datetime] = None
 
@@ -229,13 +227,8 @@ class TradingStrategy(ABC):
 
         # Reset daily counters at start of new day
         if self.last_reset_date is None or self.last_reset_date.date() != now.date():
-            self.trades_today = 0
             self.daily_pnl = 0.0
             self.last_reset_date = now
-
-        # Check max trades per day
-        if self.max_trades_per_day and self.trades_today >= self.max_trades_per_day:
-            return False
 
         # Check max daily loss
         if self.max_daily_loss and self.daily_pnl <= -abs(self.max_daily_loss):
@@ -249,7 +242,6 @@ class TradingStrategy(ABC):
         Args:
             pnl: Trade profit/loss
         """
-        self.trades_today += 1
         self.daily_pnl += pnl
 
     def __repr__(self) -> str:
