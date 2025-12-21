@@ -408,3 +408,50 @@ async def get_library_strategy(
         "GET", f"/api/library/strategies/{strategy_id}", settings
     )
     return data
+
+
+# === COMPILE ROUTE (PUBLIC - NO AUTH REQUIRED) ===
+
+
+@router.post("/strategies/compile")
+async def compile_strategy(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+):
+    """Compile strategy JSON to Python code (public endpoint for transparency)."""
+    body = await request.json()
+    
+    architect_url = settings.ARCHITECT_URL
+    url = f"{architect_url}/api/strategies/compile"
+    
+    headers = {"Content-Type": "application/json"}
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                url=url,
+                headers=headers,
+                json=body,
+            )
+            
+            # Always return the response (even if compilation fails)
+            # Frontend needs to see compile errors
+            response_data = response.json() if response.text else {}
+            
+            return response_data
+            
+    except httpx.TimeoutException:
+        return {
+            "compiles": False,
+            "compile_error": "Compilation timeout"
+        }
+    except httpx.ConnectError:
+        return {
+            "compiles": False,
+            "compile_error": "Architect service unavailable"
+        }
+    except Exception as e:
+        return {
+            "compiles": False,
+            "compile_error": f"Compilation error: {str(e)}"
+        }
