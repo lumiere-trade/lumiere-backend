@@ -9,8 +9,7 @@ from typing import Optional
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from pourtier.config.settings import Settings, get_settings
 from pourtier.presentation.api.middleware.auth import get_current_user_id
@@ -64,6 +63,86 @@ async def _forward_to_architect(
             # Handle 204 No Content
             if response.status_code == 204:
                 return (204, None)
+
+            # Forward status code and body
+            response_data = None
+            if response.text:
+                try:
+                    response_data = response.json()
+                except Exception:
+                    response_data = {"detail": response.text}
+
+            # If not successful, raise HTTPException with Architect's error
+            if response.status_code >= 400:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=(
+                        response_data.get("detail", "Architect request failed")
+                        if response_data
+                        else "Architect request failed"
+                    ),
+                )
+
+            return (response.status_code, response_data)
+
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Architect service timeout",
+        )
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Architect service unavailable",
+        )
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to forward request to Architect: {str(e)}",
+        )
+
+
+async def _forward_to_architect_public(
+    method: str,
+    path: str,
+    settings: Settings,
+    query: Optional[dict] = None,
+) -> tuple[int, Optional[dict]]:
+    """
+    Forward public request to Architect (no authentication required).
+
+    Used for Library endpoints which are public data.
+
+    Args:
+        method: HTTP method (GET)
+        path: Architect API path (e.g., /api/library/categories)
+        settings: Application settings
+        query: Optional query parameters
+
+    Returns:
+        Tuple of (status_code, response_json)
+
+    Raises:
+        HTTPException: If Architect request fails
+    """
+    architect_url = settings.ARCHITECT_URL
+    url = f"{architect_url}{path}"
+
+    headers = {
+        "Content-Type": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.request(
+                method=method,
+                url=url,
+                headers=headers,
+                params=query,
+            )
 
             # Forward status code and body
             response_data = None
@@ -275,5 +354,57 @@ async def get_user_analytics(
     """Get current user analytics."""
     status_code, data = await _forward_to_architect(
         "GET", "/api/strategies/analytics/me", user_id, settings
+    )
+    return data
+
+
+# === LIBRARY ROUTES (PUBLIC - NO AUTH REQUIRED) ===
+
+
+@router.get("/library/categories")
+async def get_library_categories(
+    settings: Settings = Depends(get_settings),
+):
+    """Get available library categories (public endpoint)."""
+    status_code, data = await _forward_to_architect_public(
+        "GET", "/api/library/categories", settings
+    )
+    return data
+
+
+@router.get("/library/strategies")
+async def list_library_strategies(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+):
+    """List library strategies with optional filters (public endpoint)."""
+    query = dict(request.query_params)
+    status_code, data = await _forward_to_architect_public(
+        "GET", "/api/library/strategies", settings, query=query
+    )
+    return data
+
+
+@router.get("/library/strategies/search")
+async def search_library_strategies(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+):
+    """Search library strategies (public endpoint)."""
+    query = dict(request.query_params)
+    status_code, data = await _forward_to_architect_public(
+        "GET", "/api/library/strategies/search", settings, query=query
+    )
+    return data
+
+
+@router.get("/library/strategies/{strategy_id}")
+async def get_library_strategy(
+    strategy_id: UUID,
+    settings: Settings = Depends(get_settings),
+):
+    """Get library strategy details (public endpoint)."""
+    status_code, data = await _forward_to_architect_public(
+        "GET", f"/api/library/strategies/{strategy_id}", settings
     )
     return data
