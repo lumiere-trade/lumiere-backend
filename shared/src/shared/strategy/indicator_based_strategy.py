@@ -17,6 +17,8 @@ class IndicatorBasedStrategy(TradingStrategy):
     - rising/falling - simple trend detection
     - rising_for/falling_for - sustained trend detection
     - divergence_bullish/divergence_bearish - divergence detection
+    - crosses_above/crosses_below - indicator crossover detection
+    - crosses_above_threshold/crosses_below_threshold - threshold crossover
     """
 
     def _is_rising(self, indicator_name: str, current_value: Any) -> bool:
@@ -283,6 +285,62 @@ class IndicatorBasedStrategy(TradingStrategy):
         try:
             was_above = prev_left >= prev_right
             now_below = current_left < current_right
+            return was_above and now_below
+        except (TypeError, ValueError):
+            return False
+
+    def _crosses_above_threshold(
+        self,
+        indicator_name: str,
+        current_value: Any,
+        threshold: float,
+    ) -> bool:
+        """Check if indicator crosses above a threshold value.
+
+        Args:
+            indicator_name: Name of the indicator
+            current_value: Current value of the indicator
+            threshold: Threshold value to cross
+
+        Returns:
+            True if indicator crosses above threshold (was below, now above)
+        """
+        prev_value = self._get_previous_value(indicator_name, None)
+
+        if prev_value is None:
+            return False
+
+        try:
+            was_below = prev_value <= threshold
+            now_above = current_value > threshold
+            return was_below and now_above
+        except (TypeError, ValueError):
+            return False
+
+    def _crosses_below_threshold(
+        self,
+        indicator_name: str,
+        current_value: Any,
+        threshold: float,
+    ) -> bool:
+        """Check if indicator crosses below a threshold value.
+
+        Args:
+            indicator_name: Name of the indicator
+            current_value: Current value of the indicator
+            threshold: Threshold value to cross
+
+        Returns:
+            True if indicator crosses below threshold (was above, now below)
+        """
+        prev_value = self._get_previous_value(indicator_name, None)
+
+        if prev_value is None:
+            return False
+
+        try:
+            was_above = prev_value >= threshold
+            now_below = current_value < threshold
             return was_above and now_below
         except (TypeError, ValueError):
             return False
