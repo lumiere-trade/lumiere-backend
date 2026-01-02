@@ -3,12 +3,6 @@ Chronicler Proxy Routes.
 
 Forwards market data requests to Chronicler service.
 Frontend → Pourtier → Chronicler
-
-Chronicler provides:
-- Token list (public)
-- OHLCV historical data
-- Latest candle data
-- Real-time price streaming (WebSocket)
 """
 
 from typing import Optional
@@ -33,7 +27,7 @@ async def _forward_to_chronicler(
 
     Args:
         method: HTTP method (GET)
-        path: Chronicler API path (e.g., /api/tokens)
+        path: Chronicler API path (e.g., /tokens)
         settings: Application settings
         query: Optional query parameters
         timeout: Request timeout (default 30s)
@@ -104,7 +98,7 @@ async def _forward_to_chronicler(
         )
 
 
-@router.get("/api/tokens")
+@router.get("/tokens")
 async def get_tokens(
     settings: Settings = Depends(get_settings),
 ):
@@ -115,22 +109,11 @@ async def get_tokens(
     Returns all tokens that can be traded on the platform.
 
     Response:
-        {
-            "tokens": [
-                {
-                    "address": "So11111111111111111111111111111111111111112",
-                    "symbol": "SOL",
-                    "name": "Wrapped SOL",
-                    "decimals": 9,
-                    "tags": ["verified"]
-                }
-            ],
-            "count": 1
-        }
+        Array of tokens with address, symbol, name, decimals, logo_uri
     """
     status_code, data = await _forward_to_chronicler(
         "GET",
-        "/api/tokens",
+        "/tokens",
         settings,
         timeout=10.0,
     )
