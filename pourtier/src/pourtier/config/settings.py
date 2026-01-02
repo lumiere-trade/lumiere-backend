@@ -72,6 +72,10 @@ class Settings(BaseSettings):
         default="http://cartographe:9083",
         description="Cartographe backtesting service URL (Docker DNS)",
     )
+    CHRONICLER_URL: str = Field(
+        default="http://chronicler:9085",
+        description="Chronicler market data service URL (Docker DNS)",
+    )
 
     # Database (from environment - REQUIRED in production)
     DATABASE_URL: str = Field(..., description="Database connection URL")
