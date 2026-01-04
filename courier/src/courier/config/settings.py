@@ -138,6 +138,10 @@ class Settings(BaseSettings):
         default_factory=dict,
         description="Per-message-type rate limits (overrides global limit)",
     )
+    rate_limit_exempt_services: List[str] = Field(
+        default_factory=list,
+        description="Internal services exempt from rate limiting",
+    )
 
     # Message Validation
     max_message_size: int = Field(

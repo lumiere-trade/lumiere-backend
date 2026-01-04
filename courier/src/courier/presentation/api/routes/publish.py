@@ -42,9 +42,15 @@ async def publish_event(
             - 413: Event size exceeds limits
             - 429: Rate limit exceeded
     """
-    # Rate limiting check (if enabled)
+    # Check if service is exempt from rate limiting
+    is_exempt = (
+        x_service_name
+        and x_service_name in container.settings.rate_limit_exempt_services
+    )
+
+    # Rate limiting check (if enabled and not exempt)
     rate_limiter = container.publish_rate_limiter
-    if rate_limiter and x_service_name:
+    if rate_limiter and x_service_name and not is_exempt:
         is_allowed = await rate_limiter.check_rate_limit(x_service_name)
 
         if not is_allowed:

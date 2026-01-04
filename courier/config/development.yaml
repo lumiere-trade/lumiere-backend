@@ -11,6 +11,17 @@ passeur_url: "http://passeur:9766"
 # Connection settings (faster for testing)
 heartbeat_interval: 10
 
+# Rate Limiting - Exempt internal services
+rate_limit_exempt_services:
+  - chronicler
+  - chevalier
+  - cartographe
+  - prophet
+  - forge
+  - mirror
+  - passeur
+  - pourtier
+
 # Logging (verbose + stdout for Docker)
 log_level: "debug"
 log_file: null

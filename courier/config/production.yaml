@@ -8,6 +8,17 @@ port: 8765
 pourtier_url: "http://pourtier:8000"
 passeur_url: "http://passeur:8766"
 
+# Rate Limiting - Exempt internal services
+rate_limit_exempt_services:
+  - chronicler
+  - chevalier
+  - cartographe
+  - prophet
+  - forge
+  - mirror
+  - passeur
+  - pourtier
+
 # Logging (Docker stdout - no file)
 log_level: "info"
 log_file: null
