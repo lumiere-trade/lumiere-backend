@@ -53,7 +53,6 @@ pourtier/config
 passeur/config
 courier/config
 laborant/config
-shared/config
 
 # ==================== IDE ====================
 .vscode/
@@ -81,8 +80,6 @@ pourtier/tests/logs/*
 !pourtier/tests/logs/.gitkeep
 passeur/tests/logs/*
 !passeur/tests/logs/.gitkeep
-shared/tests/logs/*
-!shared/tests/logs/.gitkeep
 */tests/logs/*.log
 
 # ==================== DATABASE ====================
@@ -104,8 +101,6 @@ shared/tests/logs/*
 
 # ==================== KEYPAIRS (CRITICAL!) ====================
 keypairs/
-shared/blockchain/keypairs/production/
-shared/blockchain/keypairs/test/
 *.key
 *.pem
 *.p12
