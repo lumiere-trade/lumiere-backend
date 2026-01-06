@@ -40,6 +40,7 @@ from pourtier.presentation.api.routes import (
     architect,
     auth,
     cartographe,
+    chevalier,
     chronicler,
     escrow,
     health,
