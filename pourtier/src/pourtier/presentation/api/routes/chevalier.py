@@ -5,16 +5,24 @@ Forwards deployment requests to Chevalier with X-User-ID header.
 Frontend → Pourtier (JWT validation) → Chevalier (X-User-ID)
 """
 
-from typing import Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 
 from pourtier.config.settings import Settings, get_settings
 from pourtier.presentation.api.middleware.auth import get_current_user_id
 
 router = APIRouter(prefix="/chevalier", tags=["chevalier"])
+
+
+class DeployStrategyRequest(BaseModel):
+    """Deploy strategy request payload."""
+    strategy_json: Dict[str, Any]
+    initial_capital: float
+    is_paper_trading: bool = True
 
 
 async def _forward_to_chevalier(
@@ -31,7 +39,7 @@ async def _forward_to_chevalier(
 
     Args:
         method: HTTP method (GET, POST)
-        path: Chevalier API path (e.g., /api/strategies/{id}/deploy)
+        path: Chevalier API path (e.g., /api/chevalier/strategies/deploy)
         user_id: Current user ID from JWT token
         settings: Application settings
         body: Optional request body (JSON)
@@ -109,19 +117,63 @@ async def _forward_to_chevalier(
 # === DEPLOYMENT ROUTES ===
 
 
+@router.post("/strategies/deploy", status_code=status.HTTP_201_CREATED)
+async def deploy_strategy_new(
+    request: DeployStrategyRequest,
+    user_id: UUID = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Deploy strategy for live trading (NEW API).
+    
+    Takes full strategy payload and deploys to Chevalier.
+    This is the new Model 1 (Immutable Strategy) endpoint.
+    
+    Request Body:
+        {
+            "strategy_json": { ... TSDL strategy JSON ... },
+            "initial_capital": 10000.0,
+            "is_paper_trading": true
+        }
+    
+    Response:
+        {
+            "strategy_id": "uuid",
+            "status": "ACTIVE",
+            "created_at": "2026-01-06T18:00:00Z",
+            "is_paper_trading": true
+        }
+    """
+    # Construct payload with user_id from JWT
+    payload = {
+        "user_id": str(user_id),
+        "strategy_json": request.strategy_json,
+        "initial_capital": request.initial_capital,
+        "is_paper_trading": request.is_paper_trading,
+    }
+    
+    status_code, data = await _forward_to_chevalier(
+        "POST",
+        "/api/chevalier/strategies/deploy",
+        user_id,
+        settings,
+        body=payload,
+        timeout=30.0,
+    )
+    return data
+
+
 @router.post("/strategies/{strategy_id}/deploy")
-async def deploy_strategy(
+async def deploy_strategy_legacy(
     strategy_id: UUID,
     user_id: UUID = Depends(get_current_user_id),
     settings: Settings = Depends(get_settings),
 ):
     """
-    Deploy strategy for live trading.
-
-    Request validation:
-    - User must own the strategy (verified by Chevalier)
-    - Strategy must be in valid state
-    - User must have sufficient escrow balance
+    Deploy strategy for live trading (LEGACY API - DEPRECATED).
+    
+    This endpoint is kept for backward compatibility but should not be used.
+    Use POST /strategies/deploy instead.
 
     Response:
         {
@@ -175,6 +227,39 @@ async def stop_strategy(
     return data
 
 
+@router.get("/strategies/active")
+async def get_active_strategies(
+    user_id: UUID = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Get all active strategies for current user (NEW API).
+    
+    Returns list of deployed strategies with status.
+
+    Response:
+        [
+            {
+                "strategy_id": "uuid",
+                "status": "ACTIVE",
+                "user_id": "uuid",
+                "token_symbol": "SOL/USDC",
+                "current_capital": 10000.0,
+                "is_paper_trading": true,
+                "created_at": "2026-01-06T18:00:00Z"
+            }
+        ]
+    """
+    status_code, data = await _forward_to_chevalier(
+        "GET",
+        "/api/chevalier/strategies/active",
+        user_id,
+        settings,
+        timeout=10.0,
+    )
+    return data
+
+
 @router.get("/strategies/{strategy_id}/status")
 async def get_execution_status(
     strategy_id: UUID,
@@ -220,14 +305,14 @@ async def get_execution_status(
 
 
 @router.get("/executions/active")
-async def get_active_executions(
+async def get_active_executions_legacy(
     user_id: UUID = Depends(get_current_user_id),
     settings: Settings = Depends(get_settings),
 ):
     """
-    Get all active executions for current user.
-
-    Returns list of running strategies with status.
+    Get all active executions for current user (LEGACY - DEPRECATED).
+    
+    Use GET /strategies/active instead.
 
     Response:
         {
