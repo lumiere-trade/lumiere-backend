@@ -63,3 +63,6 @@ METRICS_PORT: 9090
 # Observability - Tracing
 TRACING_ENABLED: false
 TRACE_SAMPLE_RATE: 0.1
+
+# Chevalier - Trade Execution Service
+CHEVALIER_URL: "http://chevalier:9084"

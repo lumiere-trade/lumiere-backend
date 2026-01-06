@@ -35,3 +35,6 @@ METRICS_HOST: 0.0.0.0
 HEALTH_CHECK_ENABLED: true
 HEALTH_HOST: 0.0.0.0
 HEALTH_PORT: 9091
+
+# Chevalier - Development
+CHEVALIER_URL: "http://localhost:9084"

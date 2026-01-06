@@ -31,3 +31,6 @@ METRICS_HOST: 0.0.0.0
 HEALTH_CHECK_ENABLED: true
 HEALTH_HOST: 0.0.0.0
 HEALTH_PORT: 8091
+
+# Chevalier - Production
+CHEVALIER_URL: "http://chevalier:8084"
