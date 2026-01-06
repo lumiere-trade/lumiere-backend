@@ -80,6 +80,10 @@ class Settings(BaseSettings):
         default="http://chronicler:9085",
         description="Chronicler market data service URL (Docker DNS)",
     )
+    PROPHET_URL: str = Field(
+        default="http://prophet:9081",
+        description="Prophet AI service URL (Docker DNS)",
+    )
 
     # Database (from environment - REQUIRED in production)
     DATABASE_URL: str = Field(..., description="Database connection URL")
