@@ -10,7 +10,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
-from sse_starlette.sse import EventSourceResponse
 
 from pourtier.config.settings import Settings, get_settings
 from pourtier.presentation.api.middleware.auth import get_current_user_id
@@ -28,7 +27,7 @@ async def _stream_from_prophet(
 ) -> StreamingResponse:
     """
     Stream SSE from Prophet with authentication.
-    
+
     Args:
         method: HTTP method
         path: Prophet endpoint path
@@ -36,20 +35,20 @@ async def _stream_from_prophet(
         settings: Application settings
         request: FastAPI request object
         body: Optional request body
-        
+
     Returns:
         StreamingResponse with SSE events
     """
     import httpx
-    
+
     prophet_url = f"{settings.PROPHET_URL}{path}"
-    
+
     headers = {
         "X-User-ID": str(user_id),
         "Content-Type": "application/json",
         "Accept": "text/event-stream",
     }
-    
+
     async def event_generator():
         async with httpx.AsyncClient(timeout=300.0) as client:
             async with client.stream(
@@ -60,17 +59,23 @@ async def _stream_from_prophet(
             ) as response:
                 if response.status_code != 200:
                     error_text = await response.aread()
-                    yield {
-                        "event": "error",
-                        "data": f"Prophet error: {response.status_code} - {error_text.decode()}"
-                    }
+                    yield f"event: error\ndata: Prophet error: {response.status_code}\n\n"
                     return
-                
+
+                # Stream raw bytes without modification
                 async for chunk in response.aiter_bytes():
                     if chunk:
-                        yield chunk.decode()
-    
-    return EventSourceResponse(event_generator())
+                        yield chunk
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 
 @router.post("/chat")
@@ -81,9 +86,9 @@ async def chat_stream(
 ):
     """
     Stream chat with Prophet AI.
-    
+
     Accepts chat request and streams SSE events back.
-    
+
     Request Body:
         {
             "message": "Create a strategy...",
@@ -91,7 +96,7 @@ async def chat_stream(
             "history": [...],
             "strategy_context": {...}
         }
-    
+
     Response: SSE stream with events:
         - metadata: conversation_id
         - token: streaming text tokens
@@ -101,7 +106,7 @@ async def chat_stream(
         - error: error messages
     """
     body = await request.json()
-    
+
     return await _stream_from_prophet(
         "POST",
         "/chat",
@@ -119,7 +124,7 @@ async def get_prophet_health(
 ):
     """
     Get Prophet service health status.
-    
+
     Response:
         {
             "status": "healthy",
@@ -129,21 +134,21 @@ async def get_prophet_health(
         }
     """
     import httpx
-    
+
     prophet_url = f"{settings.PROPHET_URL}/health"
-    
+
     headers = {
         "X-User-ID": str(user_id),
         "Content-Type": "application/json",
     }
-    
+
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.get(prophet_url, headers=headers)
-        
+
         if response.status_code != 200:
             return {
                 "status": "unhealthy",
                 "error": f"Prophet returned {response.status_code}",
             }
-        
+
         return response.json()
