@@ -8,7 +8,7 @@
 # ============================================
 # Stage 1: Python build
 # ============================================
-FROM python:3.11-slim AS python-builder
+FROM python:3.12-slim AS python-builder
 
 WORKDIR /build
 
@@ -33,7 +33,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 # ============================================
 # Stage 2: Development
 # ============================================
-FROM python:3.11-slim AS development
+FROM python:3.12-slim AS development
 
 WORKDIR /app
 
@@ -76,7 +76,7 @@ CMD ["python", "-m", "courier.main"]
 # ============================================
 # Stage 3: Production
 # ============================================
-FROM python:3.11-slim AS production
+FROM python:3.12-slim AS production
 
 # Create non-root user
 RUN useradd -m -u 1000 -s /bin/bash courier_user && \

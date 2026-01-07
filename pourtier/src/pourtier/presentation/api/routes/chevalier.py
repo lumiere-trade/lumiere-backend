@@ -2,7 +2,7 @@
 Chevalier Proxy Routes.
 
 Forwards deployment requests to Chevalier with X-User-ID header.
-Frontend → Pourtier (JWT validation) → Chevalier (X-User-ID)
+Frontend -> Pourtier (JWT validation) -> Chevalier (X-User-ID)
 """
 
 from typing import Any, Dict, Optional
@@ -10,7 +10,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from pourtier.config.settings import Settings, get_settings
 from pourtier.presentation.api.middleware.auth import get_current_user_id
@@ -20,8 +20,9 @@ router = APIRouter(prefix="/chevalier", tags=["chevalier"])
 
 class DeployStrategyRequest(BaseModel):
     """Deploy strategy request payload."""
+    strategy_id: UUID = Field(..., description="Architect strategy UUID")
     strategy_json: Dict[str, Any]
-    initial_capital: float
+    initial_capital: float = Field(..., gt=0)
     is_paper_trading: bool = True
 
 
@@ -118,40 +119,44 @@ async def _forward_to_chevalier(
 
 
 @router.post("/strategies/deploy", status_code=status.HTTP_201_CREATED)
-async def deploy_strategy_new(
+async def deploy_strategy(
     request: DeployStrategyRequest,
     user_id: UUID = Depends(get_current_user_id),
     settings: Settings = Depends(get_settings),
 ):
     """
-    Deploy strategy for live trading (NEW API).
-    
-    Takes full strategy payload and deploys to Chevalier.
-    This is the new Model 1 (Immutable Strategy) endpoint.
-    
+    Deploy strategy for live trading.
+
+    Creates a new deployment instance with versioning.
+    Only ONE active deployment per architect_strategy_id allowed.
+
     Request Body:
         {
+            "strategy_id": "uuid (Architect strategy ID)",
             "strategy_json": { ... TSDL strategy JSON ... },
             "initial_capital": 10000.0,
             "is_paper_trading": true
         }
-    
+
     Response:
         {
-            "strategy_id": "uuid",
+            "deployment_id": "uuid",
+            "architect_strategy_id": "uuid",
+            "version": 1,
             "status": "ACTIVE",
             "created_at": "2026-01-06T18:00:00Z",
             "is_paper_trading": true
         }
     """
-    # Construct payload with user_id from JWT
+    # Construct payload with user_id from JWT and strategy_id from request
     payload = {
+        "strategy_id": str(request.strategy_id),
         "user_id": str(user_id),
         "strategy_json": request.strategy_json,
         "initial_capital": request.initial_capital,
         "is_paper_trading": request.is_paper_trading,
     }
-    
+
     status_code, data = await _forward_to_chevalier(
         "POST",
         "/api/chevalier/strategies/deploy",
@@ -163,30 +168,21 @@ async def deploy_strategy_new(
     return data
 
 
-@router.post("/strategies/{strategy_id}/deploy")
-async def deploy_strategy_legacy(
-    strategy_id: UUID,
+@router.post("/strategies/deployments/{deployment_id}/pause")
+async def pause_deployment(
+    deployment_id: UUID,
     user_id: UUID = Depends(get_current_user_id),
     settings: Settings = Depends(get_settings),
 ):
     """
-    Deploy strategy for live trading (LEGACY API - DEPRECATED).
-    
-    This endpoint is kept for backward compatibility but should not be used.
-    Use POST /strategies/deploy instead.
+    Pause active deployment.
 
-    Response:
-        {
-            "execution_id": "uuid",
-            "strategy_id": "uuid",
-            "status": "STARTING" | "RUNNING",
-            "deployed_at": "2025-01-06T15:30:00Z",
-            "message": "Strategy deployed successfully"
-        }
+    Stops signal evaluation but keeps subscriptions active.
+    Can be resumed later without re-warmup.
     """
     status_code, data = await _forward_to_chevalier(
         "POST",
-        f"/api/strategies/{strategy_id}/deploy",
+        f"/api/chevalier/strategies/deployments/{deployment_id}/pause",
         user_id,
         settings,
         timeout=30.0,
@@ -194,32 +190,20 @@ async def deploy_strategy_legacy(
     return data
 
 
-@router.post("/strategies/{strategy_id}/stop")
-async def stop_strategy(
-    strategy_id: UUID,
+@router.post("/strategies/deployments/{deployment_id}/resume")
+async def resume_deployment(
+    deployment_id: UUID,
     user_id: UUID = Depends(get_current_user_id),
     settings: Settings = Depends(get_settings),
 ):
     """
-    Stop running strategy.
+    Resume paused deployment.
 
-    Gracefully stops strategy execution:
-    - Closes all open positions (if configured)
-    - Stops signal generation
-    - Marks execution as STOPPED
-
-    Response:
-        {
-            "execution_id": "uuid",
-            "strategy_id": "uuid",
-            "status": "STOPPING" | "STOPPED",
-            "stopped_at": "2025-01-06T16:30:00Z",
-            "message": "Strategy stopped successfully"
-        }
+    Restores indicator state and restarts evaluation.
     """
     status_code, data = await _forward_to_chevalier(
         "POST",
-        f"/api/strategies/{strategy_id}/stop",
+        f"/api/chevalier/strategies/deployments/{deployment_id}/resume",
         user_id,
         settings,
         timeout=30.0,
@@ -227,20 +211,106 @@ async def stop_strategy(
     return data
 
 
-@router.get("/strategies/active")
-async def get_active_strategies(
+@router.post("/strategies/deployments/{deployment_id}/stop")
+async def stop_deployment(
+    deployment_id: UUID,
     user_id: UUID = Depends(get_current_user_id),
     settings: Settings = Depends(get_settings),
 ):
     """
-    Get all active strategies for current user (NEW API).
-    
-    Returns list of deployed strategies with status.
+    Stop deployment permanently.
+
+    Closes any open positions and marks deployment as stopped.
+    Deployment can be undeployed after stopping.
+    """
+    status_code, data = await _forward_to_chevalier(
+        "POST",
+        f"/api/chevalier/strategies/deployments/{deployment_id}/stop",
+        user_id,
+        settings,
+        timeout=30.0,
+    )
+    return data
+
+
+@router.post("/strategies/deployments/{deployment_id}/undeploy")
+async def undeploy_deployment(
+    deployment_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Undeploy (archive) deployment.
+
+    Final lifecycle action - deployment moves to UNDEPLOYED status.
+    Requires deployment to be STOPPED first.
+    """
+    status_code, data = await _forward_to_chevalier(
+        "POST",
+        f"/api/chevalier/strategies/deployments/{deployment_id}/undeploy",
+        user_id,
+        settings,
+        timeout=30.0,
+    )
+    return data
+
+
+@router.get("/strategies/{architect_strategy_id}/active")
+async def get_active_deployment(
+    architect_strategy_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Get active deployment for specific Architect strategy.
+
+    Returns 404 if no active deployment exists.
+    """
+    status_code, data = await _forward_to_chevalier(
+        "GET",
+        f"/api/chevalier/strategies/{architect_strategy_id}/active",
+        user_id,
+        settings,
+        timeout=10.0,
+    )
+    return data
+
+
+@router.get("/strategies/{architect_strategy_id}/history")
+async def get_deployment_history(
+    architect_strategy_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Get deployment history for Architect strategy.
+
+    Returns all deployments (active + archived) ordered by version DESC.
+    """
+    status_code, data = await _forward_to_chevalier(
+        "GET",
+        f"/api/chevalier/strategies/{architect_strategy_id}/history",
+        user_id,
+        settings,
+        timeout=10.0,
+    )
+    return data
+
+
+@router.get("/strategies/deployments/active")
+async def get_active_deployments(
+    user_id: UUID = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Get all active deployments for current user.
 
     Response:
         [
             {
-                "strategy_id": "uuid",
+                "deployment_id": "uuid",
+                "architect_strategy_id": "uuid",
+                "version": 1,
                 "status": "ACTIVE",
                 "user_id": "uuid",
                 "token_symbol": "SOL/USDC",
@@ -252,7 +322,7 @@ async def get_active_strategies(
     """
     status_code, data = await _forward_to_chevalier(
         "GET",
-        "/api/chevalier/strategies/active",
+        f"/api/chevalier/strategies/deployments/active?user_id={user_id}",
         user_id,
         settings,
         timeout=10.0,
@@ -260,78 +330,18 @@ async def get_active_strategies(
     return data
 
 
-@router.get("/strategies/{strategy_id}/status")
-async def get_execution_status(
-    strategy_id: UUID,
+@router.get("/strategies/deployments/{deployment_id}")
+async def get_deployment_status(
+    deployment_id: UUID,
     user_id: UUID = Depends(get_current_user_id),
     settings: Settings = Depends(get_settings),
 ):
     """
-    Get strategy execution status.
-
-    Returns real-time execution metrics:
-    - Current status (STARTING, RUNNING, STOPPED, ERROR)
-    - Runtime statistics (signals, trades, PnL)
-    - Resource usage (CPU, memory)
-    - Last activity timestamps
-
-    Response:
-        {
-            "execution_id": "uuid",
-            "strategy_id": "uuid",
-            "user_id": "uuid",
-            "status": "RUNNING",
-            "deployed_at": "2025-01-06T15:30:00Z",
-            "stopped_at": null,
-            "error_message": null,
-            "signals_today": 5,
-            "trades_today": 3,
-            "pnl_today": 125.50,
-            "last_signal_at": "2025-01-06T16:25:00Z",
-            "last_trade_at": "2025-01-06T16:20:00Z",
-            "cpu_percent": 2.5,
-            "memory_mb": 128.0,
-            "uptime_seconds": 3600
-        }
+    Get deployment status by deployment instance ID.
     """
     status_code, data = await _forward_to_chevalier(
         "GET",
-        f"/api/strategies/{strategy_id}/status",
-        user_id,
-        settings,
-        timeout=10.0,
-    )
-    return data
-
-
-@router.get("/executions/active")
-async def get_active_executions_legacy(
-    user_id: UUID = Depends(get_current_user_id),
-    settings: Settings = Depends(get_settings),
-):
-    """
-    Get all active executions for current user (LEGACY - DEPRECATED).
-    
-    Use GET /strategies/active instead.
-
-    Response:
-        {
-            "executions": [
-                {
-                    "execution_id": "uuid",
-                    "strategy_id": "uuid",
-                    "status": "RUNNING",
-                    "deployed_at": "2025-01-06T15:30:00Z",
-                    "signals_today": 5,
-                    "trades_today": 3,
-                    "pnl_today": 125.50
-                }
-            ]
-        }
-    """
-    status_code, data = await _forward_to_chevalier(
-        "GET",
-        "/api/executions/active",
+        f"/api/chevalier/strategies/deployments/{deployment_id}",
         user_id,
         settings,
         timeout=10.0,
@@ -341,25 +351,18 @@ async def get_active_executions_legacy(
 
 @router.get("/health")
 async def chevalier_health(
-    user_id: UUID = Depends(get_current_user_id),
     settings: Settings = Depends(get_settings),
 ):
     """
-    Check Chevalier service health.
-
-    Response:
-        {
-            "status": "healthy",
-            "service": "Chevalier",
-            "version": "1.0.0",
-            "active_executions": 5
-        }
+    Check Chevalier service health (no auth required).
     """
-    status_code, data = await _forward_to_chevalier(
-        "GET",
-        "/health",
-        user_id,
-        settings,
-        timeout=10.0,
-    )
-    return data
+    chevalier_url = settings.CHEVALIER_URL
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{chevalier_url}/health")
+            return response.json()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Chevalier health check failed: {str(e)}",
+        )

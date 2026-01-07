@@ -6,7 +6,7 @@
 # ============================================
 # Build stage
 # ============================================
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
@@ -33,7 +33,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 # ============================================
 # Development stage (with hot reload)
 # ============================================
-FROM python:3.11-slim AS development
+FROM python:3.12-slim AS development
 
 WORKDIR /app
 
@@ -75,7 +75,7 @@ CMD ["python", "-m", "pourtier.main"]
 # ============================================
 # Production stage (optimized)
 # ============================================
-FROM python:3.11-slim AS production
+FROM python:3.12-slim AS production
 
 # Create non-root user
 RUN useradd -m -u 1000 -s /bin/bash pourtier && \
