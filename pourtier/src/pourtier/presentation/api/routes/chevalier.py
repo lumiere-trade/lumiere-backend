@@ -255,48 +255,7 @@ async def undeploy_deployment(
     return data
 
 
-@router.get("/strategies/{architect_strategy_id}/active")
-async def get_active_deployment(
-    architect_strategy_id: UUID,
-    user_id: UUID = Depends(get_current_user_id),
-    settings: Settings = Depends(get_settings),
-):
-    """
-    Get active deployment for specific Architect strategy.
-
-    Returns 404 if no active deployment exists.
-    """
-    status_code, data = await _forward_to_chevalier(
-        "GET",
-        f"/api/chevalier/strategies/{architect_strategy_id}/active",
-        user_id,
-        settings,
-        timeout=10.0,
-    )
-    return data
-
-
-@router.get("/strategies/{architect_strategy_id}/history")
-async def get_deployment_history(
-    architect_strategy_id: UUID,
-    user_id: UUID = Depends(get_current_user_id),
-    settings: Settings = Depends(get_settings),
-):
-    """
-    Get deployment history for Architect strategy.
-
-    Returns all deployments (active + archived) ordered by version DESC.
-    """
-    status_code, data = await _forward_to_chevalier(
-        "GET",
-        f"/api/chevalier/strategies/{architect_strategy_id}/history",
-        user_id,
-        settings,
-        timeout=10.0,
-    )
-    return data
-
-
+# IMPORTANT: Static routes BEFORE dynamic routes to avoid path conflicts
 @router.get("/strategies/deployments/active")
 async def get_active_deployments(
     user_id: UUID = Depends(get_current_user_id),
@@ -342,6 +301,49 @@ async def get_deployment_status(
     status_code, data = await _forward_to_chevalier(
         "GET",
         f"/api/chevalier/strategies/deployments/{deployment_id}",
+        user_id,
+        settings,
+        timeout=10.0,
+    )
+    return data
+
+
+# Dynamic routes with path parameters AFTER static routes
+@router.get("/strategies/{architect_strategy_id}/active")
+async def get_active_deployment(
+    architect_strategy_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Get active deployment for specific Architect strategy.
+
+    Returns 404 if no active deployment exists.
+    """
+    status_code, data = await _forward_to_chevalier(
+        "GET",
+        f"/api/chevalier/strategies/{architect_strategy_id}/active",
+        user_id,
+        settings,
+        timeout=10.0,
+    )
+    return data
+
+
+@router.get("/strategies/{architect_strategy_id}/history")
+async def get_deployment_history(
+    architect_strategy_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Get deployment history for Architect strategy.
+
+    Returns all deployments (active + archived) ordered by version DESC.
+    """
+    status_code, data = await _forward_to_chevalier(
+        "GET",
+        f"/api/chevalier/strategies/{architect_strategy_id}/history",
         user_id,
         settings,
         timeout=10.0,
