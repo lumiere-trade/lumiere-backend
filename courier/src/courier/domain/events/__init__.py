@@ -76,3 +76,23 @@ __all__ = [
     "ForgeJobCompletedEvent",
     "ForgeJobFailedEvent",
 ]
+
+# Dashboard events (Real-time streaming)
+from courier.domain.events.dashboard import (
+    DashboardCandleEvent,
+    DashboardIndicatorsEvent,
+    DashboardPositionEvent,
+    DashboardSignalEvent,
+    DashboardErrorEvent,
+    StrategyErrorEvent,
+)
+
+# Add to __all__
+__all__.extend([
+    "DashboardCandleEvent",
+    "DashboardIndicatorsEvent",
+    "DashboardPositionEvent",
+    "DashboardSignalEvent",
+    "DashboardErrorEvent",
+    "StrategyErrorEvent",
+])

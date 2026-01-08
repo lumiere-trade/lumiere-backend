@@ -32,6 +32,14 @@ from courier.domain.events import (
     TradeOrderPlacedEvent,
     TradeSignalGeneratedEvent,
 )
+from courier.domain.events.dashboard import (
+    DashboardCandleEvent,
+    DashboardIndicatorsEvent,
+    DashboardPositionEvent,
+    DashboardSignalEvent,
+    DashboardErrorEvent,
+    StrategyErrorEvent,
+)
 
 
 class EventSizeExceededError(ValueError):
@@ -82,6 +90,13 @@ class ValidateEventUseCase:
         "forge.job.progress": ForgeJobProgressEvent,
         "forge.job.completed": ForgeJobCompletedEvent,
         "forge.job.failed": ForgeJobFailedEvent,
+        # Dashboard events (Real-time streaming)
+        "dashboard.candle": DashboardCandleEvent,
+        "dashboard.indicators": DashboardIndicatorsEvent,
+        "dashboard.position": DashboardPositionEvent,
+        "dashboard.signal": DashboardSignalEvent,
+        "dashboard.error": DashboardErrorEvent,
+        "strategy.error": StrategyErrorEvent,
     }
 
     def __init__(
