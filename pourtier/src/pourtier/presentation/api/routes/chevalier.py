@@ -3,23 +3,17 @@ Chevalier Proxy Routes.
 
 Forwards deployment requests to Chevalier with X-User-ID header.
 Frontend -> Pourtier (JWT validation) -> Chevalier (X-User-ID)
-
-Includes WebSocket proxy for real-time dashboard streaming.
 """
 
-import asyncio
-import logging
 from typing import Any, Dict, Optional
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from pourtier.config.settings import Settings, get_settings
 from pourtier.presentation.api.middleware.auth import get_current_user_id
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chevalier", tags=["chevalier"])
 
@@ -119,87 +113,6 @@ async def _forward_to_chevalier(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to forward request to Chevalier: {str(e)}",
         )
-
-
-# === WEBSOCKET PROXY ===
-
-
-@router.websocket("/ws/deployment/{deployment_id}")
-async def websocket_proxy(
-    websocket: WebSocket,
-    deployment_id: UUID,
-    settings: Settings = Depends(get_settings),
-):
-    """
-    WebSocket proxy to Chevalier for real-time dashboard streaming.
-
-    Proxies WebSocket connection from frontend to Chevalier.
-    No JWT validation for WebSocket (handled by deployment ownership check in Chevalier).
-
-    Message types from Chevalier:
-    - connected: Initial connection confirmation
-    - candle: New OHLCV candle data
-    - indicators: Current indicator values
-    - position: Position status update
-    - signal: Trade signal generated
-
-    Client can send:
-    - ping: Keep-alive ping (server responds with pong)
-    """
-    import websockets
-
-    # Build Chevalier WebSocket URL
-    chevalier_url = settings.CHEVALIER_URL
-    # Convert http:// to ws://
-    ws_url = chevalier_url.replace("http://", "ws://").replace("https://", "wss://")
-    chevalier_ws_url = f"{ws_url}/api/chevalier/ws/deployment/{deployment_id}"
-
-    logger.info(f"WebSocket proxy connecting to: {chevalier_ws_url}")
-
-    # Accept frontend connection
-    await websocket.accept()
-
-    try:
-        # Connect to Chevalier WebSocket
-        async with websockets.connect(chevalier_ws_url) as chevalier_ws:
-            logger.info(f"WebSocket proxy connected for deployment {deployment_id}")
-
-            async def forward_to_frontend():
-                """Forward messages from Chevalier to frontend."""
-                try:
-                    async for message in chevalier_ws:
-                        await websocket.send_text(message)
-                except websockets.ConnectionClosed:
-                    logger.info("Chevalier WebSocket closed")
-                except Exception as e:
-                    logger.error(f"Error forwarding to frontend: {e}")
-
-            async def forward_to_chevalier():
-                """Forward messages from frontend to Chevalier."""
-                try:
-                    while True:
-                        data = await websocket.receive_text()
-                        await chevalier_ws.send(data)
-                except WebSocketDisconnect:
-                    logger.info("Frontend WebSocket disconnected")
-                except Exception as e:
-                    logger.error(f"Error forwarding to Chevalier: {e}")
-
-            # Run both directions concurrently
-            await asyncio.gather(
-                forward_to_frontend(),
-                forward_to_chevalier(),
-                return_exceptions=True
-            )
-
-    except websockets.exceptions.ConnectionClosed as e:
-        logger.warning(f"Chevalier WebSocket connection closed: {e}")
-    except Exception as e:
-        logger.error(f"WebSocket proxy error: {e}")
-        try:
-            await websocket.close(code=1011, reason=str(e))
-        except Exception:
-            pass
 
 
 # === DEPLOYMENT ROUTES ===
