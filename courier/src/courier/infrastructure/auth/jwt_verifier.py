@@ -60,6 +60,7 @@ class JWTVerifier:
         Authorization rules:
         - global: Everyone can access
         - user.{user_id}: Only matching user can access
+        - dashboard.{user_id}: Only matching user can access (real-time trading data)
         - strategy.{id}: Allow access (ownership check TODO)
         - backtest.{id}: Ephemeral, allow access
         - forge.job.{id}: Ephemeral, allow access
@@ -84,6 +85,14 @@ class JWTVerifier:
                 return channel_user_id == user_id
             return False
 
+        # Dashboard channel - must match user_id (real-time trading data)
+        if channel.startswith("dashboard."):
+            parts = channel.split(".", 1)
+            if len(parts) == 2:
+                channel_user_id = parts[1]
+                return channel_user_id == user_id
+            return False
+
         # Strategy channel - allow access for now
         # TODO: Query Architect to verify strategy ownership
         if channel.startswith("strategy."):
@@ -95,6 +104,10 @@ class JWTVerifier:
 
         # Forge job channel - ephemeral, allow access
         if channel.startswith("forge.job."):
+            return True
+
+        # Price channels - public market data
+        if channel.startswith("price."):
             return True
 
         # Public channels - allow access
