@@ -410,7 +410,7 @@ async def get_library_strategy(
     return data
 
 
-# === COMPILE ROUTE (PUBLIC - NO AUTH REQUIRED) ===
+# === COMPILE ROUTE (forwards to TSDL, not Architect) ===
 
 
 @router.post("/strategies/compile")
@@ -418,14 +418,22 @@ async def compile_strategy(
     request: Request,
     settings: Settings = Depends(get_settings),
 ):
-    """Compile strategy JSON to Python code (public endpoint for transparency)."""
+    """
+    Compile strategy JSON to Python code.
+
+    This endpoint forwards to TSDL service (not Architect) because
+    TSDL is the compilation engine.
+
+    Request body: {"tsdl_code": "..."}
+    Response: {"python_code": "...", "strategy_class_name": "..."}
+    """
     body = await request.json()
-    
-    architect_url = settings.ARCHITECT_URL
-    url = f"{architect_url}/api/strategies/compile"
-    
+
+    tsdl_url = settings.TSDL_URL
+    url = f"{tsdl_url}/compile"
+
     headers = {"Content-Type": "application/json"}
-    
+
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
@@ -433,13 +441,29 @@ async def compile_strategy(
                 headers=headers,
                 json=body,
             )
-            
-            # Always return the response (even if compilation fails)
-            # Frontend needs to see compile errors
-            response_data = response.json() if response.text else {}
-            
-            return response_data
-            
+
+            # Parse response
+            if response.status_code >= 400:
+                error_detail = "Compilation failed"
+                try:
+                    error_data = response.json()
+                    error_detail = error_data.get("detail", error_detail)
+                except Exception:
+                    pass
+                return {
+                    "compiles": False,
+                    "compile_error": error_detail
+                }
+
+            response_data = response.json()
+
+            # Return compiled code
+            return {
+                "compiles": True,
+                "python_code": response_data.get("python_code", ""),
+                "strategy_class_name": response_data.get("strategy_class_name", ""),
+            }
+
     except httpx.TimeoutException:
         return {
             "compiles": False,
@@ -448,7 +472,7 @@ async def compile_strategy(
     except httpx.ConnectError:
         return {
             "compiles": False,
-            "compile_error": "Architect service unavailable"
+            "compile_error": "TSDL service unavailable"
         }
     except Exception as e:
         return {
