@@ -424,10 +424,20 @@ async def compile_strategy(
     This endpoint forwards to TSDL service (not Architect) because
     TSDL is the compilation engine.
 
-    Request body: {"tsdl_code": "..."}
-    Response: {"python_code": "...", "strategy_class_name": "..."}
+    Frontend sends: {"strategy_json": {...}} or directly {...}
+    TSDL expects: {"strategy": {...}}
     """
     body = await request.json()
+
+    # Extract strategy from various possible formats
+    # Frontend may send: {"strategy_json": {...}} or directly the strategy
+    if "strategy_json" in body:
+        strategy = body["strategy_json"]
+    elif "strategy" in body:
+        strategy = body["strategy"]
+    else:
+        # Assume body IS the strategy
+        strategy = body
 
     tsdl_url = settings.TSDL_URL
     url = f"{tsdl_url}/compile"
@@ -439,7 +449,7 @@ async def compile_strategy(
             response = await client.post(
                 url=url,
                 headers=headers,
-                json={"strategy": body},
+                json={"strategy": strategy},
             )
 
             # Parse response
