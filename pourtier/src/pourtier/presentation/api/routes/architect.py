@@ -439,7 +439,7 @@ async def compile_strategy(
             response = await client.post(
                 url=url,
                 headers=headers,
-                json=body,
+                json={"strategy": body},
             )
 
             # Parse response
