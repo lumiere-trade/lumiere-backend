@@ -353,7 +353,7 @@ async def get_user_analytics(
 ):
     """Get current user analytics."""
     status_code, data = await _forward_to_architect(
-        "GET", "/api/strategies/analytics/me", user_id, settings
+        "GET", "/strategies/analytics/me", user_id, settings
     )
     return data
 
