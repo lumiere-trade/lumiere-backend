@@ -47,6 +47,7 @@ from pourtier.presentation.api.routes import (
     legal,
     prophet,
     subscriptions,
+    tsdl,
     users,
     wallet,
 )
@@ -209,6 +210,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     app.include_router(chronicler.router, prefix="/api")
     app.include_router(chevalier.router, prefix="/api")
     app.include_router(prophet.router, prefix="/api")
+    app.include_router(tsdl.router, prefix="/api")
     app.include_router(subscriptions.router, prefix="/api")
     app.include_router(escrow.router, prefix="/api")
     app.include_router(legal.router, prefix="/api")

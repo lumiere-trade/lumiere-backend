@@ -84,6 +84,10 @@ class Settings(BaseSettings):
         default="http://prophet:9081",
         description="Prophet AI service URL (Docker DNS)",
     )
+    TSDL_URL: str = Field(
+        default="http://tsdl:9086",
+        description="TSDL service URL (Docker DNS)",
+    )
 
     # Database (from environment - REQUIRED in production)
     DATABASE_URL: str = Field(..., description="Database connection URL")
