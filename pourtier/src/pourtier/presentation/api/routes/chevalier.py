@@ -308,6 +308,49 @@ async def get_deployment_status(
     return data
 
 
+@router.get("/strategies/deployments/{deployment_id}/trades")
+async def get_deployment_trades(
+    deployment_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Get trade history for a deployment.
+
+    Returns all trades (entries and exits) for the specified deployment,
+    ordered by execution time descending (newest first).
+
+    Response:
+        {
+            "trades": [
+                {
+                    "id": "uuid",
+                    "deployment_id": "uuid",
+                    "signal_type": "ENTRY",
+                    "side": "BUY",
+                    "price": 135.50,
+                    "quantity": 73.87,
+                    "total_value": 10010.69,
+                    "realized_pnl": null,
+                    "pnl_pct": null,
+                    "reason": "RSI(16) crosses_above 30",
+                    "executed_at": "2026-01-20T14:30:00Z"
+                }
+            ],
+            "total_count": 15,
+            "deployment_id": "uuid"
+        }
+    """
+    status_code, data = await _forward_to_chevalier(
+        "GET",
+        f"/api/chevalier/strategies/deployments/{deployment_id}/trades",
+        user_id,
+        settings,
+        timeout=10.0,
+    )
+    return data
+
+
 # Dynamic routes with path parameters AFTER static routes
 @router.get("/strategies/{architect_strategy_id}/active")
 async def get_active_deployment(
