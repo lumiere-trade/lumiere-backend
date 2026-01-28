@@ -308,6 +308,46 @@ async def get_deployment_status(
     return data
 
 
+@router.get("/strategies/deployments/{deployment_id}/indicators/history")
+async def get_indicators_history(
+    deployment_id: UUID,
+    last: int = 200,
+    user_id: UUID = Depends(get_current_user_id),
+    settings: Settings = Depends(get_settings),
+):
+    """
+    Get historical indicator values for deployment.
+
+    Frontend calls this on mount to populate indicator charts with history.
+    Returns calculated indicators for last N candles.
+
+    Query Parameters:
+        last: Number of candles to return (default: 200, max: 500)
+
+    Response:
+        {
+            "indicators": [
+                {
+                    "timestamp": "2026-01-27T10:00:00Z",
+                    "values": {
+                        "RSI(14)": 55.2,
+                        "EMA(20)": 123.4
+                    }
+                }
+            ]
+        }
+    """
+    status_code, data = await _forward_to_chevalier(
+        "GET",
+        f"/api/chevalier/strategies/deployments/{deployment_id}/indicators/history",
+        user_id,
+        settings,
+        query={"last": last},
+        timeout=30.0,
+    )
+    return data
+
+
 @router.get("/strategies/deployments/{deployment_id}/trades")
 async def get_deployment_trades(
     deployment_id: UUID,

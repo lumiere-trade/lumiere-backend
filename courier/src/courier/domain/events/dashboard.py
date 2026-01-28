@@ -1,11 +1,10 @@
 """
 Dashboard events for real-time trading data streaming.
-
 Published by Chevalier to user dashboard channels.
 These are lightweight events for high-frequency streaming.
 """
-
 from typing import Dict, List
+
 from pydantic import BaseModel, Field
 
 
@@ -28,6 +27,7 @@ class DashboardIndicatorsEvent(BaseModel):
 
     type: str = Field(default="dashboard.indicators", frozen=True)
     deployment_id: str = Field(..., description="Strategy deployment ID")
+    timestamp: str = Field(..., description="Indicator timestamp ISO format")
     values: Dict[str, float] = Field(..., description="Indicator name -> value")
 
 
